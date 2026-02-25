@@ -1,0 +1,15 @@
+# Default owners for backend repository
+* @GechuProject/backend @GechuProject/maintainers
+
+# Backend code
+/config/ @GechuProject/backend
+/core/   @GechuProject/backend
+
+# Infra / tooling
+/docker-compose.dev-db.yml @GechuProject/backend
+/pyproject.toml            @GechuProject/backend
+/poetry.lock               @GechuProject/backend
+/.github/                  @GechuProject/maintainers
+
+# Docs
+/README.md @GechuProject/backend
