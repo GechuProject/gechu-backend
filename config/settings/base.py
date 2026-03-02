@@ -4,7 +4,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 if os.getenv("DJANGO_SETTINGS_MODULE") == "config.settings.local":
     load_dotenv(dotenv_path=BASE_DIR / "envs/.local.env")
@@ -18,75 +18,75 @@ AUTH_USER_MODEL = "users.User"
 
 # Application definition
 DJANGO_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
 ]
 
 THIRD_PARTY_APPS = [
-    'rest_framework',
-    'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',  # 로그아웃 시 refresh 토큰 블랙리스트
-    'corsheaders',
-    'drf_spectacular',
-    'django_filters',
+    "rest_framework",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",  # 로그아웃 시 refresh 토큰 블랙리스트
+    "corsheaders",
+    "drf_spectacular",
+    "django_filters",
 ]
 
 # 추가한 도메인별 앱
 CUSTOM_APPS: list[str] = [
-    'apps.users',
-    'apps.games',
-    'apps.interactions',
-    'apps.preferences',
-    'apps.recommendations',
-    'apps.core',
+    "apps.users.apps.UsersConfig",
+    "apps.games.apps.GamesConfig",
+    "apps.interactions.apps.InteractionsConfig",
+    "apps.preferences.apps.PreferencesConfig",
+    "apps.recommendations.apps.RecommendationsConfig",
+    "apps.core",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + CUSTOM_APPS
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = 'config.urls'
+ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'config.wsgi.application'
+WSGI_APPLICATION = "config.wsgi.application"
 
 
 # Database
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv("DB_NAME"),
-        'USER': os.getenv("DB_USER"),
-        'PASSWORD': os.getenv("DB_PASSWORD"),
-        'HOST': os.getenv("DB_HOST"),
-        'PORT': os.getenv("DB_PORT"),
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST"),
+        "PORT": os.getenv("DB_PORT"),
     }
 }
 
@@ -102,11 +102,11 @@ if not REDIS_PORT or not REDIS_HOST:
     raise ValueError("REDIS_HOST and REDIS_PORT must be set")
 
 CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': f"redis://{REDIS_HOST}:{REDIS_PORT}/1", # Redis 서버주소
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/1",  # Redis 서버주소
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
         },
     }
 }
@@ -122,16 +122,16 @@ CELERY_TIMEZONE = "Asia/Seoul"
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -149,8 +149,8 @@ SIMPLE_JWT = {
 }
 
 # Internationalization
-LANGUAGE_CODE = 'ko-KR'
-TIME_ZONE = 'Asia/Seoul'
+LANGUAGE_CODE = "ko-KR"
+TIME_ZONE = "Asia/Seoul"
 USE_I18N = True
 USE_TZ = True
 
@@ -191,10 +191,10 @@ SPECTACULAR_SETTINGS = {
     "SWAGGER_UI_SETTINGS": {
         "dom_id": "#swagger-ui",
         "layout": "BaseLayout",
-        "deepLinking": True, # API를 클릭할때 마다 SwaggerUI의 url이 변경됩니다. (특정 API url 공유시 유용하기때문에 True설정을 사용합니다)
-        "persistAuthorization": True, # True 이면 SwaggerUI상 Authorize에 입력된 정보가 새로고침을 하더라도 초기화되지 않습니다.
-        "displayOperationId": True, # True이면 API의 urlId 값을 노출합니다. 대체로 DRF api name둘과 일치하기때문에 api를 찾을때 유용합니다.
-        "filter": True, # True 이면 Swagger UI에서 'Filter by Tag' 검색이 가능합니다
+        "deepLinking": True,  # API를 클릭할때 마다 SwaggerUI의 url이 변경됩니다. (특정 API url 공유시 유용하기때문에 True설정을 사용합니다)
+        "persistAuthorization": True,  # True 이면 SwaggerUI상 Authorize에 입력된 정보가 새로고침을 하더라도 초기화되지 않습니다.
+        "displayOperationId": True,  # True이면 API의 urlId 값을 노출합니다. 대체로 DRF api name둘과 일치하기때문에 api를 찾을때 유용합니다.
+        "filter": True,  # True 이면 Swagger UI에서 'Filter by Tag' 검색이 가능합니다
     },
     "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
     "SECURITY": [
@@ -210,19 +210,19 @@ SPECTACULAR_SETTINGS = {
 
 
 # Social Login (OAuth2)
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
-
-DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID")
-DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
-DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI")
+# GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+# GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+# GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+#
+# DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID")
+# DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
+# DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI")
 
 
 # RAWG API
-RAWG_API_KEY = os.getenv("RAWG_API_KEY")
-if not RAWG_API_KEY:
-    raise ValueError("RAWG_API_KEY must be set")
+# RAWG_API_KEY = os.getenv("RAWG_API_KEY")
+# if not RAWG_API_KEY:
+#     raise ValueError("RAWG_API_KEY must be set")
 
 # 최근 검색 내역 Redis 보관 개수
 SEARCH_HISTORY_MAX_SIZE = int(os.getenv("SEARCH_HISTORY_MAX_SIZE", "10"))

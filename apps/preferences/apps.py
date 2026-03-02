@@ -2,4 +2,6 @@ from django.apps import AppConfig
 
 
 class PreferencesConfig(AppConfig):
-    name = 'preferences'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.preferences"
+    label = "preferences"
