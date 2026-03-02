@@ -1,7 +1,9 @@
+import json
 import os
-from datetime import timedelta
+import re
 
 import sentry_sdk
+import timedelta
 
 from config.settings.base import *
 
@@ -11,21 +13,33 @@ RAW_ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "")
 if not RAW_ALLOWED_HOSTS:
     raise ValueError("DJANGO_ALLOWED_HOSTS must be set")
 
-ALLOWED_HOSTS = RAW_ALLOWED_HOSTS.split(" ")
+ALLOWED_HOSTS = [h.strip() for h in re.split(r"[,\s]+", RAW_ALLOWED_HOSTS) if h.strip()]
 
 # cors & csrf settings
-CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "").split(" ")
+raw_cors = os.getenv("CORS_ALLOWED_ORIGINS", "")
+
+try:
+    if raw_cors.startswith("["):
+        CORS_ALLOWED_ORIGINS = json.loads(raw_cors)
+    else:
+        CORS_ALLOWED_ORIGINS = [origin.strip() for origin in re.split(r"[,\s]+", raw_cors) if origin.strip()]
+
+    CORS_ALLOWED_ORIGINS = [origin.strip().strip("'").strip('"').rstrip("/") for origin in CORS_ALLOWED_ORIGINS]
+
+except (json.JSONDecodeError, TypeError):
+    CORS_ALLOWED_ORIGINS = []
+
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 
 # sentry logging settings
-SENTRY_DSN = os.getenv("SENTRY_DSN")
-if not SENTRY_DSN:
-    raise ValueError("SENTRY_DSN must be set. For Error Logging")
-sentry_sdk.init(
-    dsn=SENTRY_DSN,
-    traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", 1)),
-    profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", 1)),
-)
+# SENTRY_DSN = os.getenv("SENTRY_DSN")
+# if not SENTRY_DSN:
+#     raise ValueError("SENTRY_DSN must be set. For Error Logging")
+# sentry_sdk.init(
+#     dsn=SENTRY_DSN,
+#     traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", 1)),
+#     profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", 1)),
+# )
 
 # jwt access token lifetime
 SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"] = timedelta(minutes=60)

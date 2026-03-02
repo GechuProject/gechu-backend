@@ -1,3 +1,4 @@
+import json
 import os
 
 import sentry_sdk
@@ -9,7 +10,7 @@ DEBUG = True
 RAW_ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "")
 if not RAW_ALLOWED_HOSTS:
     raise ValueError("DJANGO_ALLOWED_HOSTS must be set")
-ALLOWED_HOSTS = RAW_ALLOWED_HOSTS.split(" ")
+ALLOWED_HOSTS = RAW_ALLOWED_HOSTS.split(",")
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = "static/"
@@ -23,18 +24,31 @@ INTERNAL_IPS = [
 ]
 
 # cors & csrf settings
-CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "").split(" ")
+raw_cors = os.getenv("CORS_ALLOWED_ORIGINS", "")
+try:
+    if raw_cors.startswith("["):
+        CORS_ALLOWED_ORIGINS = json.loads(raw_cors)
+    else:
+        CORS_ALLOWED_ORIGINS = [origin.strip() for origin in raw_cors.split(",") if origin.strip()]
+
+    CORS_ALLOWED_ORIGINS = [origin.strip().strip("'").strip('"').rstrip("/") for origin in CORS_ALLOWED_ORIGINS]
+
+except (json.JSONDecodeError, TypeError):
+    # 파싱 실패 시 빈 리스트
+    CORS_ALLOWED_ORIGINS = []
+
+# CSRF는 CORS 주소를 그대로 신뢰하도록 설정
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 
 # sentry logging settings
-SENTRY_DSN = os.getenv("SENTRY_DSN")
-if not SENTRY_DSN:
-    raise ValueError("SENTRY_DSN must be set. For Error Logging")
-sentry_sdk.init(
-    dsn=SENTRY_DSN,
-    traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", 1)),
-    profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", 1)),
-)
+# SENTRY_DSN = os.getenv("SENTRY_DSN")
+# if not SENTRY_DSN:
+#     raise ValueError("SENTRY_DSN must be set. For Error Logging")
+# sentry_sdk.init(
+#     dsn=SENTRY_DSN,
+#     traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", 1)),
+#     profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", 1)),
+# )
 
 # logging settings
 LOG_ROOT = os.path.join(BASE_DIR, "logs")

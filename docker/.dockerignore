@@ -4,20 +4,28 @@ envs/
 .DS_Store
 __pycache__/
 .idea/
+docker-compose.*
+Dockerfile
+*.Dockerfile
+.gitignore
+.git/
+.github/
 .dmypy.json
-htmlcov/
 .coverage
+htmlcov/
 media/
 static/
 staticfiles/
-.venv/
+resources/scripts/
+poetry.lock
+pyproject.toml
 
 celerybeat-schedule
 celerybeat-schedule-shm
 celerybeat-schedule-wal
-celerybeat-schedule.*
 *.db
 
 logs/
 *.log
-config/logs/
+*.sqlite3
+
