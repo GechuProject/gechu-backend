@@ -1,0 +1,29 @@
+name: Deploy to EC2 (main)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: 43.200.246.68
+          EC2_USER: ubuntu
+        run: |
+          set -e
+          echo "$EC2_SSH_KEY" > key.pem
+          chmod 600 key.pem
+          ssh -o StrictHostKeyChecking=no -i key.pem ${EC2_USER}@${EC2_HOST} '
+            cd ~/gechu-backend && \
+            git fetch origin main && \
+            git checkout main && \
+            git pull origin main && \
+            cd docker && \
+            docker compose -f docker-compose.prod.yml up -d --build
+          '
+          rm -f key.pem
