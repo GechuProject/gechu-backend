@@ -1,7 +1,7 @@
 from django.contrib.auth.models import AbstractBaseUser
 from django.contrib.auth.base_user import BaseUserManager
 
-from apps.core import models
+from django.db import models
 from apps.core.models import TimeStampedModel
 
 class UserManager(BaseUserManager):

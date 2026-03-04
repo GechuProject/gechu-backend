@@ -1,7 +1,7 @@
 from django.conf import settings
 
 from apps.core.models import TimeStampedModel
-from apps.core import models
+from django.db import models
 
 class AdultVerification(TimeStampedModel):
     class Provider(models.TextChoices):
