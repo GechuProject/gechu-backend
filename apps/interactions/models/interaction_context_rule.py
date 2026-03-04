@@ -1,9 +1,7 @@
 from django.db import models
 
-from apps.core.models import TimeStampedModel
 
-
-class InteractionContextRule(TimeStampedModel):
+class InteractionContextRule(models.Model):
     class InteractionSource(models.TextChoices):
         LIST_PAGE = "list_page", "목록 페이지"
         DETAIL_PAGE = "detail_page", "상세 페이지"
@@ -22,6 +20,8 @@ class InteractionContextRule(TimeStampedModel):
         max_digits=4,
         decimal_places=2,
     )
+
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "interaction_context_rules"

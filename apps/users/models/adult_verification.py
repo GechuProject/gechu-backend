@@ -1,10 +1,8 @@
 from django.conf import settings
 from django.db import models
 
-from apps.core.models import TimeStampedModel
 
-
-class AdultVerification(TimeStampedModel):
+class AdultVerification(models.Model):
     class Provider(models.TextChoices):
         BBATON = "BBATON", "비바톤"
 
@@ -36,6 +34,8 @@ class AdultVerification(TimeStampedModel):
     verified_at = models.DateTimeField(null=False, blank=False, help_text="성인 인증이 실제 수행된 시각(event time)")
 
     expires_at = models.DateTimeField(null=False, blank=False, help_text="verified_at + 정책 기간")
+
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "adult_verifications"

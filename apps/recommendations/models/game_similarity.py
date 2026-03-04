@@ -1,9 +1,7 @@
 from django.db import models
 
-from apps.core.models import TimeStampedModel
 
-
-class GameSimilarity(TimeStampedModel):
+class GameSimilarity(models.Model):
     game = models.ForeignKey(
         "games.Game",
         on_delete=models.CASCADE,
@@ -20,6 +18,8 @@ class GameSimilarity(TimeStampedModel):
         max_digits=5,
         decimal_places=4,
     )
+
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "game_similarities"

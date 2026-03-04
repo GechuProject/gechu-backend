@@ -1,9 +1,7 @@
 from django.db import models
 
-from apps.core.models import TimeStampedModel
 
-
-class Tag(TimeStampedModel):
+class Tag(models.Model):
     id = models.BigAutoField(primary_key=True)
     rawg_id = models.BigIntegerField(unique=True)
     name = models.CharField(max_length=100)

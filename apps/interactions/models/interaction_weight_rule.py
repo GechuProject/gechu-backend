@@ -1,9 +1,7 @@
 from django.db import models
 
-from apps.core.models import TimeStampedModel
 
-
-class InteractionWeightRule(TimeStampedModel):
+class InteractionWeightRule(models.Model):
     class ActionType(models.TextChoices):
         VIEW = "view", "상세 조회"
         SEARCH = "search", "검색"
@@ -38,6 +36,8 @@ class InteractionWeightRule(TimeStampedModel):
     )
 
     is_active = models.BooleanField(default=True)
+
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "interaction_weight_rules"

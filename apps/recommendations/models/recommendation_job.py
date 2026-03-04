@@ -1,9 +1,7 @@
 from django.db import models
 
-from apps.core.models import TimeStampedModel
 
-
-class RecommendationJob(TimeStampedModel):
+class RecommendationJob(models.Model):
     class JobType(models.TextChoices):
         USER_REFRESH = "user_refresh", "User Refresh"
         SIMILARITY_REBUILD = "similarity_rebuild", "Similarity Rebuild"
@@ -51,6 +49,8 @@ class RecommendationJob(TimeStampedModel):
         null=True,
         blank=True,
     )
+
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "recommendation_jobs"

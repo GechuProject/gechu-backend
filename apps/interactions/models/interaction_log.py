@@ -3,10 +3,8 @@ from typing import Any
 from django.conf import settings
 from django.db import models
 
-from apps.core.models import TimeStampedModel
 
-
-class InteractionLog(TimeStampedModel):
+class InteractionLog(models.Model):
     class ActionType(models.TextChoices):
         VIEW = "view", "상세 조회"
         SEARCH = "search", "검색"
@@ -37,6 +35,8 @@ class InteractionLog(TimeStampedModel):
         "games.Game",
         on_delete=models.CASCADE,
         db_column="game_id",
+        null=True,
+        blank=True,
     )
 
     search_query = models.TextField(
@@ -67,6 +67,8 @@ class InteractionLog(TimeStampedModel):
         blank=True,
         help_text="추가 정보 (추천 버전, 필터값 등 확장용)",
     )
+
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "interaction_logs"

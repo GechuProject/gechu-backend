@@ -1,10 +1,8 @@
 from django.conf import settings
 from django.db import models
 
-from apps.core.models import TimeStampedModel
 
-
-class SocialUser(TimeStampedModel):
+class SocialUser(models.Model):
     class Provider(models.TextChoices):
         KAKAO = "KAKAO", "카카오"
         DISCORD = "DISCORD", "디스코드"
@@ -21,6 +19,8 @@ class SocialUser(TimeStampedModel):
     provider = models.CharField(max_length=20, choices=Provider.choices, null=False, blank=False)
 
     provider_uid = models.CharField(max_length=255, null=False, blank=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "social_users"

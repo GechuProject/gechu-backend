@@ -11,9 +11,11 @@ class GameMedia(models.Model):
     rawg_id = models.BigIntegerField()
     type = models.CharField(max_length=20, choices=MediaType.choices)
     media_url = models.CharField(max_length=255)
-    data_480 = models.CharField(max_length=255, default="")
-    data_max = models.CharField(max_length=255, default="")
-    video_name = models.CharField(max_length=200, default="")
+
+    # 트레일러 전용 필드
+    video_url_480 = models.CharField(max_length=255, null=True, blank=True)
+    video_url_max = models.CharField(max_length=255, null=True, blank=True)
+    video_name = models.CharField(max_length=200, null=True, blank=True)
 
     class Meta:
         db_table = "game_media"
