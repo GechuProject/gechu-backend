@@ -3,6 +3,7 @@ from django.conf import settings
 from apps.core.models import TimeStampedModel
 from django.db import models
 
+
 class SocialUser(TimeStampedModel):
     class Provider(models.TextChoices):
         KAKAO = "KAKAO", "카카오"

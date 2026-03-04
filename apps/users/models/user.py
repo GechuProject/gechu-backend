@@ -11,12 +11,12 @@ class UserManager(BaseUserManager["User"]):
     use_in_migrations = True
 
     def create_user(
-            self,
-            email: str,
-            nickname: str,
-            birth_date: date,
-            password: str | None = None,
-            **extra_fields: Any,
+        self,
+        email: str,
+        nickname: str,
+        birth_date: date,
+        password: str | None = None,
+        **extra_fields: Any,
     ) -> "User":
         if not email:
             raise ValueError("이메일을 반드시 입력해야 합니다.")
@@ -27,12 +27,12 @@ class UserManager(BaseUserManager["User"]):
         return user
 
     def create_superuser(
-            self,
-            email: str,
-            nickname: str,
-            birth_date: date,
-            password: str | None = None,
-            **extra_fields: Any,
+        self,
+        email: str,
+        nickname: str,
+        birth_date: date,
+        password: str | None = None,
+        **extra_fields: Any,
     ) -> "User":
 
         extra_fields.setdefault("is_staff", True)
@@ -44,6 +44,7 @@ class UserManager(BaseUserManager["User"]):
             raise ValueError("슈퍼유저는 is_superuser=True 이어야 합니다.")
 
         return self.create_user(email, nickname, birth_date, password, **extra_fields)
+
 
 class User(AbstractBaseUser, TimeStampedModel):
     email = models.EmailField(max_length=254, unique=True)

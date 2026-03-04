@@ -2,8 +2,8 @@ from django.db import models
 
 from apps.core.models import TimeStampedModel
 
-class GameSimilarity(TimeStampedModel):
 
+class GameSimilarity(TimeStampedModel):
     game = models.ForeignKey(
         "games.Game",
         on_delete=models.CASCADE,

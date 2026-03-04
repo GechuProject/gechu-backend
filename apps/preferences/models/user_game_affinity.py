@@ -6,7 +6,6 @@ from apps.games.models import Game
 
 
 class UserGameAffinity(TimeStampedModel):
-
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,

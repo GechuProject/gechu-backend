@@ -2,8 +2,8 @@ from django.db import models
 
 from apps.core.models import TimeStampedModel
 
-class InteractionWeightRule(TimeStampedModel):
 
+class InteractionWeightRule(TimeStampedModel):
     class ActionType(models.TextChoices):
         VIEW = "view", "상세 조회"
         SEARCH = "search", "검색"

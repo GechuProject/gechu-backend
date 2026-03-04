@@ -2,8 +2,8 @@ from django.db import models
 
 from apps.core.models import TimeStampedModel
 
-class InteractionContextRule(TimeStampedModel):
 
+class InteractionContextRule(TimeStampedModel):
     class InteractionSource(models.TextChoices):
         LIST_PAGE = "list_page", "목록 페이지"
         DETAIL_PAGE = "detail_page", "상세 페이지"

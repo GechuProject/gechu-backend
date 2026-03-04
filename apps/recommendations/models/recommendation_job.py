@@ -4,7 +4,6 @@ from apps.core.models import TimeStampedModel
 
 
 class RecommendationJob(TimeStampedModel):
-
     class JobType(models.TextChoices):
         USER_REFRESH = "user_refresh", "User Refresh"
         SIMILARITY_REBUILD = "similarity_rebuild", "Similarity Rebuild"

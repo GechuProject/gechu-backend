@@ -3,6 +3,7 @@ from django.conf import settings
 from apps.core.models import TimeStampedModel
 from django.db import models
 
+
 class AdultVerification(TimeStampedModel):
     class Provider(models.TextChoices):
         BBATON = "BBATON", "비바톤"
@@ -30,23 +31,11 @@ class AdultVerification(TimeStampedModel):
         help_text="인증 제공자 내부 사용자 식별자. 로그인 계정과 무관",
     )
 
-    raw_payload = models.JSONField(
-        null=True,
-        blank=True,
-        help_text="인증 응답 원본 저장 (디버깅/분쟁 대응용)"
-    )
+    raw_payload = models.JSONField(null=True, blank=True, help_text="인증 응답 원본 저장 (디버깅/분쟁 대응용)")
 
-    verified_at = models.DateTimeField(
-        null=False,
-        blank=False,
-        help_text="성인 인증이 실제 수행된 시각(event time)"
-    )
+    verified_at = models.DateTimeField(null=False, blank=False, help_text="성인 인증이 실제 수행된 시각(event time)")
 
-    expires_at = models.DateTimeField(
-        null=False,
-        blank=False,
-        help_text="verified_at + 정책 기간"
-    )
+    expires_at = models.DateTimeField(null=False, blank=False, help_text="verified_at + 정책 기간")
 
     class Meta:
         db_table = "adult_verifications"

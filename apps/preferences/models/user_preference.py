@@ -3,13 +3,10 @@ from django.db import models
 from apps.core.models import TimeStampedModel
 from apps.users.models import User
 
+
 class UserPreference(TimeStampedModel):
     id = models.BigAutoField(primary_key=True)
-    user = models.OneToOneField(
-        User,
-        on_delete=models.CASCADE,
-        related_name="preference"
-    )
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="preference")
 
     class Meta:
         db_table = "user_preferences"

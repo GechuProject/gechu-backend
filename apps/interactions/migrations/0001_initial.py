@@ -6,59 +6,149 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('games', '0001_initial'),
+        ("games", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='InteractionContextRule',
+            name="InteractionContextRule",
             fields=[
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('interaction_source', models.CharField(choices=[('list_page', '목록 페이지'), ('detail_page', '상세 페이지'), ('search_result', '검색 결과'), ('recommendation', '추천 영역'), ('saved_page', '찜 목록'), ('onboarding', '온보딩')], max_length=30, primary_key=True, serialize=False)),
-                ('multiplier', models.DecimalField(decimal_places=2, max_digits=4)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "interaction_source",
+                    models.CharField(
+                        choices=[
+                            ("list_page", "목록 페이지"),
+                            ("detail_page", "상세 페이지"),
+                            ("search_result", "검색 결과"),
+                            ("recommendation", "추천 영역"),
+                            ("saved_page", "찜 목록"),
+                            ("onboarding", "온보딩"),
+                        ],
+                        max_length=30,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                ("multiplier", models.DecimalField(decimal_places=2, max_digits=4)),
             ],
             options={
-                'db_table': 'interaction_context_rules',
+                "db_table": "interaction_context_rules",
             },
         ),
         migrations.CreateModel(
-            name='InteractionWeightRule',
+            name="InteractionWeightRule",
             fields=[
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('interaction_type', models.CharField(choices=[('view', '상세 조회'), ('search', '검색'), ('saved_add', '찜 추가'), ('saved_remove', '찜 제거'), ('like', '좋아요'), ('dislike', '싫어요'), ('preference_set', '선호 설정'), ('store_click', '스토어 클릭')], max_length=30, primary_key=True, serialize=False)),
-                ('base_weight', models.DecimalField(decimal_places=2, max_digits=4)),
-                ('cooldown_seconds', models.IntegerField(default=0, help_text='이 시간 내 동일 행동은 무시')),
-                ('repeat_decay', models.DecimalField(decimal_places=3, default=1.0, help_text='반복 감소 계수 (1에 가까울수록 감소 적음)', max_digits=4)),
-                ('is_active', models.BooleanField(default=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "interaction_type",
+                    models.CharField(
+                        choices=[
+                            ("view", "상세 조회"),
+                            ("search", "검색"),
+                            ("saved_add", "찜 추가"),
+                            ("saved_remove", "찜 제거"),
+                            ("like", "좋아요"),
+                            ("dislike", "싫어요"),
+                            ("preference_set", "선호 설정"),
+                            ("store_click", "스토어 클릭"),
+                        ],
+                        max_length=30,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                ("base_weight", models.DecimalField(decimal_places=2, max_digits=4)),
+                ("cooldown_seconds", models.IntegerField(default=0, help_text="이 시간 내 동일 행동은 무시")),
+                (
+                    "repeat_decay",
+                    models.DecimalField(
+                        decimal_places=3,
+                        default=1.0,
+                        help_text="반복 감소 계수 (1에 가까울수록 감소 적음)",
+                        max_digits=4,
+                    ),
+                ),
+                ("is_active", models.BooleanField(default=True)),
             ],
             options={
-                'db_table': 'interaction_weight_rules',
+                "db_table": "interaction_weight_rules",
             },
         ),
         migrations.CreateModel(
-            name='InteractionLog',
+            name="InteractionLog",
             fields=[
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('id', models.BigAutoField(primary_key=True, serialize=False)),
-                ('search_query', models.TextField(blank=True, null=True)),
-                ('type', models.CharField(choices=[('view', '상세 조회'), ('search', '검색'), ('saved_add', '찜 추가'), ('saved_remove', '찜 제거'), ('like', '좋아요'), ('dislike', '싫어요'), ('preference_set', '선호 설정'), ('store_click', '스토어 클릭')], max_length=30)),
-                ('weight', models.DecimalField(blank=True, decimal_places=4, help_text='행동 발생 시점 가중치 스냅샷', max_digits=6, null=True)),
-                ('source', models.CharField(choices=[('list_page', '목록 페이지'), ('detail_page', '상세 페이지'), ('search_result', '검색 결과'), ('recommendation', '추천 영역'), ('saved_page', '찜 목록'), ('onboarding', '온보딩')], max_length=30)),
-                ('metadata', models.JSONField(blank=True, help_text='추가 정보 (추천 버전, 필터값 등 확장용)', null=True)),
-                ('game', models.ForeignKey(db_column='game_id', on_delete=django.db.models.deletion.CASCADE, to='games.game')),
-                ('user', models.ForeignKey(db_column='user_id', on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                ("search_query", models.TextField(blank=True, null=True)),
+                (
+                    "type",
+                    models.CharField(
+                        choices=[
+                            ("view", "상세 조회"),
+                            ("search", "검색"),
+                            ("saved_add", "찜 추가"),
+                            ("saved_remove", "찜 제거"),
+                            ("like", "좋아요"),
+                            ("dislike", "싫어요"),
+                            ("preference_set", "선호 설정"),
+                            ("store_click", "스토어 클릭"),
+                        ],
+                        max_length=30,
+                    ),
+                ),
+                (
+                    "weight",
+                    models.DecimalField(
+                        blank=True, decimal_places=4, help_text="행동 발생 시점 가중치 스냅샷", max_digits=6, null=True
+                    ),
+                ),
+                (
+                    "source",
+                    models.CharField(
+                        choices=[
+                            ("list_page", "목록 페이지"),
+                            ("detail_page", "상세 페이지"),
+                            ("search_result", "검색 결과"),
+                            ("recommendation", "추천 영역"),
+                            ("saved_page", "찜 목록"),
+                            ("onboarding", "온보딩"),
+                        ],
+                        max_length=30,
+                    ),
+                ),
+                (
+                    "metadata",
+                    models.JSONField(blank=True, help_text="추가 정보 (추천 버전, 필터값 등 확장용)", null=True),
+                ),
+                (
+                    "game",
+                    models.ForeignKey(
+                        db_column="game_id", on_delete=django.db.models.deletion.CASCADE, to="games.game"
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        db_column="user_id", on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL
+                    ),
+                ),
             ],
             options={
-                'db_table': 'interaction_logs',
-                'indexes': [models.Index(fields=['user'], name='interaction_user_id_611acb_idx'), models.Index(fields=['game'], name='interaction_game_id_43dbe2_idx'), models.Index(fields=['type'], name='interaction_type_f0f095_idx'), models.Index(fields=['created_at'], name='interaction_created_842797_idx')],
+                "db_table": "interaction_logs",
+                "indexes": [
+                    models.Index(fields=["user"], name="interaction_user_id_611acb_idx"),
+                    models.Index(fields=["game"], name="interaction_game_id_43dbe2_idx"),
+                    models.Index(fields=["type"], name="interaction_type_f0f095_idx"),
+                    models.Index(fields=["created_at"], name="interaction_created_842797_idx"),
+                ],
             },
         ),
     ]

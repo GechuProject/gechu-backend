@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class ExternalStore(models.Model):
     id = models.BigAutoField(primary_key=True)
     rawg_id = models.BigIntegerField(unique=True)

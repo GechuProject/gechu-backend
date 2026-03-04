@@ -3,7 +3,6 @@ from django.conf import settings
 
 
 class UserRecommendation(models.Model):
-
     class ReasonType(models.TextChoices):
         SIMILARITY = "similarity", "유사 게임 기반"
         PREFERENCE = "preference", "선호 기반"
@@ -45,12 +44,7 @@ class UserRecommendation(models.Model):
 
     class Meta:
         db_table = "user_recommendations"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["user", "game"],
-                name="unique_user_game_recommendation"
-            )
-        ]
+        constraints = [models.UniqueConstraint(fields=["user", "game"], name="unique_user_game_recommendation")]
         ordering = ["rank"]
 
     def __str__(self) -> str:

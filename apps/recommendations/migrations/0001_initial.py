@@ -6,67 +6,140 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('games', '0001_initial'),
+        ("games", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='GameSimilarity',
+            name="GameSimilarity",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('score', models.DecimalField(decimal_places=4, max_digits=5)),
-                ('game', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='similar_games_from', to='games.game')),
-                ('similar_game', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='similar_games_to', to='games.game')),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("score", models.DecimalField(decimal_places=4, max_digits=5)),
+                (
+                    "game",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, related_name="similar_games_from", to="games.game"
+                    ),
+                ),
+                (
+                    "similar_game",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, related_name="similar_games_to", to="games.game"
+                    ),
+                ),
             ],
             options={
-                'db_table': 'game_similarities',
-                'indexes': [models.Index(fields=['game'], name='game_simila_game_id_9349d5_idx'), models.Index(fields=['similar_game'], name='game_simila_similar_3a0e90_idx')],
-                'constraints': [models.UniqueConstraint(fields=('game', 'similar_game'), name='unique_game_similarity_pair')],
+                "db_table": "game_similarities",
+                "indexes": [
+                    models.Index(fields=["game"], name="game_simila_game_id_9349d5_idx"),
+                    models.Index(fields=["similar_game"], name="game_simila_similar_3a0e90_idx"),
+                ],
+                "constraints": [
+                    models.UniqueConstraint(fields=("game", "similar_game"), name="unique_game_similarity_pair")
+                ],
             },
         ),
         migrations.CreateModel(
-            name='RecommendationJob',
+            name="RecommendationJob",
             fields=[
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('id', models.BigAutoField(primary_key=True, serialize=False)),
-                ('job_type', models.CharField(choices=[('user_refresh', 'User Refresh'), ('similarity_rebuild', 'Similarity Rebuild')], max_length=30)),
-                ('status', models.CharField(choices=[('pending', 'Pending'), ('running', 'Running'), ('success', 'Success'), ('failed', 'Failed')], default='pending', max_length=20)),
-                ('retry_count', models.IntegerField(default=0)),
-                ('error_message', models.TextField(blank=True, null=True)),
-                ('started_at', models.DateTimeField(blank=True, null=True)),
-                ('finished_at', models.DateTimeField(blank=True, null=True)),
-                ('target_user', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='recommendation_jobs', to=settings.AUTH_USER_MODEL)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                (
+                    "job_type",
+                    models.CharField(
+                        choices=[("user_refresh", "User Refresh"), ("similarity_rebuild", "Similarity Rebuild")],
+                        max_length=30,
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("pending", "Pending"),
+                            ("running", "Running"),
+                            ("success", "Success"),
+                            ("failed", "Failed"),
+                        ],
+                        default="pending",
+                        max_length=20,
+                    ),
+                ),
+                ("retry_count", models.IntegerField(default=0)),
+                ("error_message", models.TextField(blank=True, null=True)),
+                ("started_at", models.DateTimeField(blank=True, null=True)),
+                ("finished_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "target_user",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="recommendation_jobs",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'db_table': 'recommendation_jobs',
-                'indexes': [models.Index(fields=['status'], name='recommendat_status_99e797_idx'), models.Index(fields=['job_type'], name='recommendat_job_typ_73ff3a_idx'), models.Index(fields=['target_user'], name='recommendat_target__c4e6cf_idx')],
+                "db_table": "recommendation_jobs",
+                "indexes": [
+                    models.Index(fields=["status"], name="recommendat_status_99e797_idx"),
+                    models.Index(fields=["job_type"], name="recommendat_job_typ_73ff3a_idx"),
+                    models.Index(fields=["target_user"], name="recommendat_target__c4e6cf_idx"),
+                ],
             },
         ),
         migrations.CreateModel(
-            name='UserRecommendation',
+            name="UserRecommendation",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('generation_version', models.IntegerField(default=1)),
-                ('score', models.DecimalField(decimal_places=4, max_digits=5)),
-                ('rank', models.IntegerField()),
-                ('reason', models.CharField(blank=True, choices=[('similarity', '유사 게임 기반'), ('preference', '선호 기반'), ('hybrid', '혼합 추천')], max_length=20, null=True)),
-                ('generated_at', models.DateTimeField()),
-                ('expires_at', models.DateTimeField()),
-                ('game', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='recommended_to_users', to='games.game')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='recommendations', to=settings.AUTH_USER_MODEL)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("generation_version", models.IntegerField(default=1)),
+                ("score", models.DecimalField(decimal_places=4, max_digits=5)),
+                ("rank", models.IntegerField()),
+                (
+                    "reason",
+                    models.CharField(
+                        blank=True,
+                        choices=[
+                            ("similarity", "유사 게임 기반"),
+                            ("preference", "선호 기반"),
+                            ("hybrid", "혼합 추천"),
+                        ],
+                        max_length=20,
+                        null=True,
+                    ),
+                ),
+                ("generated_at", models.DateTimeField()),
+                ("expires_at", models.DateTimeField()),
+                (
+                    "game",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="recommended_to_users",
+                        to="games.game",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="recommendations",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'db_table': 'user_recommendations',
-                'ordering': ['rank'],
-                'constraints': [models.UniqueConstraint(fields=('user', 'game'), name='unique_user_game_recommendation')],
+                "db_table": "user_recommendations",
+                "ordering": ["rank"],
+                "constraints": [
+                    models.UniqueConstraint(fields=("user", "game"), name="unique_user_game_recommendation")
+                ],
             },
         ),
     ]
