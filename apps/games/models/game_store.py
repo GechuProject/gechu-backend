@@ -18,5 +18,5 @@ class GameStore(models.Model):
         db_table = "game_stores"
         unique_together = ("game", "store")
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.game.name} - {self.store.name}"

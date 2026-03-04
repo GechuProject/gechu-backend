@@ -32,5 +32,5 @@ class UserPreferencePlatform(models.Model):
             models.Index(fields=["platform"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.user_preference_id}-{self.platform_id}"

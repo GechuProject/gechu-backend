@@ -35,5 +35,5 @@ class Game(models.Model):
             models.Index(fields=["released"], name="IDX_games_released"),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name

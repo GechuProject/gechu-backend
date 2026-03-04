@@ -34,5 +34,5 @@ class GameSimilarity(TimeStampedModel):
             models.Index(fields=["similar_game"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.game_id} ↔ {self.similar_game_id} ({self.score})"

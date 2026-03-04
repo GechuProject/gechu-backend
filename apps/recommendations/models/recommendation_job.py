@@ -61,5 +61,5 @@ class RecommendationJob(TimeStampedModel):
             models.Index(fields=["target_user"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.job_type} ({self.status})"

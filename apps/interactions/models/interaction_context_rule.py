@@ -26,5 +26,5 @@ class InteractionContextRule(TimeStampedModel):
     class Meta:
         db_table = "interaction_context_rules"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.interaction_source} x{self.multiplier}"

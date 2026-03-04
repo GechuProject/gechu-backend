@@ -52,5 +52,5 @@ class AdultVerification(TimeStampedModel):
         db_table = "adult_verifications"
         ordering = ["-verified_at"]  # 최신 순 조회
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.user.email} - {self.provider} @ {self.verified_at}"

@@ -42,5 +42,5 @@ class InteractionWeightRule(TimeStampedModel):
     class Meta:
         db_table = "interaction_weight_rules"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.interaction_type} ({self.base_weight})"

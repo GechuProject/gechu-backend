@@ -32,5 +32,5 @@ class UserPreferenceTag(models.Model):
             models.Index(fields=["tag"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.user_preference_id}-{self.tag_id}"

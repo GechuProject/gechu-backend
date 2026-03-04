@@ -14,5 +14,5 @@ class UserPreference(TimeStampedModel):
     class Meta:
         db_table = "user_preferences"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Preferences of {self.user.email if hasattr(self.user, 'email') else self.user.id}"

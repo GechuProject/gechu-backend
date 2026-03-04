@@ -1,3 +1,4 @@
+from typing import Any
 from django.db import models
 from django.conf import settings
 
@@ -76,13 +77,13 @@ class InteractionLog(TimeStampedModel):
             models.Index(fields=["created_at"]),
         ]
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
         if self.pk:
             raise ValueError("InteractionLog는 수정할 수 없습니다 (append-only).")
         super().save(*args, **kwargs)
 
-    def delete(self, *args, **kwargs):
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
         raise ValueError("InteractionLog는 삭제할 수 없습니다 (append-only).")
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.user_id} - {self.type} - {self.created_at}"

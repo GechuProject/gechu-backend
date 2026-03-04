@@ -25,5 +25,5 @@ class SocialUser(TimeStampedModel):
         db_table = "social_users"
         unique_together = ("provider", "provider_uid")
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.user.email} - {self.provider}"

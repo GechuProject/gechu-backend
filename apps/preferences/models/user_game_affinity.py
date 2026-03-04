@@ -57,5 +57,5 @@ class UserGameAffinity(TimeStampedModel):
             models.Index(fields=["like_state"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.user_id}-{self.game_id}"

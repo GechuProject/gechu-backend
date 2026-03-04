@@ -32,5 +32,5 @@ class UserPreferenceGenre(models.Model):
             models.Index(fields=["genre"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.user_preference_id}-{self.genre_id}"

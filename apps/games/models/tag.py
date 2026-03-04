@@ -14,5 +14,5 @@ class Tag(TimeStampedModel):
         verbose_name = "태그"
         verbose_name_plural = "태그들"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name

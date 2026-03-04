@@ -11,5 +11,5 @@ class ExternalStore(models.Model):
     class Meta:
         db_table = "external_stores"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name

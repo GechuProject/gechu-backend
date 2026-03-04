@@ -53,5 +53,5 @@ class UserRecommendation(models.Model):
         ]
         ordering = ["rank"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.user_id} - {self.game_id} (rank {self.rank})"

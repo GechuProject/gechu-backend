@@ -25,5 +25,5 @@ class GameMedia(models.Model):
         db_table = "game_media"
         unique_together = ("game", "rawg_id")
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.game.name} - {self.type} ({self.rawg_id})"

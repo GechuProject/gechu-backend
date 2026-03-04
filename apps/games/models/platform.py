@@ -15,5 +15,5 @@ class Platform(TimeStampedModel):
         verbose_name = "플랫폼"
         verbose_name_plural = "플랫폼들"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name

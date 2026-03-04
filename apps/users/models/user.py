@@ -1,13 +1,23 @@
+from typing import Any
+from datetime import date
 from django.contrib.auth.models import AbstractBaseUser
 from django.contrib.auth.base_user import BaseUserManager
 
 from django.db import models
 from apps.core.models import TimeStampedModel
 
-class UserManager(BaseUserManager):
+
+class UserManager(BaseUserManager["User"]):
     use_in_migrations = True
 
-    def create_user(self, email, nickname, birth_date, password=None, **extra_fields):
+    def create_user(
+            self,
+            email: str,
+            nickname: str,
+            birth_date: date,
+            password: str | None = None,
+            **extra_fields: Any,
+    ) -> "User":
         if not email:
             raise ValueError("이메일을 반드시 입력해야 합니다.")
         email = self.normalize_email(email)
@@ -16,7 +26,15 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, nickname, birth_date, password=None, **extra_fields):
+    def create_superuser(
+            self,
+            email: str,
+            nickname: str,
+            birth_date: date,
+            password: str | None = None,
+            **extra_fields: Any,
+    ) -> "User":
+
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
 
@@ -39,7 +57,7 @@ class User(AbstractBaseUser, TimeStampedModel):
     is_staff = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True)
 
-    USERNAME_FIELD = "email"
+    USERNAME_FIELD: str = "email"
     REQUIRED_FIELDS = ["nickname", "birth_date"]
 
     objects = UserManager()
@@ -47,5 +65,5 @@ class User(AbstractBaseUser, TimeStampedModel):
     class Meta:
         db_table = "users"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.email

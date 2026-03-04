@@ -14,5 +14,5 @@ class Genre(TimeStampedModel):
         verbose_name = "장르"
         verbose_name_plural = "장르들"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
