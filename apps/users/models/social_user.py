@@ -1,7 +1,7 @@
 from django.conf import settings
+from django.db import models
 
 from apps.core.models import TimeStampedModel
-from django.db import models
 
 
 class SocialUser(TimeStampedModel):

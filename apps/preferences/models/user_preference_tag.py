@@ -1,7 +1,7 @@
 from django.db import models
 
-from apps.preferences.models import UserPreference
 from apps.games.models import Tag
+from apps.preferences.models import UserPreference
 
 
 class UserPreferenceTag(models.Model):

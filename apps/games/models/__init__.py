@@ -1,10 +1,23 @@
-from .external_store import *
-from .game import *
-from .game_genre import *
-from .game_meida import *
-from .game_platform import *
-from .game_store import *
-from .game_tag import *
-from .genre import *
-from .platform import *
-from .tag import *
+from .external_store import ExternalStore
+from .game import Game
+from .game_genre import GameGenre
+from .game_meida import GameMedia
+from .game_platform import GamePlatform
+from .game_store import GameStore
+from .game_tag import GameTag
+from .genre import Genre
+from .platform import Platform
+from .tag import Tag
+
+__all__ = [
+    "ExternalStore",
+    "Game",
+    "GameGenre",
+    "GameMedia",
+    "GamePlatform",
+    "GameStore",
+    "GameTag",
+    "Genre",
+    "Platform",
+    "Tag",
+]

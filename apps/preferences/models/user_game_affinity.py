@@ -1,8 +1,8 @@
 from django.db import models
 
 from apps.core.models import TimeStampedModel
-from apps.users.models import User
 from apps.games.models import Game
+from apps.users.models import User
 
 
 class UserGameAffinity(TimeStampedModel):
