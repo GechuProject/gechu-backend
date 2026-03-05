@@ -86,6 +86,7 @@ services:
     restart: unless-stopped
 
   nginx:
+    image: ${ECR_REGISTRY}/gechu-nginx:${IMAGE_TAG}
     build:
       context: ..
       dockerfile: resources/nginx/prod.Dockerfile
