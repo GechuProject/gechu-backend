@@ -1,8 +1,10 @@
+from typing import cast
+
 from django.core.cache import cache
 from django.test import TestCase
-from rest_framework.test import APIClient
-from typing import cast
 from rest_framework.response import Response
+from rest_framework.test import APIClient
+
 
 class EmailCodeSendAPITest(TestCase):
     def setUp(self) -> None:
