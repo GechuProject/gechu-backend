@@ -1,7 +1,7 @@
 import json
 import os
 import re
-
+from datetime import timedelta
 from config.settings.base import *
 
 DEBUG = False
