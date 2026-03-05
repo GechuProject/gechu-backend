@@ -41,5 +41,7 @@ class SignupRequestSerializer(serializers.Serializer[dict[str, Any]]):
         except DjangoValidationError as err:
             raise serializers.ValidationError("PASSWORD_INVALID") from err
         return value
+
+
 class EmailCodeSendRequestSerializer(serializers.Serializer):  # type: ignore[type-arg]
     email = serializers.EmailField(required=True)

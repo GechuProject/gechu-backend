@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.users.views.auth import SignupAPIView
+
 from .views.auth import EmailCodeSendAPIView
 
 urlpatterns = [
