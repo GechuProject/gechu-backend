@@ -38,8 +38,9 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build \
+            --build-arg ENV=prod \
             -t $ECR_REGISTRY/$REPOSITORY:$IMAGE_TAG \
-            -f docker/Dockerfile.prod .
+            -f docker/Dockerfile .
           docker push $ECR_REGISTRY/$REPOSITORY:$IMAGE_TAG
 
           docker build \
