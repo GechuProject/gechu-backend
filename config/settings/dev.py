@@ -1,8 +1,6 @@
 import json
 import os
 
-import sentry_sdk
-
 from config.settings.base import *
 
 DEBUG = True
@@ -39,16 +37,6 @@ except (json.JSONDecodeError, TypeError):
 
 # CSRF는 CORS 주소를 그대로 신뢰하도록 설정
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
-
-# sentry logging settings
-# SENTRY_DSN = os.getenv("SENTRY_DSN")
-# if not SENTRY_DSN:
-#     raise ValueError("SENTRY_DSN must be set. For Error Logging")
-# sentry_sdk.init(
-#     dsn=SENTRY_DSN,
-#     traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", 1)),
-#     profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", 1)),
-# )
 
 # logging settings
 LOG_ROOT = os.path.join(BASE_DIR, "logs")
