@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 from apps.users.serializers.auth import EmailCodeSendRequestSerializer
+from rest_framework.request import Request
 
 @extend_schema(
     request=EmailCodeSendRequestSerializer,
@@ -21,7 +22,7 @@ class EmailCodeSendAPIView(APIView):
     CODE_TTL_SECONDS = 300
     COOLDOWN_SECONDS = 60
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
         email = request.data.get("email")
 
         # 1) 필수값 검증
