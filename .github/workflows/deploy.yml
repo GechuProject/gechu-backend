@@ -1,0 +1,37 @@
+name: Deploy Dev to EC2
+
+on:
+  pull_request:
+    branches:
+      - dev
+    types:
+      - closed
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: |
+      github.event.pull_request.merged == true &&
+      vars.ENABLE_EC2_DEPLOY == 'true'
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/gechu-backend
+            git fetch origin dev
+            git checkout dev
+            git pull origin dev
+            cd docker
+            docker compose -f docker-compose.prod.yml up -d --build
+            docker compose -f docker-compose.prod.yml exec -T django python manage.py migrate
+            docker image prune -af || true
+            echo "[Success] Deployment successful"
