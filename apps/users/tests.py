@@ -23,8 +23,8 @@ class EmailCodeSendAPITest(TestCase):
 
         drf_res = cast(Response, res)
 
-        self.assertEqual(drf_res.status_code, 200)
-        self.assertEqual(drf_res.data.get("detail"), "인증 코드가 발송되었습니다.")
+        self.assertEqual(drf_res.status_code, 201)
+        self.assertEqual(drf_res.data.get("message"), "인증 코드가 발송되었습니다.")
         self.assertEqual(drf_res.data.get("expires_in"), 300)
 
         code = cache.get(f"email_code:{self.email}")

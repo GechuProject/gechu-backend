@@ -70,6 +70,6 @@ class EmailCodeSendAPIView(APIView):
 
         # TODO: 실제 이메일 발송 연동 (현재는 Redis 저장까지만)
         return Response(
-            {"detail": "인증 코드가 발송되었습니다.", "expires_in": self.CODE_TTL_SECONDS},
-            status=status.HTTP_200_OK,
+            {"message": "인증 코드가 발송되었습니다.", "expires_in": self.CODE_TTL_SECONDS},
+            status=status.HTTP_201_CREATED,
         )
