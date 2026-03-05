@@ -28,3 +28,22 @@ class PreferenceMeResponseSerializer(serializers.Serializer):  # type: ignore[ty
             return []
         qs = pref.userpreferencetag_set.select_related("tag").all()
         return [{"id": ut.tag.id, "name": ut.tag.name, "slug": ut.tag.slug} for ut in qs]
+
+
+class PreferenceGenresUpdateSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    genre_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=True,
+    )
+
+    def validate_genre_ids(self, value: list[int]) -> list[int]:
+        from apps.games.models import Genre
+
+        existing = set(Genre.objects.filter(id__in=value).values_list("id", flat=True))
+        missing = set(value) - existing
+        if missing:
+            raise serializers.ValidationError(
+                detail=f"존재하지 않는 장르 id: {sorted(missing)}",
+                code="invalid_genre_id",
+            )
+        return value
