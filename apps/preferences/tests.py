@@ -131,4 +131,7 @@ class PreferenceMeGenresUpdateAPITestCase(TestCase):
         UserPreferenceGenre.objects.create(user_preference=pref, genre=g)
         self.client.force_authenticate(user=user)
 
-        response = self.client.put(self.url, {"genre_ids": []}, format="json")
+        res = self.client.put(self.url, {"genre_ids": []}, format="json")
+        self.assertEqual(res.status_code, 200)
+        data = cast(dict[str, Any], res.data)
+        self.assertEqual(data["genres"], [])

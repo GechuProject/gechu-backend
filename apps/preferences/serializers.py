@@ -47,5 +47,3 @@ class PreferenceGenresUpdateSerializer(serializers.Serializer):  # type: ignore[
                 code="invalid_genre_id",
             )
         return value
-
-
