@@ -14,8 +14,8 @@ from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.users.serializers.auth import (
     EmailCodeSendRequestSerializer,
-    SignupRequestSerializer,
     LoginSerializer,
+    SignupRequestSerializer,
 )
 
 
@@ -91,10 +91,11 @@ class EmailCodeSendAPIView(APIView):
             status=status.HTTP_201_CREATED,
         )
 
+
 class LoginAPIView(APIView):
     permission_classes = [AllowAny]
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
