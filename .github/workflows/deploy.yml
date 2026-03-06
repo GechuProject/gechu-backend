@@ -59,8 +59,10 @@ jobs:
             set -e
             cd ~/gechu-backend
 
+            git pull origin dev
+
             mkdir -p envs
-            echo "$PROD_ENV_FILE" > envs/.prod.env
+            printf '%s\n' "$PROD_ENV_FILE" > envs/.prod.env
 
             docker image prune -af || true
 
