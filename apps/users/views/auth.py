@@ -2,17 +2,19 @@ from random import randint
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from drf_spectacular.utils import extend_schema
-from rest_framework import status
+from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.users.serializers.auth import (
     EmailCodeSendRequestSerializer,
+    LoginSerializer,
     SignupRequestSerializer,
 )
 
@@ -88,3 +90,49 @@ class EmailCodeSendAPIView(APIView):
             {"message": "인증 코드가 발송되었습니다.", "expires_in": self.CODE_TTL_SECONDS},
             status=status.HTTP_201_CREATED,
         )
+
+
+@extend_schema(
+    request=LoginSerializer,
+    responses={
+        200: OpenApiResponse(
+            response=inline_serializer(
+                name="LoginSuccessResponse",
+                fields={
+                    "access_token": serializers.CharField(),
+                    "token_type": serializers.CharField(),
+                    "expires_in": serializers.IntegerField(),
+                },
+            )
+        )
+    },
+    tags=["auth"],
+)
+class LoginAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request) -> Response:
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.validated_data["user"]
+
+        refresh = RefreshToken.for_user(user)
+        access = refresh.access_token
+
+        response = Response(
+            {
+                "access_token": str(access),
+                "token_type": "Bearer",
+                "expires_in": int(access.lifetime.total_seconds()),
+            },
+            status=status.HTTP_200_OK,
+        )
+        response.set_cookie(
+            key="refresh_token",
+            value=str(refresh),
+            httponly=True,
+            samesite="Lax",
+        )
+
+        return response

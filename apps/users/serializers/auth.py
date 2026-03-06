@@ -47,3 +47,25 @@ class SignupRequestSerializer(serializers.Serializer[dict[str, Any]]):
 
 class EmailCodeSendRequestSerializer(serializers.Serializer):  # type: ignore[type-arg]
     email = serializers.EmailField(required=True)
+
+
+class LoginSerializer(serializers.Serializer[dict[str, Any]]):
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        email = attrs["email"]
+        password = attrs["password"]
+
+        user = User.objects.filter(email=email).first()
+        if user is None:
+            raise CustomAPIException(ErrorMessages.INVALID_CREDENTIALS)
+
+        if user.deleted_at is not None or user.is_active is False:
+            raise CustomAPIException(ErrorMessages.ACCOUNT_DEACTIVATED)
+
+        if not user.check_password(password):
+            raise CustomAPIException(ErrorMessages.INVALID_CREDENTIALS)
+
+        attrs["user"] = user
+        return attrs
