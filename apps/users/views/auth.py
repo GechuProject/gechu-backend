@@ -120,7 +120,7 @@ class LoginAPIView(APIView):
         refresh = RefreshToken.for_user(user)
         access = refresh.access_token
 
-        return Response(
+        response = Response(
             {
                 "access_token": str(access),
                 "token_type": "Bearer",
@@ -128,3 +128,11 @@ class LoginAPIView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+        response.set_cookie(
+            key="refresh_token",
+            value=str(refresh),
+            httponly=True,
+            samesite="Lax",
+        )
+
+        return response

@@ -33,6 +33,8 @@ class LoginAPITestCase(TestCase):
         self.assertTrue(data["access_token"])  # 빈 문자열/None이면 실패
         self.assertEqual(data["token_type"], "Bearer")
         self.assertEqual(data["expires_in"], 3600)
+        self.assertIn("refresh_token", res.cookies)
+        self.assertTrue(res.cookies["refresh_token"]["httponly"])
 
     # 비밀번호 오류
     def test_login_invalid_password(self) -> None:
