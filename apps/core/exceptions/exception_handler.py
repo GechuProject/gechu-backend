@@ -32,7 +32,7 @@ def custom_exception_handler(
     if response is not None:
         return response
 
-    # CustomAPIException 처리
+    # APIException을 상속하지 않는 커스텀 예외 처리
     if hasattr(exc, "detail") and hasattr(exc, "status_code"):
         return Response(
             data=exc.detail,
