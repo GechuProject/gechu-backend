@@ -10,8 +10,11 @@ services:
     command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
     volumes:
       - static_volume:/app/staticfiles
-    expose:
-      - "8000"
+    # Nginx 사용하면 이거 주석 해제하고 ports 삭제
+    # expose:
+    #   - "8000"
+    ports:
+      - "8000:8000"
     env_file:
       - ../envs/.prod.env
     depends_on:
@@ -85,22 +88,23 @@ services:
       retries: 5
     restart: unless-stopped
 
-  nginx:
-    image: ${ECR_REGISTRY}/gechu-nginx:${IMAGE_TAG}
-    build:
-      context: ..
-      dockerfile: resources/nginx/prod.Dockerfile
-    container_name: nginx-prod
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - static_volume:/app/staticfiles:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro        # certbot SSL 인증서
-      - /var/www/certbot:/var/www/certbot:ro         # certbot 인증 챌린지
-    depends_on:
-      - django
-    restart: unless-stopped
+  # nginx 미사용 (조교님 세팅 기준)
+  # nginx:
+  #   image: ${ECR_REGISTRY}/gechu-nginx:${IMAGE_TAG}
+  #   build:
+  #     context: ..
+  #     dockerfile: resources/nginx/prod.Dockerfile
+  #   container_name: nginx-prod
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - static_volume:/app/staticfiles:ro
+  #     - /etc/letsencrypt:/etc/letsencrypt:ro        # certbot SSL 인증서
+  #     - /var/www/certbot:/var/www/certbot:ro         # certbot 인증 챌린지
+  #   depends_on:
+  #     - django
+  #   restart: unless-stopped
 
 volumes:
   postgres_prod_data:
