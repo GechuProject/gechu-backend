@@ -8,12 +8,14 @@ from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.users.serializers.auth import (
     EmailCodeSendRequestSerializer,
     SignupRequestSerializer,
+    LoginSerializer,
 )
 
 
@@ -87,4 +89,25 @@ class EmailCodeSendAPIView(APIView):
         return Response(
             {"message": "인증 코드가 발송되었습니다.", "expires_in": self.CODE_TTL_SECONDS},
             status=status.HTTP_201_CREATED,
+        )
+
+class LoginAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.validated_data["user"]
+
+        refresh = RefreshToken.for_user(user)
+        access = refresh.access_token
+
+        return Response(
+            {
+                "access_token": str(access),
+                "token_type": "Bearer",
+                "expires_in": 3600,
+            },
+            status=status.HTTP_200_OK,
         )
