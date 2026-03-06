@@ -10,6 +10,12 @@ if not RAW_ALLOWED_HOSTS:
     raise ValueError("DJANGO_ALLOWED_HOSTS must be set")
 ALLOWED_HOSTS = RAW_ALLOWED_HOSTS.split(",")
 
+
+if DEBUG:
+    INSTALLED_APPS += ["debug_toolbar"]
+    MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]
+
+
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
