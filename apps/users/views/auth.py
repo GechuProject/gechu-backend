@@ -20,6 +20,7 @@ from apps.users.serializers.auth import (
 @extend_schema(
     request=SignupRequestSerializer,
     responses={201: None},
+    tags=["auth"],
 )
 class SignupAPIView(APIView):
     permission_classes = [AllowAny]
@@ -57,6 +58,7 @@ class SignupAPIView(APIView):
 @extend_schema(
     request=EmailCodeSendRequestSerializer,
     responses={201: None},
+    tags=["auth"],
 )
 class EmailCodeSendAPIView(APIView):
     permission_classes = [AllowAny]
