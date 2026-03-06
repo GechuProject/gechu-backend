@@ -56,7 +56,7 @@ jobs:
           envs: ECR_REGISTRY,REPOSITORY,IMAGE_TAG
           script: |
             set -e
-            cd ~/gechu-backend/docker
+            cd ~/gechu-backend
 
             docker image prune -af || true
 
