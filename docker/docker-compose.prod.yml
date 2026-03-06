@@ -1,12 +1,7 @@
 services:
   django:
-    image: ${ECR_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      args:
-        ENV: prod
     container_name: django-prod
+    image: ${ECR_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
     command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
     volumes:
       - static_volume:/app/staticfiles
@@ -25,12 +20,8 @@ services:
     restart: unless-stopped
 
   celery-worker:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      args:
-        ENV: prod
     container_name: celery-worker-prod
+    image: ${ECR_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
     command: celery -A config worker -l info
     env_file:
       - ../envs/.prod.env
@@ -42,11 +33,7 @@ services:
     restart: unless-stopped
 
   celery-beat:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      args:
-        ENV: prod
+    image: ${ECR_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
     container_name: celery-beat-prod
     command: celery -A config beat -l info
     env_file:
@@ -70,7 +57,7 @@ services:
     expose:
       - "5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 5

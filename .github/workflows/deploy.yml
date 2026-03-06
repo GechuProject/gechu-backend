@@ -56,14 +56,14 @@ jobs:
           envs: ECR_REGISTRY,REPOSITORY,IMAGE_TAG
           script: |
             set -e
-            cd ~/gechu-backend/docker
+            cd ~/gechu-backend
 
             docker image prune -af || true
 
-            IMAGE_TAG=$IMAGE_TAG docker compose -f docker-compose.prod.yml pull
-            IMAGE_TAG=$IMAGE_TAG docker compose -f docker-compose.prod.yml up -d --wait
+            IMAGE_TAG=$IMAGE_TAG docker compose -f docker/docker-compose.prod.yml pull
+            IMAGE_TAG=$IMAGE_TAG docker compose -f docker/docker-compose.prod.yml up -d --wait
 
-            docker compose -f docker-compose.prod.yml exec -T django \
+            docker compose -f docker/docker-compose.prod.yml exec -T django \
               python manage.py migrate --noinput
 
             docker system prune -f --volumes --filter "until=24h" || true
