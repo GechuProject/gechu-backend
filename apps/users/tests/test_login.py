@@ -3,6 +3,7 @@ import datetime
 from django.test import TestCase
 from rest_framework.test import APIClient
 
+from apps.core.exceptions.exception_message import ErrorMessages
 from apps.users.models.user import User
 
 
@@ -42,19 +43,19 @@ class LoginAPITestCase(TestCase):
         )
 
         # 실패 응답
-        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.status_code, 401)
         data = res.json()
-        self.assertIn("INVALID_CREDENTIALS", str(data))
+        self.assertEqual(data["code"], ErrorMessages.INVALID_CREDENTIALS.name)
 
     # 이메일 오류
     def test_login_none_email(self) -> None:
         res = self.client.post(
             "/api/v1/auth/login",
-            {"email": "None@example.com", "password": "oh.no"},
+            {"email": "nonexistent@example.com", "password": "oh.no"},
             format="json",
         )
 
         # 실패 응답
-        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.status_code, 401)
         data = res.json()
-        self.assertIn("INVALID_CREDENTIALS", str(data))
+        self.assertEqual(data["code"], ErrorMessages.INVALID_CREDENTIALS.name)

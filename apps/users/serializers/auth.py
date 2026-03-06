@@ -59,13 +59,13 @@ class LoginSerializer(serializers.Serializer[dict[str, Any]]):
 
         user = User.objects.filter(email=email).first()
         if user is None:
-            raise serializers.ValidationError("INVALID_CREDENTIALS")
+            raise CustomAPIException(ErrorMessages.INVALID_CREDENTIALS)
 
         if user.deleted_at is not None or user.is_active is False:
-            raise serializers.ValidationError("ACCOUNT_DEACTIVATED")
+            raise CustomAPIException(ErrorMessages.ACCOUNT_DEACTIVATED)
 
         if not user.check_password(password):
-            raise serializers.ValidationError("INVALID_CREDENTIALS")
+            raise CustomAPIException(ErrorMessages.INVALID_CREDENTIALS)
 
         attrs["user"] = user
         return attrs

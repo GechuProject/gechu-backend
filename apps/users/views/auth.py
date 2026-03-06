@@ -2,8 +2,8 @@ from random import randint
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from drf_spectacular.utils import extend_schema
-from rest_framework import status
+from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -92,6 +92,22 @@ class EmailCodeSendAPIView(APIView):
         )
 
 
+@extend_schema(
+    request=LoginSerializer,
+    responses={
+        200: OpenApiResponse(
+            response=inline_serializer(
+                name="LoginSuccessResponse",
+                fields={
+                    "access_token": serializers.CharField(),
+                    "token_type": serializers.CharField(),
+                    "expires_in": serializers.IntegerField(),
+                },
+            )
+        )
+    },
+    tags=["auth"],
+)
 class LoginAPIView(APIView):
     permission_classes = [AllowAny]
 
@@ -108,7 +124,7 @@ class LoginAPIView(APIView):
             {
                 "access_token": str(access),
                 "token_type": "Bearer",
-                "expires_in": 3600,
+                "expires_in": int(access.lifetime.total_seconds()),
             },
             status=status.HTTP_200_OK,
         )
