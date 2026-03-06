@@ -4,10 +4,11 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers, status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.exceptions.exception_handler import CustomAPIException
@@ -134,5 +135,40 @@ class LoginAPIView(APIView):
             httponly=True,
             samesite="Lax",
         )
+        return response
 
+
+@extend_schema(
+    responses={
+        200: OpenApiResponse(
+            response=inline_serializer(
+                name="LogoutSuccessResponse",
+                fields={
+                    "message": serializers.CharField(),
+                },
+            )
+        )
+    },
+    tags=["auth"],
+)
+class LogoutAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request) -> Response:
+        refresh_token = request.COOKIES.get("refresh_token")
+
+        if not refresh_token:
+            raise CustomAPIException(ErrorMessages.REFRESH_TOKEN_MISSING)
+
+        try:
+            refresh = RefreshToken(refresh_token)  # type: ignore[arg-type]
+            refresh.blacklist()
+        except TokenError as err:
+            raise CustomAPIException(ErrorMessages.INVALID_REFRESH_TOKEN) from err
+
+        response = Response(
+            {"message": "로그아웃 되었습니다."},
+            status=status.HTTP_200_OK,
+        )
+        response.delete_cookie("refresh_token")
         return response
