@@ -49,19 +49,23 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: gechu-backend
           IMAGE_TAG: ${{ github.sha }}
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: ECR_REGISTRY,REPOSITORY,IMAGE_TAG
+          envs: ECR_REGISTRY,REPOSITORY,IMAGE_TAG,PROD_ENV_FILE
           script: |
             set -e
             cd ~/gechu-backend
 
+            mkdir -p envs
+            echo "$PROD_ENV_FILE" > envs/.prod.env
+
             docker image prune -af || true
 
-            IMAGE_TAG=$IMAGE_TAG docker compose -f docker/docker-compose.prod.yml pull
-            IMAGE_TAG=$IMAGE_TAG docker compose -f docker/docker-compose.prod.yml up -d --wait
+            docker compose -f docker/docker-compose.prod.yml pull
+            docker compose -f docker/docker-compose.prod.yml up -d --wait
 
             docker compose -f docker/docker-compose.prod.yml exec -T django \
               python manage.py migrate --noinput
