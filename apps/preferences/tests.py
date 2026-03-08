@@ -199,3 +199,66 @@ class PreferenceMePlatformsUpdateAPITestCase(TestCase):
         self.assertEqual(res.status_code, 200)
         data = cast(dict[str, Any], res.data)
         self.assertEqual(data["platforms"], [])
+
+
+class PreferenceMeTagsUpdateAPITestCase(TestCase):
+    client: APIClient
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/preferences/me/tags/"
+
+    def test_put_tags_unauthorized(self) -> None:
+        response = self.client.put(self.url, {"tag_ids": [1]}, format="json")
+        self.assertEqual(response.status_code, 401)
+
+    def test_put_tags_invalid_id_returns_400(self) -> None:
+        user = User.objects.create_user(
+            email="u@ex.com",
+            nickname="u",
+            birth_date=date(1990, 1, 1),
+            password="pw",
+        )
+        self.client.force_authenticate(user=user)
+        response = self.client.put(self.url, {"tag_ids": [99999]}, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_put_tags_replace_and_return_200(self) -> None:
+        user = User.objects.create_user(
+            email="u2@ex.com",
+            nickname="u2",
+            birth_date=date(1995, 1, 1),
+            password="pw",
+        )
+        t1 = Tag.objects.create(rawg_id=301, name="RPG", slug="rpg")
+        t2 = Tag.objects.create(rawg_id=302, name="Multiplayer", slug="multiplayer")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.put(self.url, {"tag_ids": [t1.id, t2.id]}, format="json")
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(len(data["tags"]), 2)
+        self.assertEqual({t["id"] for t in data["tags"]}, {t1.id, t2.id})
+
+        response2 = self.client.put(self.url, {"tag_ids": [t1.id]}, format="json")
+        self.assertEqual(response2.status_code, 200)
+        data2 = cast(dict[str, Any], response2.data)
+        self.assertEqual(len(data2["tags"]), 1)
+        self.assertEqual(data2["tags"][0]["id"], t1.id)
+
+    def test_put_tags_empty_list_clears(self) -> None:
+        user = User.objects.create_user(
+            email="u3@ex.com",
+            nickname="u3",
+            birth_date=date(1992, 1, 1),
+            password="pw",
+        )
+        pref = UserPreference.objects.create(user=user)
+        t = Tag.objects.create(rawg_id=303, name="Singleplayer", slug="singleplayer")
+        UserPreferenceTag.objects.create(user_preference=pref, tag=t)
+        self.client.force_authenticate(user=user)
+
+        res = self.client.put(self.url, {"tag_ids": []}, format="json")
+        self.assertEqual(res.status_code, 200)
+        data = cast(dict[str, Any], res.data)
+        self.assertEqual(data["tags"], [])
