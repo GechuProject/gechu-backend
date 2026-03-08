@@ -1,13 +1,15 @@
-from typing import Any
-
 from rest_framework import serializers
 
-from apps.games.models import Game, GameMedia, GamePlatform, GameStore, Genre, Tag
+from apps.games.models import Game, GameGenre, GameMedia, GamePlatform, GameStore, GameTag
 
 
-class GenreSerializer(serializers.ModelSerializer[Genre]):
+class GameGenreSerializer(serializers.ModelSerializer[GameGenre]):
+    id = serializers.IntegerField(source="genre.id")
+    name = serializers.CharField(source="genre.name")
+    slug = serializers.CharField(source="genre.slug")
+
     class Meta:
-        model = Genre
+        model = GameGenre
         fields = ["id", "name", "slug"]
 
 
@@ -25,9 +27,12 @@ class GamePlatformSerializer(serializers.ModelSerializer[GamePlatform]):
         ]
 
 
-class TagSerializer(serializers.ModelSerializer[Tag]):
+class GameTagSerializer(serializers.ModelSerializer[GameTag]):
+    id = serializers.IntegerField(source="tag.id")
+    name = serializers.CharField(source="tag.name")
+
     class Meta:
-        model = Tag
+        model = GameTag
         fields = ["id", "name"]
 
 
@@ -54,8 +59,8 @@ class GameStoreSerializer(serializers.ModelSerializer[GameStore]):
 
 
 class GameDetailSerializer(serializers.ModelSerializer[Game]):
-    genres = serializers.SerializerMethodField()
-    tags = serializers.SerializerMethodField()
+    genres = GameGenreSerializer(source="game_genres", many=True)
+    tags = GameTagSerializer(source="game_tags", many=True)
     platforms = GamePlatformSerializer(source="game_platforms", many=True)
     media = GameMediaSerializer(many=True)
     stores = GameStoreSerializer(source="game_stores", many=True)
@@ -84,11 +89,3 @@ class GameDetailSerializer(serializers.ModelSerializer[Game]):
             "media",
             "stores",
         ]
-
-    def get_genres(self, obj: Game) -> list[dict[str, Any]]:
-        genres = [gg.genre for gg in obj.game_genres.all()]
-        return GenreSerializer(genres, many=True).data  # type: ignore[return-value]
-
-    def get_tags(self, obj: Game) -> list[dict[str, Any]]:
-        tags = [gt.tag for gt in obj.game_tags.all()]
-        return TagSerializer(tags, many=True).data  # type: ignore[return-value]

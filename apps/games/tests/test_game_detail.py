@@ -71,6 +71,12 @@ class GameDetailAPITest(TestCase):
         self.assertEqual(data["id"], self.game.id)
         self.assertEqual(data["name"], "The Witcher 3")
         self.assertEqual(data["slug"], "the-witcher-3")
+        self.assertEqual(len(data["genres"]), 1)
+        self.assertEqual(data["genres"][0]["name"], "RPG")
+        self.assertEqual(len(data["platforms"]), 1)
+        self.assertEqual(data["platforms"][0]["name"], "PC")
+        self.assertEqual(len(data["tags"]), 1)
+        self.assertEqual(data["tags"][0]["name"], "Open World")
 
     def test_game_detail_not_found(self) -> None:
         """존재하지 않는 게임"""
