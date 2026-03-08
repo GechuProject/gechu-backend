@@ -47,3 +47,22 @@ class PreferenceGenresUpdateSerializer(serializers.Serializer):  # type: ignore[
                 code="invalid_genre_id",
             )
         return value
+
+
+class PreferencePlatformsUpdateSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    platform_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=True,
+    )
+
+    def validate_platform_ids(self, value: list[int]) -> list[int]:
+        from apps.games.models import Platform
+
+        existing = set(Platform.objects.filter(id__in=value).values_list("id", flat=True))
+        missing = set(value) - existing
+        if missing:
+            raise serializers.ValidationError(
+                detail=f"존재하지 않는 플랫폼 id: {sorted(missing)}",
+                code="invalid_platform_id",
+            )
+        return value
