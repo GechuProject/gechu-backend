@@ -73,12 +73,19 @@ class PreferenceMeTagsUpdateView(APIView):
         with transaction.atomic():
             UserPreferenceTag.objects.filter(user_preference=pref).delete()
 <<<<<<< HEAD
+<<<<<<< HEAD
             tags_to_create = [UserPreferenceTag(user_preference=pref, tag_id=tid) for tid in tag_ids]
             UserPreferenceTag.objects.bulk_create(tags_to_create)
 =======
             for tid in tag_ids:
                 UserPreferenceTag.objects.create(user_preference=pref, tag_id=tid)
 >>>>>>> 4a1f153 (fix: transaction.atomic 적용)
+=======
+            tags_to_create = [
+                UserPreferenceTag(user_preference=pref, tag_id=tid) for tid in tag_ids
+            ]
+            UserPreferenceTag.objects.bulk_create(tags_to_create)
+>>>>>>> ba40d71 (bulk_create 적용)
 
         response_serializer = PreferenceMeResponseSerializer(request.user)
         return Response(response_serializer.data)
