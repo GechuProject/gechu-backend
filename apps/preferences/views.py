@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -7,6 +8,7 @@ from apps.preferences.models import UserPreference, UserPreferenceGenre
 from apps.preferences.serializers import PreferenceGenresUpdateSerializer, PreferenceMeResponseSerializer
 
 
+@extend_schema(tags=["Preferences"])
 class PreferenceMeRetrieveView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -15,6 +17,7 @@ class PreferenceMeRetrieveView(APIView):
         return Response(serializer.data)
 
 
+@extend_schema(tags=["Preferences"])
 class PreferenceMeGenresUpdateView(APIView):
     permission_classes = [IsAuthenticated]
 
