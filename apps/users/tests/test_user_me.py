@@ -1,5 +1,4 @@
 import datetime
-
 from typing import cast
 
 from django.contrib.auth import get_user_model
