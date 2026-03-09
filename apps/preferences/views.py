@@ -99,7 +99,10 @@ class PreferenceGameReactionUpdateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request: Request, game_id: int) -> Response:
-        req_serializer = PreferenceGameReactionUpdateSerializer(data=request.data, partial=True)
+        body = request.data or {}
+        if "reaction" in body and body.get("reaction") not in ("like", "dislike", "neutral"):
+            raise CustomAPIException(ErrorMessages.INVALID_REACTION)
+        req_serializer = PreferenceGameReactionUpdateSerializer(data=body, partial=True)
         req_serializer.is_valid(raise_exception=True)
         data = req_serializer.validated_data
 
@@ -172,6 +175,7 @@ class PreferenceGameReactionUpdateView(APIView):
 
         return Response(
             {
+                "game_id": game_id,
                 "is_saved": affinity.is_saved,
                 "reaction": {1: "like", -1: "dislike", 0: "neutral"}[affinity.like_state],
                 "updated_at": affinity.updated_at,

@@ -321,6 +321,28 @@ class PreferenceGameReactionUpdateAPITestCase(TestCase):
         response = self.client.put(self._url(game.id), {}, format="json")
         self.assertEqual(response.status_code, 400)
 
+    def test_put_game_reaction_invalid_reaction_returns_400(self) -> None:
+        user = User.objects.create_user(
+            email="u@ex.com",
+            nickname="u",
+            birth_date=date(1990, 1, 1),
+            password="pw",
+        )
+        game = _create_game()
+        self.client.force_authenticate(user=user)
+        response = self.client.put(
+            self._url(game.id),
+            {"reaction": "invalid_value"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "INVALID_REACTION")
+        self.assertEqual(
+            data.get("message"),
+            "reaction은 like, dislike, neutral 중 하나여야 합니다.",
+        )
+
     def test_put_game_reaction_is_saved(self) -> None:
         user = User.objects.create_user(
             email="u@ex.com",
@@ -334,6 +356,7 @@ class PreferenceGameReactionUpdateAPITestCase(TestCase):
         response = self.client.put(self._url(game.id), {"is_saved": True}, format="json")
         self.assertEqual(response.status_code, 200)
         data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["game_id"], game.id)
         self.assertTrue(data["is_saved"])
         self.assertEqual(data["reaction"], "neutral")
         self.assertIn("updated_at", data)
