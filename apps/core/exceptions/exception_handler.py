@@ -1,7 +1,7 @@
-from typing import Any
+from typing import Any, cast
 
 from rest_framework import status
-from rest_framework.exceptions import APIException, ErrorDetail
+from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
@@ -11,11 +11,14 @@ from apps.core.exceptions.exception_message import ErrorMessages
 class CustomAPIException(APIException):
     def __init__(self, error: ErrorMessages):
         self.status_code = error.status_code
-        self.detail = {
-            "status_code": ErrorDetail(str(error.status_code)),
-            "code": ErrorDetail(str(error.name)),
-            "message": ErrorDetail(str(error.message)),
-        }
+        self.detail = cast(
+            dict[str, Any],
+            {
+                "status_code": error.status_code,
+                "code": error.name,
+                "message": error.message,
+            },
+        )
 
 
 def custom_exception_handler(
