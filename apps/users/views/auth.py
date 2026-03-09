@@ -200,6 +200,15 @@ class RefreshAPIView(APIView):
 
         try:
             refresh = RefreshToken(refresh_token)  # type: ignore[arg-type]
+            User = get_user_model()
+            user_id = refresh.payload.get("user_id")
+            if user_id is None:
+                raise CustomAPIException(ErrorMessages.INVALID_REFRESH_TOKEN)
+
+            user = User.objects.filter(id=int(user_id)).first()
+
+            if user is None or user.deleted_at is not None or user.is_active is False:
+                raise CustomAPIException(ErrorMessages.ACCOUNT_DEACTIVATED)
             access = refresh.access_token
         except TokenError as err:
             message = str(err)

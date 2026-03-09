@@ -1,5 +1,8 @@
 import datetime
+from datetime import timedelta
+from typing import cast
 
+from django.conf import settings
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -36,7 +39,15 @@ class RefreshAPITestCase(TestCase):
         self.assertIn("access_token", data)
         self.assertTrue(data["access_token"])
         self.assertEqual(data["token_type"], "Bearer")
-        self.assertEqual(data["expires_in"], 3600)
+        self.assertEqual(
+            data["expires_in"],
+            int(
+                cast(
+                    timedelta,
+                    settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"],
+                ).total_seconds()
+            ),
+        )
 
     def test_refresh_without_refresh_token(self) -> None:
         res = self.client.post(
@@ -59,3 +70,23 @@ class RefreshAPITestCase(TestCase):
         self.assertEqual(res.status_code, 401)
         data = res.json()
         self.assertEqual(data["code"], "INVALID_REFRESH_TOKEN")
+
+    def test_refresh_with_deactivated_user(self) -> None:
+        login_res = self.client.post(
+            "/api/v1/auth/login",
+            {"email": "admin@example.com", "password": "password1100110011"},
+            format="json",
+        )
+        self.assertEqual(login_res.status_code, 200)
+
+        self.user.is_active = False
+        self.user.save(update_fields=["is_active"])
+
+        res = self.client.post(
+            "/api/v1/auth/refresh",
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, 401)
+        data = res.json()
+        self.assertEqual(data["code"], "ACCOUNT_DEACTIVATED")
