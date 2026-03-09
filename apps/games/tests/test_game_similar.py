@@ -71,6 +71,14 @@ class SimilarGameAPITest(APITestCase):
         # 실제 존재하는 유사 게임 2개 반환
         self.assertEqual(len(response.data["results"]), 2)
 
+    # limit=1 지정 시 -> 1개만 나오는지
+    def test_similar_games_limit_applied(self) -> None:
+        url = f"/api/v1/games/{self.game1.id}/similar/"
+        response = self.client.get(url, {"limit": 1})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+
     # 잘못된 게임 아이디
     def test_similar_games_invalid_game_id(self) -> None:
         url = "/api/v1/games/999999/similar/"
@@ -80,11 +88,27 @@ class SimilarGameAPITest(APITestCase):
         self.assertEqual(response.data["code"], ErrorMessages.GAME_NOT_FOUND.name)
         self.assertEqual(response.data["message"], ErrorMessages.GAME_NOT_FOUND.message)
 
-    # 비정상 limit 값 -> 기본값 10 처리 (view에서)
+    # 비정상 limit 값 400
     def test_similar_games_invalid_limit(self) -> None:
         url = f"/api/v1/games/{self.game1.id}/similar/"
-        response = self.client.get(url, {"limit": "not-an-int"})
+        response = self.client.get(url, {"limit": -3})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["code"], "INVALID_QUERY_PARAM")
+
+    # 유사게임 없을 시 -> 빈 배열 반환
+    def test_similar_games_no_similar_games(self) -> None:
+        game_without_similar = Game.objects.create(
+            rawg_id=4,
+            name="Game 4",
+            slug="game-4",
+            thumbnail_img_url="https://example.com/game4.jpg",
+            rawg_rating=4.0,
+        )
+
+        url = f"/api/v1/games/{game_without_similar.id}/similar/"
+        response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("results", response.data)
-        self.assertEqual(len(response.data["results"]), 2)
+        self.assertEqual(len(response.data["results"]), 0)
