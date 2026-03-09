@@ -1,4 +1,5 @@
 from typing import cast
+from unittest.mock import MagicMock, patch
 
 from django.core.cache import cache
 from django.test import TestCase
@@ -14,7 +15,8 @@ class EmailCodeSendAPITest(TestCase):
         cache.delete(f"email_code:{self.email}")
         cache.delete(f"email_code_cooldown:{self.email}")
 
-    def test_send_email_code_stores_code_in_cache(self) -> None:
+    @patch("apps.users.views.auth.send_mail")
+    def test_send_email_code_stores_code_in_cache(self, mock_send_mail: MagicMock) -> None:
         res = self.client.post(
             "/api/v1/auth/email/code/",
             data={"email": self.email},
@@ -29,6 +31,6 @@ class EmailCodeSendAPITest(TestCase):
 
         code = cache.get(f"email_code:{self.email}")
         self.assertIsNotNone(code)
-        self.assertIsInstance(code, str)
-        self.assertEqual(len(code), 6)
-        self.assertTrue(code.isdigit())
+        self.assertEqual(len(str(code)), 6)
+        self.assertTrue(str(code).isdigit())
+        mock_send_mail.assert_called_once()

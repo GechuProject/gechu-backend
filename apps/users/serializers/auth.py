@@ -32,7 +32,7 @@ class SignupRequestSerializer(serializers.Serializer[dict[str, Any]]):
         if saved_code is None:
             raise CustomAPIException(ErrorMessages.CODE_EXPIRED)
 
-        if saved_code != code:
+        if str(saved_code) != code:
             raise CustomAPIException(ErrorMessages.INVALID_CODE)
 
         return attrs
