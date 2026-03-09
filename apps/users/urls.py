@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.users.views.auth import LoginAPIView, LogoutAPIView, RefreshAPIView, SignupAPIView
+from apps.users.views.me import UserMeRetrieveAPIView
 
 from .views.auth import EmailCodeSendAPIView
 
@@ -10,4 +11,5 @@ urlpatterns = [
     path("auth/login/", LoginAPIView.as_view(), name="auth-login"),
     path("auth/logout/", LogoutAPIView.as_view(), name="auth-logout"),
     path("auth/refresh/", RefreshAPIView.as_view(), name="auth-refresh"),
+    path("users/me/", UserMeRetrieveAPIView.as_view(), name="users-me"),
 ]
