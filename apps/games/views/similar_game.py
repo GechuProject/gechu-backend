@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.core.serializers.error_serializer import ErrorResponseSerializer
-from apps.games.serializers import SimilarGameResponseSerializer
+from apps.games.serializers import SimilarGameResponseSerializer, SimilarGameQueryParamsSerializer
 from apps.games.services.similar_game import SimilarGameService
 
 
@@ -43,12 +43,10 @@ class SimilarGamesListResponseSerializer(serializers.Serializer[dict[str, Any]])
 )
 class SimilarGameListView(APIView):
     def get(self, request: Request, game_id: int) -> Response:
-        # 쿼리 파라미터에서 limit 가져오기
-        limit_str = request.query_params.get("limit")
-        try:
-            limit = int(limit_str) if limit_str is not None else 10
-        except ValueError:
-            limit = 10
+        # 쿼리 파라미터 검증
+        query_serializer = SimilarGameQueryParamsSerializer(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+        limit = query_serializer.validated_data.get("limit", 10)
 
         # Service 호출
         similar_games = SimilarGameService.similar_game(game_id=game_id, limit=limit)
