@@ -20,7 +20,7 @@ class LoginAPITestCase(TestCase):
     def test_login(self) -> None:
         # 로그인 요청
         res = self.client.post(
-            "/api/v1/auth/login",
+            "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},
             format="json",
         )
@@ -39,7 +39,7 @@ class LoginAPITestCase(TestCase):
     # 비밀번호 오류
     def test_login_invalid_password(self) -> None:
         res = self.client.post(
-            "/api/v1/auth/login",
+            "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "oh.no"},
             format="json",
         )
@@ -52,7 +52,7 @@ class LoginAPITestCase(TestCase):
     # 이메일 오류
     def test_login_none_email(self) -> None:
         res = self.client.post(
-            "/api/v1/auth/login",
+            "/api/v1/auth/login/",
             {"email": "nonexistent@example.com", "password": "oh.no"},
             format="json",
         )
