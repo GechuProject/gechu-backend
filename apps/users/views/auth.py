@@ -90,10 +90,7 @@ class EmailCodeSendAPIView(APIView):
         cache.set(f"email_code:{email}", code, timeout=self.CODE_TTL_SECONDS)
         send_mail(
             subject="[Gechu] 이메일 인증 코드",
-            message=(
-                f"인증 코드: {code}\n"
-                f"이 코드는 {self.CODE_TTL_SECONDS // 60}분 동안 유효합니다."
-            ),
+            message=(f"인증 코드: {code}\n이 코드는 {self.CODE_TTL_SECONDS // 60}분 동안 유효합니다."),
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[email],
             fail_silently=False,
