@@ -2,6 +2,9 @@ from typing import Any
 
 from rest_framework import serializers
 
+from apps.core.exceptions.exception_handler import CustomAPIException
+from apps.core.exceptions.exception_message import ErrorMessages
+
 
 class PreferenceMeResponseSerializer(serializers.Serializer):  # type: ignore[type-arg]
     genres = serializers.SerializerMethodField()
@@ -92,7 +95,12 @@ REACTION_CHOICES = ("like", "dislike", "neutral")
 
 class PreferenceGameReactionUpdateSerializer(serializers.Serializer):  # type: ignore[type-arg]
     is_saved = serializers.BooleanField(required=False)
-    reaction = serializers.ChoiceField(choices=REACTION_CHOICES, required=False)
+    reaction = serializers.CharField(required=False)
+
+    def validate_reaction(self, value: str | None) -> str | None:
+        if value is not None and value not in REACTION_CHOICES:
+            raise CustomAPIException(ErrorMessages.INVALID_REACTION)
+        return value
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         if not attrs:

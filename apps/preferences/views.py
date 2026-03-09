@@ -99,10 +99,7 @@ class PreferenceGameReactionUpdateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request: Request, game_id: int) -> Response:
-        body = request.data or {}
-        if "reaction" in body and body.get("reaction") not in ("like", "dislike", "neutral"):
-            raise CustomAPIException(ErrorMessages.INVALID_REACTION)
-        req_serializer = PreferenceGameReactionUpdateSerializer(data=body, partial=True)
+        req_serializer = PreferenceGameReactionUpdateSerializer(data=request.data, partial=True)
         req_serializer.is_valid(raise_exception=True)
         data = req_serializer.validated_data
 
