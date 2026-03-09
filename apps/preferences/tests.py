@@ -63,15 +63,16 @@ class PreferenceMeAPITestCase(TestCase):
         genre_ids = {g["id"] for g in data["genres"]}
         self.assertEqual(genre_ids, {genre1.id, genre2.id})
         for g in data["genres"]:
-            self.assertIn("slug", g)
+            self.assertIn("name", g)
+            self.assertNotIn("slug", g)
         self.assertEqual(len(data["platforms"]), 1)
         self.assertEqual(data["platforms"][0]["id"], platform1.id)
         self.assertEqual(data["platforms"][0]["name"], "PC")
-        self.assertEqual(data["platforms"][0]["slug"], "pc")
+        self.assertNotIn("slug", data["platforms"][0])
         self.assertEqual(len(data["tags"]), 1)
         self.assertEqual(data["tags"][0]["id"], tag1.id)
         self.assertEqual(data["tags"][0]["name"], "Singleplayer")
-        self.assertEqual(data["tags"][0]["slug"], "singleplayer")
+        self.assertNotIn("slug", data["tags"][0])
 
 
 class PreferenceMeGenresUpdateAPITestCase(TestCase):
@@ -135,3 +136,129 @@ class PreferenceMeGenresUpdateAPITestCase(TestCase):
         self.assertEqual(res.status_code, 200)
         data = cast(dict[str, Any], res.data)
         self.assertEqual(data["genres"], [])
+
+
+class PreferenceMePlatformsUpdateAPITestCase(TestCase):
+    client: APIClient
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/preferences/me/platforms/"
+
+    def test_put_platforms_unauthorized(self) -> None:
+        response = self.client.put(self.url, {"platform_ids": [1]}, format="json")
+        self.assertEqual(response.status_code, 401)
+
+    def test_put_platforms_invalid_id_returns_400(self) -> None:
+        user = User.objects.create_user(
+            email="u@ex.com",
+            nickname="u",
+            birth_date=date(1990, 1, 1),
+            password="pw",
+        )
+        self.client.force_authenticate(user=user)
+        response = self.client.put(self.url, {"platform_ids": [99999]}, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_put_platforms_replace_and_return_200(self) -> None:
+        user = User.objects.create_user(
+            email="u2@ex.com",
+            nickname="u2",
+            birth_date=date(1995, 1, 1),
+            password="pw",
+        )
+        p1 = Platform.objects.create(rawg_id=201, name="PC", slug="pc")
+        p2 = Platform.objects.create(rawg_id=202, name="PlayStation", slug="playstation")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.put(self.url, {"platform_ids": [p1.id, p2.id]}, format="json")
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(len(data["platforms"]), 2)
+        self.assertEqual({p["id"] for p in data["platforms"]}, {p1.id, p2.id})
+
+        response2 = self.client.put(self.url, {"platform_ids": [p1.id]}, format="json")
+        self.assertEqual(response2.status_code, 200)
+        data2 = cast(dict[str, Any], response2.data)
+        self.assertEqual(len(data2["platforms"]), 1)
+        self.assertEqual(data2["platforms"][0]["id"], p1.id)
+
+    def test_put_platforms_empty_list_clears(self) -> None:
+        user = User.objects.create_user(
+            email="u3@ex.com",
+            nickname="u3",
+            birth_date=date(1992, 1, 1),
+            password="pw",
+        )
+        pref = UserPreference.objects.create(user=user)
+        p = Platform.objects.create(rawg_id=203, name="Xbox", slug="xbox")
+        UserPreferencePlatform.objects.create(user_preference=pref, platform=p)
+        self.client.force_authenticate(user=user)
+
+        res = self.client.put(self.url, {"platform_ids": []}, format="json")
+        self.assertEqual(res.status_code, 200)
+        data = cast(dict[str, Any], res.data)
+        self.assertEqual(data["platforms"], [])
+
+
+class PreferenceMeTagsUpdateAPITestCase(TestCase):
+    client: APIClient
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/preferences/me/tags/"
+
+    def test_put_tags_unauthorized(self) -> None:
+        response = self.client.put(self.url, {"tag_ids": [1]}, format="json")
+        self.assertEqual(response.status_code, 401)
+
+    def test_put_tags_invalid_id_returns_400(self) -> None:
+        user = User.objects.create_user(
+            email="u@ex.com",
+            nickname="u",
+            birth_date=date(1990, 1, 1),
+            password="pw",
+        )
+        self.client.force_authenticate(user=user)
+        response = self.client.put(self.url, {"tag_ids": [99999]}, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_put_tags_replace_and_return_200(self) -> None:
+        user = User.objects.create_user(
+            email="u2@ex.com",
+            nickname="u2",
+            birth_date=date(1995, 1, 1),
+            password="pw",
+        )
+        t1 = Tag.objects.create(rawg_id=301, name="RPG", slug="rpg")
+        t2 = Tag.objects.create(rawg_id=302, name="Multiplayer", slug="multiplayer")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.put(self.url, {"tag_ids": [t1.id, t2.id]}, format="json")
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(len(data["tags"]), 2)
+        self.assertEqual({t["id"] for t in data["tags"]}, {t1.id, t2.id})
+
+        response2 = self.client.put(self.url, {"tag_ids": [t1.id]}, format="json")
+        self.assertEqual(response2.status_code, 200)
+        data2 = cast(dict[str, Any], response2.data)
+        self.assertEqual(len(data2["tags"]), 1)
+        self.assertEqual(data2["tags"][0]["id"], t1.id)
+
+    def test_put_tags_empty_list_clears(self) -> None:
+        user = User.objects.create_user(
+            email="u3@ex.com",
+            nickname="u3",
+            birth_date=date(1992, 1, 1),
+            password="pw",
+        )
+        pref = UserPreference.objects.create(user=user)
+        t = Tag.objects.create(rawg_id=303, name="Singleplayer", slug="singleplayer")
+        UserPreferenceTag.objects.create(user_preference=pref, tag=t)
+        self.client.force_authenticate(user=user)
+
+        res = self.client.put(self.url, {"tag_ids": []}, format="json")
+        self.assertEqual(res.status_code, 200)
+        data = cast(dict[str, Any], res.data)
+        self.assertEqual(data["tags"], [])

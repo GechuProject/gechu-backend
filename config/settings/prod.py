@@ -72,3 +72,20 @@ LOGGING = {
         },
     },
 }
+
+# CloudFront 프록시 설정
+# CloudFront가 보낸 X-Forwarded-Proto: https 헤더를 장고가 HTTPS로 인식하게 함
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# 전달받은 Host 헤더를 신뢰하여 ALLOWED_HOSTS와 대조 및 URL 생성에 사용
+USE_X_FORWARDED_HOST = True
+
+# HTTPS security
+# True일 경우 모든 HTTP 요청을 HTTPS로 강제 리다이렉트
+SECURE_SSL_REDIRECT = False
+
+# 세션 쿠키를 HTTPS 연결에서만 전송하도록 설정
+SESSION_COOKIE_SECURE = True
+
+# CSRF 쿠키를 HTTPS 연결에서만 전송하도록 설정: HTTP 환경에서 CSRF 토큰이 노출되는 것을 방지
+CSRF_COOKIE_SECURE = True

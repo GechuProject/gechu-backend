@@ -8,6 +8,7 @@ on:
       - closed
 
 permissions:
+  id-token: write
   contents: read
 
 jobs:
@@ -15,23 +16,61 @@ jobs:
     if: |
       github.event.pull_request.merged == true &&
       vars.ENABLE_EC2_DEPLOY == 'true'
-
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-northeast-2
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build, tag, and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/gechu-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: gechu-backend
+          IMAGE_TAG: ${{ github.sha }}
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: ECR_REGISTRY,REPOSITORY,IMAGE_TAG,PROD_ENV_FILE
           script: |
             set -e
             cd ~/gechu-backend
-            git fetch origin dev
-            git checkout dev
+
             git pull origin dev
-            cd docker
-            docker compose -f docker-compose.prod.yml up -d --build
-            docker compose -f docker-compose.prod.yml exec -T django python manage.py migrate
-            docker image prune -af || true
+
+            mkdir -p envs
+            printf '%s\n' "$PROD_ENV_FILE" > envs/.prod.env
+
+            docker compose -f docker/docker-compose.prod.yml pull
+            docker compose -f docker/docker-compose.prod.yml up -d --wait
+
+            docker compose -f docker/docker-compose.prod.yml exec -T django \
+              python manage.py migrate --noinput
+
+            docker image prune -f || true
+
             echo "[Success] Deployment successful"
