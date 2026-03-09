@@ -85,3 +85,19 @@ class PreferenceTagsUpdateSerializer(serializers.Serializer):  # type: ignore[ty
                 code="invalid_tag_id",
             )
         return value
+
+
+REACTION_CHOICES = ("like", "dislike", "neutral")
+
+
+class PreferenceGameReactionUpdateSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    is_saved = serializers.BooleanField(required=False)
+    reaction = serializers.ChoiceField(choices=REACTION_CHOICES, required=False)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        if not attrs:
+            raise serializers.ValidationError(
+                detail="is_saved 또는 reaction 중 하나 이상 필요합니다.",
+                code="validation_error",
+            )
+        return attrs

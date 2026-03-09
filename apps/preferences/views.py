@@ -1,17 +1,32 @@
+from typing import cast
+
 from django.db import transaction
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.preferences.models import UserPreference, UserPreferenceGenre, UserPreferencePlatform, UserPreferenceTag
+from apps.core.exceptions.exception_handler import CustomAPIException
+from apps.core.exceptions.exception_message import ErrorMessages
+from apps.games.models import Game
+from apps.interactions.models import InteractionLog
+from apps.preferences.models import (
+    UserGameAffinity,
+    UserPreference,
+    UserPreferenceGenre,
+    UserPreferencePlatform,
+    UserPreferenceTag,
+)
 from apps.preferences.serializers import (
+    PreferenceGameReactionUpdateSerializer,
     PreferenceGenresUpdateSerializer,
     PreferenceMeResponseSerializer,
     PreferencePlatformsUpdateSerializer,
     PreferenceTagsUpdateSerializer,
 )
+from apps.users.models import User
 
 
 class PreferenceMeRetrieveView(APIView):
@@ -72,15 +87,94 @@ class PreferenceMeTagsUpdateView(APIView):
         pref, _ = UserPreference.objects.get_or_create(user=request.user)
         with transaction.atomic():
             UserPreferenceTag.objects.filter(user_preference=pref).delete()
-<<<<<<< HEAD
-            tags_to_create = [
-                UserPreferenceTag(user_preference=pref, tag_id=tid) for tid in tag_ids
-            ]
+            tags_to_create = [UserPreferenceTag(user_preference=pref, tag_id=tid) for tid in tag_ids]
             UserPreferenceTag.objects.bulk_create(tags_to_create)
-=======
-            for tid in tag_ids:
-                UserPreferenceTag.objects.create(user_preference=pref, tag_id=tid)
->>>>>>> 4a1f153 (fix: transaction.atomic 적용)
 
         response_serializer = PreferenceMeResponseSerializer(request.user)
         return Response(response_serializer.data)
+
+
+@extend_schema(tags=["Preferences"])
+class PreferenceGameReactionUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request: Request, game_id: int) -> Response:
+        req_serializer = PreferenceGameReactionUpdateSerializer(data=request.data, partial=True)
+        req_serializer.is_valid(raise_exception=True)
+        data = req_serializer.validated_data
+
+        if not Game.objects.filter(pk=game_id, is_visible=True).exists():
+            raise CustomAPIException(ErrorMessages.GAME_NOT_FOUND)
+
+        user = cast(User, request.user)
+        now = timezone.now()
+        affinity, created = UserGameAffinity.objects.update_or_create(
+            user=user,
+            game_id=game_id,
+            defaults={
+                "last_interacted_at": now,
+                "calculated_at": now,
+            },
+        )
+
+        logs_to_create = []
+
+        if "is_saved" in data:
+            old_saved = affinity.is_saved
+            affinity.is_saved = data["is_saved"]
+            if old_saved and not data["is_saved"]:
+                logs_to_create.append(
+                    InteractionLog(
+                        user=user,
+                        game_id=game_id,
+                        type=InteractionLog.ActionType.SAVED_REMOVE,
+                        source=InteractionLog.SourceType.DETAIL_PAGE,
+                    )
+                )
+            elif not old_saved and data["is_saved"]:
+                logs_to_create.append(
+                    InteractionLog(
+                        user=user,
+                        game_id=game_id,
+                        type=InteractionLog.ActionType.SAVED_ADD,
+                        source=InteractionLog.SourceType.DETAIL_PAGE,
+                    )
+                )
+
+        if "reaction" in data:
+            reaction_map = {"like": 1, "dislike": -1, "neutral": 0}
+            new_state = reaction_map[data["reaction"]]
+            old_state = affinity.like_state
+            affinity.like_state = new_state
+            if old_state != new_state:
+                if new_state == 1:
+                    logs_to_create.append(
+                        InteractionLog(
+                            user=user,
+                            game_id=game_id,
+                            type=InteractionLog.ActionType.LIKE,
+                            source=InteractionLog.SourceType.DETAIL_PAGE,
+                        )
+                    )
+                elif new_state == -1:
+                    logs_to_create.append(
+                        InteractionLog(
+                            user=user,
+                            game_id=game_id,
+                            type=InteractionLog.ActionType.DISLIKE,
+                            source=InteractionLog.SourceType.DETAIL_PAGE,
+                        )
+                    )
+
+        with transaction.atomic():
+            affinity.save()
+            InteractionLog.objects.bulk_create(logs_to_create)
+
+        return Response(
+            {
+                "is_saved": affinity.is_saved,
+                "reaction": {1: "like", -1: "dislike", 0: "neutral"}[affinity.like_state],
+                "updated_at": affinity.updated_at,
+            },
+            status=200,
+        )
