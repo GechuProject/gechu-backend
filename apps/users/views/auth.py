@@ -172,3 +172,46 @@ class LogoutAPIView(APIView):
         )
         response.delete_cookie("refresh_token")
         return response
+
+
+@extend_schema(
+    request=None,
+    responses={
+        200: OpenApiResponse(
+            response=inline_serializer(
+                name="RefreshSuccessResponse",
+                fields={
+                    "access_token": serializers.CharField(),
+                    "token_type": serializers.CharField(),
+                    "expires_in": serializers.IntegerField(),
+                },
+            )
+        )
+    },
+    tags=["auth"],
+)
+class RefreshAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request) -> Response:
+        refresh_token = request.COOKIES.get("refresh_token")
+        if not refresh_token:
+            raise CustomAPIException(ErrorMessages.REFRESH_TOKEN_MISSING)
+
+        try:
+            refresh = RefreshToken(refresh_token)  # type: ignore[arg-type]
+            access = refresh.access_token
+        except TokenError as err:
+            message = str(err)
+            if "expired" in message.lower():
+                raise CustomAPIException(ErrorMessages.REFRESH_TOKEN_EXPIRED) from err
+            raise CustomAPIException(ErrorMessages.INVALID_REFRESH_TOKEN) from err
+
+        return Response(
+            {
+                "access_token": str(access),
+                "token_type": "Bearer",
+                "expires_in": int(access.lifetime.total_seconds()),
+            },
+            status=status.HTTP_200_OK,
+        )
