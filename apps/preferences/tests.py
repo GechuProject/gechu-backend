@@ -63,15 +63,16 @@ class PreferenceMeAPITestCase(TestCase):
         genre_ids = {g["id"] for g in data["genres"]}
         self.assertEqual(genre_ids, {genre1.id, genre2.id})
         for g in data["genres"]:
-            self.assertIn("slug", g)
+            self.assertIn("name", g)
+            self.assertNotIn("slug", g)
         self.assertEqual(len(data["platforms"]), 1)
         self.assertEqual(data["platforms"][0]["id"], platform1.id)
         self.assertEqual(data["platforms"][0]["name"], "PC")
-        self.assertEqual(data["platforms"][0]["slug"], "pc")
+        self.assertNotIn("slug", data["platforms"][0])
         self.assertEqual(len(data["tags"]), 1)
         self.assertEqual(data["tags"][0]["id"], tag1.id)
         self.assertEqual(data["tags"][0]["name"], "Singleplayer")
-        self.assertEqual(data["tags"][0]["slug"], "singleplayer")
+        self.assertNotIn("slug", data["tags"][0])
 
 
 class PreferenceMeGenresUpdateAPITestCase(TestCase):

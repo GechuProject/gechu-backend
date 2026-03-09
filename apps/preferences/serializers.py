@@ -13,21 +13,21 @@ class PreferenceMeResponseSerializer(serializers.Serializer):  # type: ignore[ty
         if not pref:
             return []
         qs = pref.userpreferencegenre_set.select_related("genre").all()
-        return [{"id": ug.genre.id, "name": ug.genre.name, "slug": ug.genre.slug} for ug in qs]
+        return [{"id": ug.genre.id, "name": ug.genre.name} for ug in qs]
 
     def get_platforms(self, obj: Any) -> list[dict[str, Any]]:
         pref = getattr(obj, "preference", None)
         if not pref:
             return []
         qs = pref.userpreferenceplatform_set.select_related("platform").all()
-        return [{"id": up.platform.id, "name": up.platform.name, "slug": up.platform.slug} for up in qs]
+        return [{"id": up.platform.id, "name": up.platform.name} for up in qs]
 
     def get_tags(self, obj: Any) -> list[dict[str, Any]]:
         pref = getattr(obj, "preference", None)
         if not pref:
             return []
         qs = pref.userpreferencetag_set.select_related("tag").all()
-        return [{"id": ut.tag.id, "name": ut.tag.name, "slug": ut.tag.slug} for ut in qs]
+        return [{"id": ut.tag.id, "name": ut.tag.name} for ut in qs]
 
 
 class PreferenceGenresUpdateSerializer(serializers.Serializer):  # type: ignore[type-arg]
