@@ -1,4 +1,4 @@
-from random import randint
+import secrets
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -85,7 +85,7 @@ class EmailCodeSendAPIView(APIView):
         if cache.get(cooldown_key):
             raise CustomAPIException(ErrorMessages.TOO_MANY_REQUESTS)
 
-        code = f"{randint(0, 999999):06d}"
+        code = f"{secrets.randbelow(1000000):06d}"
         cache.set(cooldown_key, True, timeout=self.COOLDOWN_SECONDS)
         cache.set(f"email_code:{email}", code, timeout=self.CODE_TTL_SECONDS)
         send_mail(
