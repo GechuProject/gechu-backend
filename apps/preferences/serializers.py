@@ -66,3 +66,22 @@ class PreferencePlatformsUpdateSerializer(serializers.Serializer):  # type: igno
                 code="invalid_platform_id",
             )
         return value
+
+
+class PreferenceTagsUpdateSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    tag_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=True,
+    )
+
+    def validate_tag_ids(self, value: list[int]) -> list[int]:
+        from apps.games.models import Tag
+
+        existing = set(Tag.objects.filter(id__in=value).values_list("id", flat=True))
+        missing = set(value) - existing
+        if missing:
+            raise serializers.ValidationError(
+                detail=f"존재하지 않는 태그 id: {sorted(missing)}",
+                code="invalid_tag_id",
+            )
+        return value

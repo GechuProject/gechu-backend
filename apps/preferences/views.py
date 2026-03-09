@@ -1,14 +1,16 @@
+from django.db import transaction
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.preferences.models import UserPreference, UserPreferenceGenre, UserPreferencePlatform
+from apps.preferences.models import UserPreference, UserPreferenceGenre, UserPreferencePlatform, UserPreferenceTag
 from apps.preferences.serializers import (
     PreferenceGenresUpdateSerializer,
     PreferenceMeResponseSerializer,
     PreferencePlatformsUpdateSerializer,
+    PreferenceTagsUpdateSerializer,
 )
 
 
@@ -47,9 +49,31 @@ class PreferenceMePlatformsUpdateView(APIView):
         platform_ids: list[int] = req_serializer.validated_data["platform_ids"]
 
         pref, _ = UserPreference.objects.get_or_create(user=request.user)
-        UserPreferencePlatform.objects.filter(user_preference=pref).delete()
-        for pid in platform_ids:
-            UserPreferencePlatform.objects.create(user_preference=pref, platform_id=pid)
+        with transaction.atomic():
+            UserPreferencePlatform.objects.filter(user_preference=pref).delete()
+            platforms_to_create = [
+                UserPreferencePlatform(user_preference=pref, platform_id=pid) for pid in platform_ids
+            ]
+            UserPreferencePlatform.objects.bulk_create(platforms_to_create)
+
+        response_serializer = PreferenceMeResponseSerializer(request.user)
+        return Response(response_serializer.data)
+
+
+@extend_schema(tags=["Preferences"])
+class PreferenceMeTagsUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request: Request) -> Response:
+        req_serializer = PreferenceTagsUpdateSerializer(data=request.data)
+        req_serializer.is_valid(raise_exception=True)
+        tag_ids: list[int] = req_serializer.validated_data["tag_ids"]
+
+        pref, _ = UserPreference.objects.get_or_create(user=request.user)
+        with transaction.atomic():
+            UserPreferenceTag.objects.filter(user_preference=pref).delete()
+            tags_to_create = [UserPreferenceTag(user_preference=pref, tag_id=tid) for tid in tag_ids]
+            UserPreferenceTag.objects.bulk_create(tags_to_create)
 
         response_serializer = PreferenceMeResponseSerializer(request.user)
         return Response(response_serializer.data)
