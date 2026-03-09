@@ -1,7 +1,12 @@
+from __future__ import annotations
+
 from datetime import date
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from django.test import TestCase
+
+if TYPE_CHECKING:
+    from apps.games.models import Game
 from rest_framework.test import APIClient
 
 from apps.games.models import Genre, Platform, Tag
@@ -262,3 +267,146 @@ class PreferenceMeTagsUpdateAPITestCase(TestCase):
         self.assertEqual(res.status_code, 200)
         data = cast(dict[str, Any], res.data)
         self.assertEqual(data["tags"], [])
+
+
+def _create_game(**kwargs: Any) -> Game:
+    from apps.games.models import Game
+
+    defaults = {
+        "rawg_id": 5001,
+        "slug": "test-game",
+        "name": "Test Game",
+        "thumbnail_img_url": "https://example.com/thumb.jpg",
+        "website": "https://example.com",
+        "is_visible": True,
+    }
+    defaults.update(kwargs)
+    return Game.objects.create(**defaults)
+
+
+class PreferenceGameReactionUpdateAPITestCase(TestCase):
+    client: APIClient
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+
+    def _url(self, game_id: int) -> str:
+        return f"/api/v1/preferences/games/{game_id}/"
+
+    def test_put_game_reaction_unauthorized(self) -> None:
+        game = _create_game()
+        response = self.client.put(self._url(game.id), {"is_saved": True}, format="json")
+        self.assertEqual(response.status_code, 401)
+
+    def test_put_game_reaction_game_not_found(self) -> None:
+        user = User.objects.create_user(
+            email="u@ex.com",
+            nickname="u",
+            birth_date=date(1990, 1, 1),
+            password="pw",
+        )
+        self.client.force_authenticate(user=user)
+        response = self.client.put(self._url(99999), {"is_saved": True}, format="json")
+        self.assertEqual(response.status_code, 404)
+
+    def test_put_game_reaction_empty_body_returns_400(self) -> None:
+        user = User.objects.create_user(
+            email="u@ex.com",
+            nickname="u",
+            birth_date=date(1990, 1, 1),
+            password="pw",
+        )
+        game = _create_game()
+        self.client.force_authenticate(user=user)
+        response = self.client.put(self._url(game.id), {}, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_put_game_reaction_invalid_reaction_returns_400(self) -> None:
+        user = User.objects.create_user(
+            email="u@ex.com",
+            nickname="u",
+            birth_date=date(1990, 1, 1),
+            password="pw",
+        )
+        game = _create_game()
+        self.client.force_authenticate(user=user)
+        response = self.client.put(
+            self._url(game.id),
+            {"reaction": "invalid_value"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "INVALID_REACTION")
+        self.assertEqual(
+            data.get("message"),
+            "reaction은 like, dislike, neutral 중 하나여야 합니다.",
+        )
+
+    def test_put_game_reaction_is_saved(self) -> None:
+        user = User.objects.create_user(
+            email="u@ex.com",
+            nickname="u",
+            birth_date=date(1990, 1, 1),
+            password="pw",
+        )
+        game = _create_game()
+        self.client.force_authenticate(user=user)
+
+        response = self.client.put(self._url(game.id), {"is_saved": True}, format="json")
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["game_id"], game.id)
+        self.assertTrue(data["is_saved"])
+        self.assertEqual(data["reaction"], "neutral")
+        self.assertIn("updated_at", data)
+
+        response2 = self.client.put(self._url(game.id), {"is_saved": False}, format="json")
+        self.assertEqual(response2.status_code, 200)
+        data2 = cast(dict[str, Any], response2.data)
+        self.assertFalse(data2["is_saved"])
+
+    def test_put_game_reaction_like_dislike(self) -> None:
+        user = User.objects.create_user(
+            email="u2@ex.com",
+            nickname="u2",
+            birth_date=date(1995, 1, 1),
+            password="pw",
+        )
+        game = _create_game()
+        self.client.force_authenticate(user=user)
+
+        response = self.client.put(self._url(game.id), {"reaction": "like"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["reaction"], "like")
+
+        response2 = self.client.put(self._url(game.id), {"reaction": "dislike"}, format="json")
+        self.assertEqual(response2.status_code, 200)
+        data2 = cast(dict[str, Any], response2.data)
+        self.assertEqual(data2["reaction"], "dislike")
+
+        response3 = self.client.put(self._url(game.id), {"reaction": "neutral"}, format="json")
+        self.assertEqual(response3.status_code, 200)
+        data3 = cast(dict[str, Any], response3.data)
+        self.assertEqual(data3["reaction"], "neutral")
+
+    def test_put_game_reaction_both_is_saved_and_reaction(self) -> None:
+        user = User.objects.create_user(
+            email="u3@ex.com",
+            nickname="u3",
+            birth_date=date(1992, 1, 1),
+            password="pw",
+        )
+        game = _create_game()
+        self.client.force_authenticate(user=user)
+
+        response = self.client.put(
+            self._url(game.id),
+            {"is_saved": True, "reaction": "like"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertTrue(data["is_saved"])
+        self.assertEqual(data["reaction"], "like")
