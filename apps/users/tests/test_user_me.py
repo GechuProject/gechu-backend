@@ -19,10 +19,10 @@ class UserMeRetrieveAPITest(TestCase):
         )
 
     def test_get_me_returns_current_user_info(self) -> None:
-        self.client = APIClient()
-        self.client.force_authenticate(user=self.user)
+        client = APIClient()
+        client.force_authenticate(user=self.user)
 
-        res = self.client.get("/api/v1/users/me/")
+        res = client.get("/api/v1/users/me/")
 
         drf_res = cast(Response, res)
 
@@ -33,8 +33,10 @@ class UserMeRetrieveAPITest(TestCase):
         self.assertEqual(drf_res.data["birth_date"], str(self.user.birth_date))
         self.assertEqual(drf_res.data["profile_img_url"], self.user.profile_img_url)
         self.assertEqual(drf_res.data["is_adult_verified"], self.user.is_adult_verified)
+        self.assertEqual(drf_res.data["adult_verified_at"], self.user.adult_verified_at)
+        self.assertEqual(drf_res.data["adult_verification_expires_at"], self.user.adult_verification_expires_at)
+        self.assertTrue(drf_res.data["created_at"])
 
     def test_get_me_returns_401_when_not_authenticated(self) -> None:
-
         noauth_res = self.client.get("/api/v1/users/me/")
         self.assertEqual(noauth_res.status_code, 401)
