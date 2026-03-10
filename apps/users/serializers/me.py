@@ -14,6 +14,6 @@ class UserMeResponseSerializer(serializers.ModelSerializer[User]):
             "profile_img_url",
             "is_adult_verified",
             "adult_verified_at",
-            "adult_verification_expires_at",
+            "is_active",
             "created_at",
         ]

@@ -2,6 +2,7 @@ from typing import cast
 
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 
 from apps.users.models.user import User
@@ -18,4 +19,7 @@ class UserMeRetrieveAPIView(generics.RetrieveAPIView[User]):
     serializer_class = UserMeResponseSerializer
 
     def get_object(self) -> User:
-        return cast(User, self.request.user)
+        user = cast(User, self.request.user)
+        if user.deleted_at is not None:
+            raise NotFound("사용자를 찾을 수 없습니다.")
+        return user
