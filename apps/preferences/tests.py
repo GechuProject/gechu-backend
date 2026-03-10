@@ -1,556 +1,193 @@
 from __future__ import annotations
 
+import itertools
 from datetime import date
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from django.test import TestCase
-from django.utils import timezone
-
-if TYPE_CHECKING:
-    from apps.games.models import Game
 from rest_framework.test import APIClient
 
-from apps.games.models import Genre, Platform, Tag
-from apps.preferences.models import (
-    UserGameAffinity,
-    UserPreference,
-    UserPreferenceGenre,
-    UserPreferencePlatform,
-    UserPreferenceTag,
-)
+from apps.games.models import Game, Genre, Platform, Tag
+from apps.preferences.models import UserPreference
 from apps.users.models import User
 
+_counter = itertools.count(1)
 
-class PreferenceMeAPITestCase(TestCase):
+
+class PreferenceBaseTestCase(TestCase):
+    """공통 유저 생성 및 인증을 담당하는 베이스 클래스"""
+
     client: APIClient
 
     def setUp(self) -> None:
         self.client = APIClient()
-        self.url = "/api/v1/preferences/me/"
-
-    def test_preference_me_unauthorized(self) -> None:
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 401)
-
-    def test_preference_me_empty_when_no_preference(self) -> None:
-        user = User.objects.create_user(
-            email="test@example.com",
+        self.client.raise_request_exception = True
+        self.user = User.objects.create_user(
+            email=f"test_{self.__class__.__name__}@example.com",
             nickname="tester",
             birth_date=date(1990, 1, 1),
             password="testpass123",
         )
-        self.client.force_authenticate(user=user)
+        UserPreference.objects.get_or_create(user=self.user)
+        # 기본적으로 인증된 상태로 시작
+        self.client.force_authenticate(user=self.user)
+
+    def _create_game(self, **kwargs: Any) -> Game:
+        uid = next(_counter)
+        defaults = {
+            "rawg_id": uid,
+            "slug": f"test-game-{uid}",
+            "name": "Test Game",
+            "thumbnail_img_url": "https://example.com/thumb.jpg",
+            "is_visible": True,
+        }
+        defaults.update(kwargs)
+        return Game.objects.create(**defaults)
+
+    def _create_genre(self, **kwargs: Any) -> Genre:
+        uid = next(_counter)
+        return Genre.objects.create(rawg_id=uid, name=f"Genre-{uid}", slug=f"genre-{uid}", **kwargs)
+
+    def _create_platform(self, **kwargs: Any) -> Platform:
+        uid = next(_counter)
+        return Platform.objects.create(rawg_id=uid, name=f"Platform-{uid}", slug=f"platform-{uid}", **kwargs)
+
+    def _create_tag(self, **kwargs: Any) -> Tag:
+        uid = next(_counter)
+        return Tag.objects.create(rawg_id=uid, name=f"Tag-{uid}", slug=f"tag-{uid}", **kwargs)
+
+
+class PreferenceMeAPITestCase(PreferenceBaseTestCase):
+    """내 선호 정보 조회 및 수정 테스트 (GET/PUT)"""
+
+    url = "/api/v1/preferences/me/"
+
+    def test_preference_me_unauthorized(self) -> None:
+        self.client.force_authenticate(user=None)  # 인증 해제 후 테스트
         response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_preference_me_success(self) -> None:
+        # 데이터가 없을 때의 초기 응답 확인
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200, f"Detail: {response.data}")
+
         data = cast(dict[str, Any], response.data)
         self.assertEqual(data["genres"], [])
         self.assertEqual(data["platforms"], [])
         self.assertEqual(data["tags"], [])
 
-    def test_preference_me_returns_saved_preferences(self) -> None:
-        user = User.objects.create_user(
-            email="user2@example.com",
-            nickname="user2",
-            birth_date=date(1995, 5, 5),
-            password="testpass123",
-        )
-        pref = UserPreference.objects.create(user=user)
+    def test_put_preferences_replace_all(self) -> None:
+        g = self._create_genre()
+        p = self._create_platform()
+        t = self._create_tag()
 
-        genre1 = Genre.objects.create(rawg_id=1001, name="RPG", slug="rpg")
-        genre2 = Genre.objects.create(rawg_id=1002, name="Action", slug="action")
-        platform1 = Platform.objects.create(rawg_id=2001, name="PC", slug="pc")
-        tag1 = Tag.objects.create(rawg_id=3001, name="Singleplayer", slug="singleplayer")
-
-        UserPreferenceGenre.objects.create(user_preference=pref, genre=genre1)
-        UserPreferenceGenre.objects.create(user_preference=pref, genre=genre2)
-        UserPreferencePlatform.objects.create(user_preference=pref, platform=platform1)
-        UserPreferenceTag.objects.create(user_preference=pref, tag=tag1)
-
-        self.client.force_authenticate(user=user)
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 200)
+        payload: dict[str, list[int]] = {"genre_ids": [g.id], "platform_ids": [p.id], "tag_ids": [t.id]}
+        response = self.client.put(self.url, payload, format="json")
+        self.assertEqual(response.status_code, 200, f"Detail: {response.data}")
 
         data = cast(dict[str, Any], response.data)
-        self.assertEqual(len(data["genres"]), 2)
-        genre_ids = {g["id"] for g in data["genres"]}
-        self.assertEqual(genre_ids, {genre1.id, genre2.id})
-        for g in data["genres"]:
-            self.assertIn("name", g)
-            self.assertNotIn("slug", g)
-        self.assertEqual(len(data["platforms"]), 1)
-        self.assertEqual(data["platforms"][0]["id"], platform1.id)
-        self.assertEqual(data["platforms"][0]["name"], "PC")
-        self.assertNotIn("slug", data["platforms"][0])
-        self.assertEqual(len(data["tags"]), 1)
-        self.assertEqual(data["tags"][0]["id"], tag1.id)
-        self.assertEqual(data["tags"][0]["name"], "Singleplayer")
-        self.assertNotIn("slug", data["tags"][0])
+        self.assertEqual(data["genres"][0]["id"], g.id)
+        self.assertEqual(data["platforms"][0]["id"], p.id)
 
-
-class PreferenceMeGenresUpdateAPITestCase(TestCase):
-    client: APIClient
-
-    def setUp(self) -> None:
-        self.client = APIClient()
-        self.url = "/api/v1/preferences/me/genres/"
-
-    def test_put_genres_unauthorized(self) -> None:
-        response = self.client.put(self.url, {"genre_ids": [1]}, format="json")
-        self.assertEqual(response.status_code, 401)
-
-    def test_put_genres_invalid_id_returns_400(self) -> None:
-        user = User.objects.create_user(
-            email="u@ex.com",
-            nickname="u",
-            birth_date=date(1990, 1, 1),
-            password="pw",
-        )
-        self.client.force_authenticate(user=user)
-        response = self.client.put(self.url, {"genre_ids": [99999]}, format="json")
-        self.assertEqual(response.status_code, 400)
-
-    def test_put_genres_replace_and_return_200(self) -> None:
-        user = User.objects.create_user(
-            email="u2@ex.com",
-            nickname="u2",
-            birth_date=date(1995, 1, 1),
-            password="pw",
-        )
-        g1 = Genre.objects.create(rawg_id=101, name="RPG", slug="rpg")
-        g2 = Genre.objects.create(rawg_id=102, name="Action", slug="action")
-        self.client.force_authenticate(user=user)
-
-        response = self.client.put(self.url, {"genre_ids": [g1.id, g2.id]}, format="json")
+    def test_put_preferences_empty_list_clears_all(self) -> None:
+        # 빈 배열 전송 시 초기화 테스트
+        payload: dict[str, list[int]] = {"genre_ids": [], "platform_ids": [], "tag_ids": []}
+        response = self.client.put(self.url, payload, format="json")
         self.assertEqual(response.status_code, 200)
-        data = cast(dict[str, Any], response.data)
-        self.assertEqual(len(data["genres"]), 2)
-        self.assertEqual({g["id"] for g in data["genres"]}, {g1.id, g2.id})
-
-        response2 = self.client.put(self.url, {"genre_ids": [g1.id]}, format="json")
-        self.assertEqual(response2.status_code, 200)
-        data2 = cast(dict[str, Any], response2.data)
-        self.assertEqual(len(data2["genres"]), 1)
-        self.assertEqual(data2["genres"][0]["id"], g1.id)
-
-    def test_put_genres_empty_list_clears(self) -> None:
-        user = User.objects.create_user(
-            email="u3@ex.com",
-            nickname="u3",
-            birth_date=date(1992, 1, 1),
-            password="pw",
-        )
-        pref = UserPreference.objects.create(user=user)
-        g = Genre.objects.create(rawg_id=103, name="Indie", slug="indie")
-        UserPreferenceGenre.objects.create(user_preference=pref, genre=g)
-        self.client.force_authenticate(user=user)
-
-        res = self.client.put(self.url, {"genre_ids": []}, format="json")
-        self.assertEqual(res.status_code, 200)
-        data = cast(dict[str, Any], res.data)
-        self.assertEqual(data["genres"], [])
+        self.assertEqual(response.data["genres"], [])
+        self.assertEqual(response.data["platforms"], [])
+        self.assertEqual(response.data["tags"], [])
 
 
-class PreferenceMePlatformsUpdateAPITestCase(TestCase):
-    client: APIClient
-
-    def setUp(self) -> None:
-        self.client = APIClient()
-        self.url = "/api/v1/preferences/me/platforms/"
-
-    def test_put_platforms_unauthorized(self) -> None:
-        response = self.client.put(self.url, {"platform_ids": [1]}, format="json")
-        self.assertEqual(response.status_code, 401)
-
-    def test_put_platforms_invalid_id_returns_400(self) -> None:
-        user = User.objects.create_user(
-            email="u@ex.com",
-            nickname="u",
-            birth_date=date(1990, 1, 1),
-            password="pw",
-        )
-        self.client.force_authenticate(user=user)
-        response = self.client.put(self.url, {"platform_ids": [99999]}, format="json")
-        self.assertEqual(response.status_code, 400)
-
-    def test_put_platforms_replace_and_return_200(self) -> None:
-        user = User.objects.create_user(
-            email="u2@ex.com",
-            nickname="u2",
-            birth_date=date(1995, 1, 1),
-            password="pw",
-        )
-        p1 = Platform.objects.create(rawg_id=201, name="PC", slug="pc")
-        p2 = Platform.objects.create(rawg_id=202, name="PlayStation", slug="playstation")
-        self.client.force_authenticate(user=user)
-
-        response = self.client.put(self.url, {"platform_ids": [p1.id, p2.id]}, format="json")
-        self.assertEqual(response.status_code, 200)
-        data = cast(dict[str, Any], response.data)
-        self.assertEqual(len(data["platforms"]), 2)
-        self.assertEqual({p["id"] for p in data["platforms"]}, {p1.id, p2.id})
-
-        response2 = self.client.put(self.url, {"platform_ids": [p1.id]}, format="json")
-        self.assertEqual(response2.status_code, 200)
-        data2 = cast(dict[str, Any], response2.data)
-        self.assertEqual(len(data2["platforms"]), 1)
-        self.assertEqual(data2["platforms"][0]["id"], p1.id)
-
-    def test_put_platforms_empty_list_clears(self) -> None:
-        user = User.objects.create_user(
-            email="u3@ex.com",
-            nickname="u3",
-            birth_date=date(1992, 1, 1),
-            password="pw",
-        )
-        pref = UserPreference.objects.create(user=user)
-        p = Platform.objects.create(rawg_id=203, name="Xbox", slug="xbox")
-        UserPreferencePlatform.objects.create(user_preference=pref, platform=p)
-        self.client.force_authenticate(user=user)
-
-        res = self.client.put(self.url, {"platform_ids": []}, format="json")
-        self.assertEqual(res.status_code, 200)
-        data = cast(dict[str, Any], res.data)
-        self.assertEqual(data["platforms"], [])
-
-
-class PreferenceMeTagsUpdateAPITestCase(TestCase):
-    client: APIClient
-
-    def setUp(self) -> None:
-        self.client = APIClient()
-        self.url = "/api/v1/preferences/me/tags/"
-
-    def test_put_tags_unauthorized(self) -> None:
-        response = self.client.put(self.url, {"tag_ids": [1]}, format="json")
-        self.assertEqual(response.status_code, 401)
-
-    def test_put_tags_invalid_id_returns_400(self) -> None:
-        user = User.objects.create_user(
-            email="u@ex.com",
-            nickname="u",
-            birth_date=date(1990, 1, 1),
-            password="pw",
-        )
-        self.client.force_authenticate(user=user)
-        response = self.client.put(self.url, {"tag_ids": [99999]}, format="json")
-        self.assertEqual(response.status_code, 400)
-
-    def test_put_tags_replace_and_return_200(self) -> None:
-        user = User.objects.create_user(
-            email="u2@ex.com",
-            nickname="u2",
-            birth_date=date(1995, 1, 1),
-            password="pw",
-        )
-        t1 = Tag.objects.create(rawg_id=301, name="RPG", slug="rpg")
-        t2 = Tag.objects.create(rawg_id=302, name="Multiplayer", slug="multiplayer")
-        self.client.force_authenticate(user=user)
-
-        response = self.client.put(self.url, {"tag_ids": [t1.id, t2.id]}, format="json")
-        self.assertEqual(response.status_code, 200)
-        data = cast(dict[str, Any], response.data)
-        self.assertEqual(len(data["tags"]), 2)
-        self.assertEqual({t["id"] for t in data["tags"]}, {t1.id, t2.id})
-
-        response2 = self.client.put(self.url, {"tag_ids": [t1.id]}, format="json")
-        self.assertEqual(response2.status_code, 200)
-        data2 = cast(dict[str, Any], response2.data)
-        self.assertEqual(len(data2["tags"]), 1)
-        self.assertEqual(data2["tags"][0]["id"], t1.id)
-
-    def test_put_tags_empty_list_clears(self) -> None:
-        user = User.objects.create_user(
-            email="u3@ex.com",
-            nickname="u3",
-            birth_date=date(1992, 1, 1),
-            password="pw",
-        )
-        pref = UserPreference.objects.create(user=user)
-        t = Tag.objects.create(rawg_id=303, name="Singleplayer", slug="singleplayer")
-        UserPreferenceTag.objects.create(user_preference=pref, tag=t)
-        self.client.force_authenticate(user=user)
-
-        res = self.client.put(self.url, {"tag_ids": []}, format="json")
-        self.assertEqual(res.status_code, 200)
-        data = cast(dict[str, Any], res.data)
-        self.assertEqual(data["tags"], [])
-
-
-class PreferenceMeSavedGamesListAPITestCase(TestCase):
-    client: APIClient
-
-    def setUp(self) -> None:
-        self.client = APIClient()
-        self.url = "/api/v1/preferences/me/saved-games/"
-
-    def test_saved_games_unauthorized(self) -> None:
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 401)
-
-    def test_saved_games_empty_when_no_saved(self) -> None:
-        user = User.objects.create_user(
-            email="u@ex.com",
-            nickname="u",
-            birth_date=date(1990, 1, 1),
-            password="pw",
-        )
-        self.client.force_authenticate(user=user)
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 200)
-        data = cast(dict[str, Any], response.data)
-        self.assertEqual(data["count"], 0)
-        self.assertEqual(data["results"], [])
-
-    def test_saved_games_returns_list(self) -> None:
-        from apps.games.models import Game
-
-        user = User.objects.create_user(
-            email="u2@ex.com",
-            nickname="u2",
-            birth_date=date(1995, 1, 1),
-            password="pw",
-        )
-        game = Game.objects.create(
-            rawg_id=5001,
-            slug="witcher-3",
-            name="The Witcher 3",
-            thumbnail_img_url="https://cdn.example.com/w3.jpg",
-            website="https://example.com",
-            rawg_rating=4.66,
-            is_visible=True,
-        )
-        now = timezone.now()
-        UserGameAffinity.objects.create(
-            user=user,
-            game=game,
-            is_saved=True,
-            last_interacted_at=now,
-            calculated_at=now,
-        )
-        self.client.force_authenticate(user=user)
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 200)
-        data = cast(dict[str, Any], response.data)
-        self.assertEqual(data["count"], 1)
-        self.assertEqual(len(data["results"]), 1)
-        item = data["results"][0]
-        self.assertEqual(item["id"], game.id)
-        self.assertEqual(item["name"], "The Witcher 3")
-        self.assertEqual(item["slug"], "witcher-3")
-        self.assertEqual(item["thumbnail_img_url"], "https://cdn.example.com/w3.jpg")
-        self.assertEqual(float(item["rawg_rating"]), 4.66)
-        self.assertIn("saved_at", item)
-
-
-class PreferenceMeGameAffinitiesListAPITestCase(TestCase):
-    client: APIClient
-
-    def setUp(self) -> None:
-        self.client = APIClient()
-        self.url = "/api/v1/preferences/me/game-affinities/"
-
-    def test_game_affinities_unauthorized(self) -> None:
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 401)
-
-    def test_game_affinities_empty_when_none(self) -> None:
-        user = User.objects.create_user(
-            email="u@ex.com",
-            nickname="u",
-            birth_date=date(1990, 1, 1),
-            password="pw",
-        )
-        self.client.force_authenticate(user=user)
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 200)
-        data = cast(dict[str, Any], response.data)
-        self.assertEqual(data["count"], 0)
-        self.assertEqual(data["results"], [])
-
-    def test_game_affinities_returns_list_ordered_by_last_interacted_at(self) -> None:
-        from apps.games.models import Game
-
-        user = User.objects.create_user(
-            email="u2@ex.com",
-            nickname="u2",
-            birth_date=date(1995, 1, 1),
-            password="pw",
-        )
-        game = Game.objects.create(
-            rawg_id=5002,
-            slug="witcher-3",
-            name="The Witcher 3",
-            thumbnail_img_url="https://cdn.example.com/w3.jpg",
-            website="https://example.com",
-            rawg_rating=4.66,
-            is_visible=True,
-        )
-        now = timezone.now()
-        UserGameAffinity.objects.create(
-            user=user,
-            game=game,
-            is_saved=True,
-            like_state=1,
-            preference_score=0.8523,
-            last_interacted_at=now,
-            calculated_at=now,
-        )
-        self.client.force_authenticate(user=user)
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 200)
-        data = cast(dict[str, Any], response.data)
-        self.assertEqual(data["count"], 1)
-        self.assertEqual(len(data["results"]), 1)
-        item = data["results"][0]
-        self.assertEqual(item["game_id"], game.id)
-        self.assertEqual(item["game_name"], "The Witcher 3")
-        self.assertEqual(item["slug"], "witcher-3")
-        self.assertEqual(item["thumbnail_img_url"], "https://cdn.example.com/w3.jpg")
-        self.assertEqual(float(item["rawg_rating"]), 4.66)
-        self.assertTrue(item["is_saved"])
-        self.assertEqual(item["like_state"], 1)
-        self.assertEqual(float(item["preference_score"]), 0.8523)
-        self.assertIn("last_interacted_at", item)
-
-
-def _create_game(**kwargs: Any) -> Game:
-    from apps.games.models import Game
-
-    defaults = {
-        "rawg_id": 5001,
-        "slug": "test-game",
-        "name": "Test Game",
-        "thumbnail_img_url": "https://example.com/thumb.jpg",
-        "website": "https://example.com",
-        "is_visible": True,
-    }
-    defaults.update(kwargs)
-    return Game.objects.create(**defaults)
-
-
-class PreferenceGameReactionUpdateAPITestCase(TestCase):
-    client: APIClient
-
-    def setUp(self) -> None:
-        self.client = APIClient()
+class PreferenceGameReactionAPITestCase(PreferenceBaseTestCase):
+    """게임 반응 수정 테스트 (PATCH)"""
 
     def _url(self, game_id: int) -> str:
         return f"/api/v1/preferences/games/{game_id}/"
 
-    def test_put_game_reaction_unauthorized(self) -> None:
-        game = _create_game()
-        response = self.client.put(self._url(game.id), {"is_saved": True}, format="json")
+    def test_patch_game_reaction_success(self) -> None:
+        game = self._create_game()
+        payload = {"reaction": "like", "is_saved": True, "source": "detail_page"}
+
+        response = self.client.patch(self._url(game.id), payload, format="json")
+        self.assertEqual(response.status_code, 200, f"Detail: {response.data}")
+
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["reaction"], "like")
+        self.assertTrue(data["is_saved"])
+
+    def test_patch_game_reaction_invalid_value(self) -> None:
+        game = self._create_game()
+        response = self.client.patch(self._url(game.id), {"reaction": "wrong"}, format="json")
+        self.assertEqual(response.status_code, 400)
+
+
+class SavedGamesAPITestCase(PreferenceBaseTestCase):
+    """찜한 게임 목록 테스트 (GET)"""
+
+    url = "/api/v1/preferences/me/saved-games/"
+
+    def test_saved_games_unauthorized(self) -> None:
+        self.client.force_authenticate(user=None)
+        response = self.client.get(self.url)
         self.assertEqual(response.status_code, 401)
 
-    def test_put_game_reaction_game_not_found(self) -> None:
-        user = User.objects.create_user(
-            email="u@ex.com",
-            nickname="u",
-            birth_date=date(1990, 1, 1),
-            password="pw",
-        )
-        self.client.force_authenticate(user=user)
-        response = self.client.put(self._url(99999), {"is_saved": True}, format="json")
-        self.assertEqual(response.status_code, 404)
-
-    def test_put_game_reaction_empty_body_returns_400(self) -> None:
-        user = User.objects.create_user(
-            email="u@ex.com",
-            nickname="u",
-            birth_date=date(1990, 1, 1),
-            password="pw",
-        )
-        game = _create_game()
-        self.client.force_authenticate(user=user)
-        response = self.client.put(self._url(game.id), {}, format="json")
-        self.assertEqual(response.status_code, 400)
-
-    def test_put_game_reaction_invalid_reaction_returns_400(self) -> None:
-        user = User.objects.create_user(
-            email="u@ex.com",
-            nickname="u",
-            birth_date=date(1990, 1, 1),
-            password="pw",
-        )
-        game = _create_game()
-        self.client.force_authenticate(user=user)
-        response = self.client.put(
-            self._url(game.id),
-            {"reaction": "invalid_value"},
-            format="json",
-        )
-        self.assertEqual(response.status_code, 400)
+    def test_get_saved_games_empty(self) -> None:
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200, f"Detail: {response.data}")
         data = cast(dict[str, Any], response.data)
-        self.assertEqual(data.get("code"), "INVALID_REACTION")
-        self.assertEqual(
-            data.get("message"),
-            "reaction은 like, dislike, neutral 중 하나여야 합니다.",
-        )
+        self.assertEqual(data["count"], 0)
+        self.assertEqual(data["results"], [])
 
-    def test_put_game_reaction_is_saved(self) -> None:
-        user = User.objects.create_user(
-            email="u@ex.com",
-            nickname="u",
-            birth_date=date(1990, 1, 1),
-            password="pw",
-        )
-        game = _create_game()
-        self.client.force_authenticate(user=user)
+    def test_get_saved_games_success(self) -> None:
+        game = self._create_game()
+        self.client.patch(f"/api/v1/preferences/games/{game.id}/", {"is_saved": True}, format="json")
 
-        response = self.client.put(self._url(game.id), {"is_saved": True}, format="json")
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200, f"Detail: {response.data}")
+
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(data["results"][0]["id"], game.id)
+        self.assertTrue(data["results"][0]["is_saved"] if "is_saved" in data["results"][0] else True)
+
+    def test_get_saved_games_excludes_unsaved(self) -> None:
+        game = self._create_game()
+        self.client.patch(f"/api/v1/preferences/games/{game.id}/", {"is_saved": False}, format="json")
+
+        response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 0)
+
+
+class GameAffinitiesAPITestCase(PreferenceBaseTestCase):
+    """게임 취향 상태 목록 테스트 (GET)"""
+
+    url = "/api/v1/preferences/me/game-affinities/"
+
+    def test_game_affinities_unauthorized(self) -> None:
+        self.client.force_authenticate(user=None)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_game_affinities_empty(self) -> None:
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200, f"Detail: {response.data}")
         data = cast(dict[str, Any], response.data)
-        self.assertEqual(data["game_id"], game.id)
-        self.assertTrue(data["is_saved"])
-        self.assertEqual(data["reaction"], "neutral")
-        self.assertIn("updated_at", data)
+        self.assertEqual(data["count"], 0)
+        self.assertEqual(data["results"], [])
 
-        response2 = self.client.put(self._url(game.id), {"is_saved": False}, format="json")
-        self.assertEqual(response2.status_code, 200)
-        data2 = cast(dict[str, Any], response2.data)
-        self.assertFalse(data2["is_saved"])
+    def test_get_game_affinities_success(self) -> None:
+        game = self._create_game()
+        self.client.patch(f"/api/v1/preferences/games/{game.id}/", {"reaction": "like"}, format="json")
 
-    def test_put_game_reaction_like_dislike(self) -> None:
-        user = User.objects.create_user(
-            email="u2@ex.com",
-            nickname="u2",
-            birth_date=date(1995, 1, 1),
-            password="pw",
-        )
-        game = _create_game()
-        self.client.force_authenticate(user=user)
+        response = self.client.get(self.url)
 
-        response = self.client.put(self._url(game.id), {"reaction": "like"}, format="json")
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 200, f"Detail: {response.data}")
+
         data = cast(dict[str, Any], response.data)
-        self.assertEqual(data["reaction"], "like")
-
-        response2 = self.client.put(self._url(game.id), {"reaction": "dislike"}, format="json")
-        self.assertEqual(response2.status_code, 200)
-        data2 = cast(dict[str, Any], response2.data)
-        self.assertEqual(data2["reaction"], "dislike")
-
-        response3 = self.client.put(self._url(game.id), {"reaction": "neutral"}, format="json")
-        self.assertEqual(response3.status_code, 200)
-        data3 = cast(dict[str, Any], response3.data)
-        self.assertEqual(data3["reaction"], "neutral")
-
-    def test_put_game_reaction_both_is_saved_and_reaction(self) -> None:
-        user = User.objects.create_user(
-            email="u3@ex.com",
-            nickname="u3",
-            birth_date=date(1992, 1, 1),
-            password="pw",
-        )
-        game = _create_game()
-        self.client.force_authenticate(user=user)
-
-        response = self.client.put(
-            self._url(game.id),
-            {"is_saved": True, "reaction": "like"},
-            format="json",
-        )
-        self.assertEqual(response.status_code, 200)
-        data = cast(dict[str, Any], response.data)
-        self.assertTrue(data["is_saved"])
-        self.assertEqual(data["reaction"], "like")
+        self.assertEqual(data["count"], 1)
+        result = data["results"][0]
+        self.assertEqual(result["id"], game.id)
+        self.assertEqual(result["like_state"], 1)

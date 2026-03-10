@@ -33,7 +33,9 @@ class ErrorMessages(Enum):
     TAG_IDS_INVALID = (400, "tag_ids는 배열이어야 합니다.")
     INVALID_TAG_ID = (400, "존재하지 않는 태그 ID가 포함되어 있습니다.")
     INVALID_REACTION = (400, "reaction은 like, dislike, neutral 중 하나여야 합니다.")
+    REACTION_DATA_REQUIRED = (400, "is_saved 또는 reaction 중 하나 이상 필요합니다.")
     INVALID_SOURCE = (400, "유효하지 않은 source 값입니다.")
+    PREFERENCE_FIELDS_REQUIRED = (400, "genre_ids, platform_ids, tag_ids는 필수 항목입니다.")
 
     # 401 Unauthorized
     UNAUTHORIZED = (401, "인증이 필요합니다.")

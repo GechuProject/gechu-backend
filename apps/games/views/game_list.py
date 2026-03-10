@@ -4,8 +4,8 @@ from rest_framework.generics import ListAPIView
 
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.core.serializers.error_serializer import ErrorResponseSerializer
+from apps.core.utils.pagination import Pagination
 from apps.games.models.catalog import Game
-from apps.games.pagination import GamePagination
 from apps.games.serializers.game_list import (
     GameListQuerySerializer,
     GameListResponseSerializer,
@@ -67,7 +67,7 @@ from apps.games.services.game_list import GameService
 )
 class GameListView(ListAPIView):  # type: ignore[type-arg]
     serializer_class = GameListResponseSerializer
-    pagination_class = GamePagination
+    pagination_class = Pagination
 
     def get_queryset(self) -> QuerySet[Game]:
         # 쿼리 파라미터 검증
