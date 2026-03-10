@@ -5,11 +5,13 @@ from apps.preferences.views import (
     PreferenceMeGenresUpdateView,
     PreferenceMePlatformsUpdateView,
     PreferenceMeRetrieveView,
+    PreferenceMeSavedGamesListView,
     PreferenceMeTagsUpdateView,
 )
 
 urlpatterns = [
     path("me/", PreferenceMeRetrieveView.as_view(), name="preference-me-retrieve"),
+    path("me/saved-games/", PreferenceMeSavedGamesListView.as_view(), name="preference-me-saved-games"),
     path("me/genres/", PreferenceMeGenresUpdateView.as_view(), name="preference-me-genres-update"),
     path("me/platforms/", PreferenceMePlatformsUpdateView.as_view(), name="preference-me-platforms-update"),
     path("me/tags/", PreferenceMeTagsUpdateView.as_view(), name="preference-me-tags-update"),

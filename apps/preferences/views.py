@@ -1,8 +1,10 @@
 from typing import cast
 
 from django.db import transaction
+from django.db.models import QuerySet
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -11,6 +13,7 @@ from rest_framework.views import APIView
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.games.models import Game
+from apps.games.pagination import GamePagination
 from apps.interactions.models import InteractionLog
 from apps.preferences.models import (
     UserGameAffinity,
@@ -25,11 +28,32 @@ from apps.preferences.serializers import (
     PreferenceMeResponseSerializer,
     PreferencePlatformsUpdateSerializer,
     PreferenceTagsUpdateSerializer,
+    SavedGameItemSerializer,
 )
 from apps.users.models import User
 
 
 @extend_schema(tags=["Preferences"])
+class PreferenceMeSavedGamesListView(ListAPIView):  # type: ignore[type-arg]
+    """GET /api/v1/preferences/me/saved-games/ — 내가 찜한 게임 목록 (페이지네이션)."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = SavedGameItemSerializer
+    pagination_class = GamePagination
+
+    def get_queryset(self) -> QuerySet[UserGameAffinity]:
+        user = cast(User, self.request.user)
+        return (
+            UserGameAffinity.objects.filter(
+                user=user,
+                is_saved=True,
+                game__is_visible=True,
+            )
+            .select_related("game")
+            .order_by("-last_interacted_at")
+        )
+
+
 class PreferenceMeRetrieveView(APIView):
     permission_classes = [IsAuthenticated]
 
