@@ -29,6 +29,7 @@ from apps.preferences.serializers import (
 from apps.users.models import User
 
 
+@extend_schema(tags=["Preferences"])
 class PreferenceMeRetrieveView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -37,6 +38,7 @@ class PreferenceMeRetrieveView(APIView):
         return Response(serializer.data)
 
 
+@extend_schema(tags=["Preferences"])
 class PreferenceMeGenresUpdateView(APIView):
     permission_classes = [IsAuthenticated]
 
