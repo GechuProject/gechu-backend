@@ -1,3 +1,4 @@
+import os
 from typing import Any, cast
 
 from rest_framework import status
@@ -43,11 +44,17 @@ def custom_exception_handler(
         )
 
     # 그 외 예외는 500으로 처리
+    error_message = "서버 오류가 발생했습니다."
+
+    # DEBUG = True일 때는 실제 에러 메시지 노출
+    if os.getenv("DJANGO_SETTINGS_MODULE") != "config.settings.prod":
+        error_message = f"{str(exc)}"
+
     return Response(
         data={
             "status_code": 500,
             "code": "SERVER_ERROR",
-            "message": "서버 오류가 발생했습니다.",
+            "message": error_message,
         },
         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
