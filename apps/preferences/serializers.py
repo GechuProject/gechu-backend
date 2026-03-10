@@ -49,6 +49,29 @@ class SavedGameItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
     saved_at = serializers.DateTimeField(source="last_interacted_at")
 
 
+class GameAffinityItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    """게임 취향 상세 목록 한 건. obj는 UserGameAffinity (select_related('game') 필요)."""
+
+    game_id = serializers.IntegerField(source="game.id")
+    game_name = serializers.CharField(source="game.name")
+    slug = serializers.CharField(source="game.slug")
+    thumbnail_img_url = serializers.CharField(source="game.thumbnail_img_url")
+    rawg_rating = serializers.DecimalField(
+        source="game.rawg_rating",
+        max_digits=3,
+        decimal_places=2,
+        coerce_to_string=False,
+    )
+    is_saved = serializers.BooleanField()
+    like_state = serializers.IntegerField()
+    preference_score = serializers.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        coerce_to_string=False,
+    )
+    last_interacted_at = serializers.DateTimeField()
+
+
 class PreferenceGenresUpdateSerializer(serializers.Serializer):  # type: ignore[type-arg]
     genre_ids = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
