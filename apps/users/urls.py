@@ -1,6 +1,6 @@
 from django.urls import path
 
-from apps.users.views.auth import LoginAPIView, SignupAPIView, RefreshAPIView, LogoutAPIView
+from apps.users.views.auth import LoginAPIView, LogoutAPIView, RefreshAPIView, SignupAPIView
 
 from .views.auth import EmailCodeSendAPIView
 
