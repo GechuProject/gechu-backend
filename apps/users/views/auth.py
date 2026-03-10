@@ -1,7 +1,9 @@
-from random import randint
+import secrets
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.core.mail import send_mail
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -83,10 +85,16 @@ class EmailCodeSendAPIView(APIView):
         if cache.get(cooldown_key):
             raise CustomAPIException(ErrorMessages.TOO_MANY_REQUESTS)
 
-        code = f"{randint(0, 999999):06d}"
+        code = f"{secrets.randbelow(1000000):06d}"
         cache.set(cooldown_key, True, timeout=self.COOLDOWN_SECONDS)
         cache.set(f"email_code:{email}", code, timeout=self.CODE_TTL_SECONDS)
-
+        send_mail(
+            subject="[Gechu] 이메일 인증 코드",
+            message=(f"인증 코드: {code}\n이 코드는 {self.CODE_TTL_SECONDS // 60}분 동안 유효합니다."),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
         return Response(
             {"message": "인증 코드가 발송되었습니다.", "expires_in": self.CODE_TTL_SECONDS},
             status=status.HTTP_201_CREATED,
