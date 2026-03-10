@@ -2,9 +2,10 @@ from typing import cast
 
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics
-from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 
+from apps.core.exceptions.exception_handler import CustomAPIException
+from apps.core.exceptions.exception_message import ErrorMessages
 from apps.users.models.user import User
 from apps.users.serializers.me import UserMeResponseSerializer
 
@@ -21,5 +22,5 @@ class UserMeRetrieveAPIView(generics.RetrieveAPIView[User]):
     def get_object(self) -> User:
         user = cast(User, self.request.user)
         if user.deleted_at is not None:
-            raise NotFound("사용자를 찾을 수 없습니다.")
+            raise CustomAPIException(ErrorMessages.USER_NOT_FOUND)
         return user
