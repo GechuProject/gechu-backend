@@ -10,7 +10,7 @@ class SimilarGameQueryParamsSerializer(serializers.Serializer[Any]):
     limit = serializers.IntegerField(required=False, default=10)
 
     def validate_limit(self, value: int) -> int:
-        if value < 1:
+        if value < 1 or value > 30:
             raise CustomAPIException(ErrorMessages.INVALID_QUERY_PARAM)
         return value
 
