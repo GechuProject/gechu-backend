@@ -12,11 +12,11 @@ from rest_framework.test import APIClient
 
 from apps.games.models import Genre, Platform, Tag
 from apps.preferences.models import (
+    UserGameAffinity,
     UserPreference,
     UserPreferenceGenre,
     UserPreferencePlatform,
     UserPreferenceTag,
-    UserGameAffinity,
 )
 from apps.users.models import User
 
@@ -340,6 +340,74 @@ class PreferenceMeSavedGamesListAPITestCase(TestCase):
         self.assertEqual(item["thumbnail_img_url"], "https://cdn.example.com/w3.jpg")
         self.assertEqual(float(item["rawg_rating"]), 4.66)
         self.assertIn("saved_at", item)
+
+
+class PreferenceMeGameAffinitiesListAPITestCase(TestCase):
+    client: APIClient
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/preferences/me/game-affinities/"
+
+    def test_game_affinities_unauthorized(self) -> None:
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 401)
+
+    def test_game_affinities_empty_when_none(self) -> None:
+        user = User.objects.create_user(
+            email="u@ex.com",
+            nickname="u",
+            birth_date=date(1990, 1, 1),
+            password="pw",
+        )
+        self.client.force_authenticate(user=user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["count"], 0)
+        self.assertEqual(data["results"], [])
+
+    def test_game_affinities_returns_list(self) -> None:
+        from apps.games.models import Game
+
+        user = User.objects.create_user(
+            email="u2@ex.com",
+            nickname="u2",
+            birth_date=date(1995, 1, 1),
+            password="pw",
+        )
+        game = Game.objects.create(
+            rawg_id=5002,
+            slug="witcher-3",
+            name="The Witcher 3",
+            thumbnail_img_url="https://cdn.example.com/w3.jpg",
+            website="https://example.com",
+            rawg_rating=4.66,
+            is_visible=True,
+        )
+        now = timezone.now()
+        UserGameAffinity.objects.create(
+            user=user,
+            game=game,
+            is_saved=True,
+            like_state=1,
+            preference_score=0.8523,
+            last_interacted_at=now,
+            calculated_at=now,
+        )
+        self.client.force_authenticate(user=user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(len(data["results"]), 1)
+        item = data["results"][0]
+        self.assertEqual(item["game_id"], game.id)
+        self.assertEqual(item["game_name"], "The Witcher 3")
+        self.assertTrue(item["is_saved"])
+        self.assertEqual(item["like_state"], 1)
+        self.assertEqual(float(item["preference_score"]), 0.8523)
+        self.assertIn("last_interacted_at", item)
 
 
 def _create_game(**kwargs: Any) -> Game:
