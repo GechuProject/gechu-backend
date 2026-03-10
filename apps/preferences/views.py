@@ -23,7 +23,6 @@ from apps.preferences.models import (
     UserPreferenceTag,
 )
 from apps.preferences.serializers import (
-    GameAffinityItemSerializer,
     PreferenceGameReactionUpdateSerializer,
     PreferenceGenresUpdateSerializer,
     PreferenceMeResponseSerializer,
@@ -52,26 +51,6 @@ class PreferenceMeSavedGamesListView(ListAPIView):  # type: ignore[type-arg]
             )
             .select_related("game")
             .order_by("-last_interacted_at")
-        )
-
-
-@extend_schema(tags=["Preferences"])
-class PreferenceMeGameAffinitiesListView(ListAPIView):  # type: ignore[type-arg]
-    """GET /api/v1/preferences/me/game-affinities/ — 내 게임 취향 상세 목록 (페이지네이션)."""
-
-    permission_classes = [IsAuthenticated]
-    serializer_class = GameAffinityItemSerializer
-    pagination_class = GamePagination
-
-    def get_queryset(self) -> QuerySet[UserGameAffinity]:
-        user = cast(User, self.request.user)
-        return (
-            UserGameAffinity.objects.filter(
-                user=user,
-                game__is_visible=True,
-            )
-            .select_related("game")
-            .order_by("-preference_score")
         )
 
 
