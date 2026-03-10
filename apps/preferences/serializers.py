@@ -33,6 +33,22 @@ class PreferenceMeResponseSerializer(serializers.Serializer):  # type: ignore[ty
         return [{"id": ut.tag.id, "name": ut.tag.name} for ut in qs]
 
 
+class SavedGameItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    """찜한 게임 목록 한 건. obj는 UserGameAffinity (select_related('game') 필요)."""
+
+    id = serializers.IntegerField(source="game.id")
+    name = serializers.CharField(source="game.name")
+    slug = serializers.CharField(source="game.slug")
+    thumbnail_img_url = serializers.CharField(source="game.thumbnail_img_url")
+    rawg_rating = serializers.DecimalField(
+        source="game.rawg_rating",
+        max_digits=3,
+        decimal_places=2,
+        coerce_to_string=False,
+    )
+    saved_at = serializers.DateTimeField(source="last_interacted_at")
+
+
 class PreferenceGenresUpdateSerializer(serializers.Serializer):  # type: ignore[type-arg]
     genre_ids = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
