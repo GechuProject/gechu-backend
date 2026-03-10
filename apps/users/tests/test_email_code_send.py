@@ -16,7 +16,7 @@ class EmailCodeSendAPITest(TestCase):
 
     def test_send_email_code_stores_code_in_cache(self) -> None:
         res = self.client.post(
-            "/api/v1/auth/email/code",
+            "/api/v1/auth/email/code/",
             data={"email": self.email},
             format="json",
         )

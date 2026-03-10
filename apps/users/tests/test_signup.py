@@ -22,7 +22,7 @@ class SignupAPITestCase(TestCase):
             "birth_date": "1995-06-15",
         }
 
-        res = self.client.post("/api/v1/auth/signup", payload, format="json")
+        res = self.client.post("/api/v1/auth/signup/", payload, format="json")
 
         self.assertEqual(res.status_code, 201)
 
