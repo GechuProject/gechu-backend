@@ -1,21 +1,15 @@
 from django.urls import path
 
 from apps.preferences.views import (
+    GameAffinitiesView,
     PreferenceGameReactionUpdateView,
-    PreferenceMeGameAffinitiesListView,
-    PreferenceMeGenresUpdateView,
-    PreferenceMePlatformsUpdateView,
-    PreferenceMeRetrieveView,
-    PreferenceMeSavedGamesListView,
-    PreferenceMeTagsUpdateView,
+    PreferenceMeView,
+    SavedGamesView,
 )
 
 urlpatterns = [
-    path("me/", PreferenceMeRetrieveView.as_view(), name="preference-me-retrieve"),
-    path("me/saved-games/", PreferenceMeSavedGamesListView.as_view(), name="preference-me-saved-games"),
-    path("me/game-affinities/", PreferenceMeGameAffinitiesListView.as_view(), name="preference-me-game-affinities"),
-    path("me/genres/", PreferenceMeGenresUpdateView.as_view(), name="preference-me-genres-update"),
-    path("me/platforms/", PreferenceMePlatformsUpdateView.as_view(), name="preference-me-platforms-update"),
-    path("me/tags/", PreferenceMeTagsUpdateView.as_view(), name="preference-me-tags-update"),
+    path("me/", PreferenceMeView.as_view(), name="preference-me"),
+    path("me/saved-games/", SavedGamesView.as_view()),
+    path("me/game-affinities/", GameAffinitiesView.as_view()),
     path("games/<int:game_id>/", PreferenceGameReactionUpdateView.as_view(), name="preference-game-reaction-update"),
 ]

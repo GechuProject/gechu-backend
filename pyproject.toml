@@ -82,9 +82,12 @@ django_settings_module = "config.settings.local"
 [tool.coverage.run]
 source = ["apps"]
 omit = [
+    "*/__init__.py",
     "*/migrations/*",
     "*/tests/*",
     "*/test_*.py",
+    "*/tests.py",
+    "*/tests_*.py",
     "*/settings/*",
     "*/manage.py",
     "*/urls.py",
