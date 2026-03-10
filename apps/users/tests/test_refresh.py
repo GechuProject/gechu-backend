@@ -73,7 +73,7 @@ class RefreshAPITestCase(TestCase):
 
     def test_refresh_with_deactivated_user(self) -> None:
         login_res = self.client.post(
-            "/api/v1/auth/login",
+            "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},
             format="json",
         )
@@ -83,7 +83,7 @@ class RefreshAPITestCase(TestCase):
         self.user.save(update_fields=["is_active"])
 
         res = self.client.post(
-            "/api/v1/auth/refresh",
+            "/api/v1/auth/refresh/",
             format="json",
         )
 
