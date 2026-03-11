@@ -6,14 +6,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from apps.core.exceptions.exception_handler import CustomAPIException
-from apps.core.exceptions.exception_message import ErrorMessages
 from apps.users.models.user import User
 from apps.users.serializers.me import (
     UserMeResponseSerializer,
     UserMeUpdateRequestSerializer,
     UserMeUpdateResponseSerializer,
 )
+from apps.users.services import get_user_me, update_user_me
 
 
 @extend_schema(tags=["Users"])
@@ -23,10 +22,7 @@ class UserMeAPIView(generics.RetrieveUpdateAPIView[User]):
     http_method_names = ["get", "patch"]
 
     def get_object(self) -> User:
-        user = cast(User, self.request.user)
-        if user.deleted_at is not None:
-            raise CustomAPIException(ErrorMessages.USER_NOT_FOUND)
-        return user
+        return get_user_me(cast(User, self.request.user))
 
     def get_serializer_class(self) -> type[serializers.Serializer[Any]]:
         if self.request.method == "PATCH":
@@ -50,8 +46,8 @@ class UserMeAPIView(generics.RetrieveUpdateAPIView[User]):
 
     def update(self, request: Request, *args: object, **kwargs: object) -> Response:
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer = self.get_serializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        updated_user = serializer.save()
+        updated_user = update_user_me(instance, **serializer.validated_data)
         response_serializer = UserMeUpdateResponseSerializer(updated_user)
         return Response(response_serializer.data)

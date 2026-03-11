@@ -11,11 +11,10 @@ class EmailCodeSendAPITest(TestCase):
     def setUp(self) -> None:
         self.client = APIClient()
         self.email = "user@example.com"
-        # 테스트 간 간섭 방지
         cache.delete(f"email_code:{self.email}")
         cache.delete(f"email_code_cooldown:{self.email}")
 
-    @patch("apps.users.views.auth.send_mail")
+    @patch("apps.users.services.auth_service.send_mail")
     def test_send_email_code_stores_code_in_cache(self, mock_send_mail: MagicMock) -> None:
         res = self.client.post(
             "/api/v1/auth/email/code/",
