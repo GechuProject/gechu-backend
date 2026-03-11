@@ -7,6 +7,10 @@ from .genre_list import (
     GenreListResponseSerializer,
     GenreResponseSerializer,
 )
+from .platform_list import (
+    PlatformListResponseSerializer,
+    PlatformResponseSerializer,
+)
 from .similar_game import (
     SimilarGameQueryParamsSerializer,
     SimilarGameResponseSerializer,
@@ -20,4 +24,6 @@ __all__ = [
     "SimilarGameResponseSerializer",
     "GenreResponseSerializer",
     "GenreListResponseSerializer",
+    "PlatformResponseSerializer",
+    "PlatformListResponseSerializer",
 ]
