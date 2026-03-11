@@ -1,4 +1,5 @@
 import secrets
+from typing import cast
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -16,6 +17,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.users.serializers.auth import (
+    AuthMeResponseSerializer,
     EmailCodeSendRequestSerializer,
     LoginSerializer,
     SignupRequestSerializer,
@@ -238,3 +240,21 @@ class RefreshAPIView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+@extend_schema(
+    summary="현재 인증 사용자 조회",
+    request=None,
+    responses={200: AuthMeResponseSerializer},
+    tags=["auth"],
+)
+class AuthMeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        user = cast(get_user_model(), request.user)
+
+        if user.deleted_at is not None or user.is_active is False:
+            raise CustomAPIException(ErrorMessages.ACCOUNT_DEACTIVATED)
+
+        return Response(AuthMeResponseSerializer(user).data, status=status.HTTP_200_OK)
