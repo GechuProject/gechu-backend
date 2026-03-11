@@ -16,6 +16,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.users.models.user import User
 from apps.users.serializers.auth import (
     AuthMeResponseSerializer,
     EmailCodeSendRequestSerializer,
@@ -252,7 +253,7 @@ class AuthMeAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request: Request) -> Response:
-        user = cast(get_user_model(), request.user)
+        user = cast(User, request.user)
 
         if user.deleted_at is not None or user.is_active is False:
             raise CustomAPIException(ErrorMessages.ACCOUNT_DEACTIVATED)
