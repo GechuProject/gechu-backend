@@ -255,7 +255,7 @@ class AuthMeAPIView(APIView):
     def get(self, request: Request) -> Response:
         user = cast(User, request.user)
 
-        if user.deleted_at is not None or user.is_active is False:
+        if user.deleted_at is not None or not user.is_active:
             raise CustomAPIException(ErrorMessages.ACCOUNT_DEACTIVATED)
 
         return Response(AuthMeResponseSerializer(user).data, status=status.HTTP_200_OK)
