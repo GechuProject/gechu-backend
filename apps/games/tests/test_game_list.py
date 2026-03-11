@@ -117,8 +117,7 @@ class GameListViewTests(APITestCase):
             rawg_rating=5.0,
             rawg_ratings_count=50,
             metacritic=95,
-            esrb_rating="mature",
-            age_rating_min=18,
+            esrb_rating=Game.EsrbRating.ADULTS_ONLY,
             is_visible=True,
         )
         response = self.client.get(self.url)
