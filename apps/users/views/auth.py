@@ -151,6 +151,7 @@ class LoginAPIView(APIView):
 
 @extend_schema(
     summary="로그아웃",
+    request=None,
     responses={
         200: OpenApiResponse(
             response=inline_serializer(
