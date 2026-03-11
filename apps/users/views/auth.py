@@ -23,6 +23,7 @@ from apps.users.serializers.auth import (
 
 
 @extend_schema(
+    summary="회원가입",
     request=SignupRequestSerializer,
     responses={201: None},
     tags=["auth"],
@@ -61,6 +62,7 @@ class SignupAPIView(APIView):
 
 
 @extend_schema(
+    summary="이메일 인증 코드 발송",
     request=EmailCodeSendRequestSerializer,
     responses={201: None},
     tags=["auth"],
@@ -102,6 +104,7 @@ class EmailCodeSendAPIView(APIView):
 
 
 @extend_schema(
+    summary="로그인",
     request=LoginSerializer,
     responses={
         200: OpenApiResponse(
@@ -147,6 +150,8 @@ class LoginAPIView(APIView):
 
 
 @extend_schema(
+    summary="로그아웃",
+    request=None,
     responses={
         200: OpenApiResponse(
             response=inline_serializer(
@@ -183,6 +188,7 @@ class LogoutAPIView(APIView):
 
 
 @extend_schema(
+    summary="액세스 토큰 재발급",
     request=None,
     responses={
         200: OpenApiResponse(
