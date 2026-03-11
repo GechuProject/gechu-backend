@@ -1,6 +1,7 @@
 from typing import Any
 
 from django.core.cache import cache
+from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
@@ -20,7 +21,7 @@ class GenreListAPITest(APITestCase):
 
     # 전체 장르 조회 정상
     def test_get_all_genres_success(self) -> None:
-        url = "/api/v1/games/genres/"
+        url = reverse("genre-list")
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -48,7 +49,7 @@ class GenreListAPITest(APITestCase):
         # DB 초기화
         Genre.objects.all().delete()
 
-        url = "/api/v1/games/genres/"
+        url = reverse("genre-list")
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -63,8 +64,8 @@ class GenreListAPITest(APITestCase):
             [{"id": 3, "name": "Indie", "slug": "indie"}],
         )
 
-        url = "/api/v1/games/genres/"
+        url = reverse("genre-list")
         response = self.client.get(url)
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
