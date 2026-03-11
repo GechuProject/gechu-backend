@@ -10,9 +10,14 @@ from apps.interactions.models import InteractionLog
 
 
 class InteractionViewLogRequestSerializer(serializers.Serializer[dict[str, Any]]):
-    game_id = serializers.IntegerField(min_value=1)
-    source = serializers.CharField()  # type: ignore[assignment]
+    game_id = serializers.IntegerField(min_value=1, required=False)
+    source = serializers.CharField(required=False)  # type: ignore[assignment]
     metadata = serializers.JSONField(required=False)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        if attrs.get("game_id") is None or attrs.get("source") is None:
+            raise CustomAPIException(ErrorMessages.GAME_ID_OR_SOURCE_MISSING)
+        return attrs
 
     def validate_source(self, value: str) -> str:
         valid_sources = {choice for choice, _ in InteractionLog.SourceType.choices}
@@ -24,4 +29,4 @@ class InteractionViewLogRequestSerializer(serializers.Serializer[dict[str, Any]]
 class InteractionViewLogResponseSerializer(serializers.Serializer):  # type: ignore[type-arg]
     id = serializers.IntegerField()
     type = serializers.CharField()
-    logged_at = serializers.DateTimeField()
+    logged_at = serializers.DateTimeField(source="created_at")

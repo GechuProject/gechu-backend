@@ -140,11 +140,7 @@ class InteractionViewLogCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request: Request) -> Response:
-        payload = request.data
-        if "game_id" not in payload or "source" not in payload:
-            raise CustomAPIException(ErrorMessages.GAME_ID_OR_SOURCE_MISSING)
-
-        serializer = InteractionViewLogRequestSerializer(data=payload)
+        serializer = InteractionViewLogRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
@@ -181,14 +177,8 @@ class InteractionViewLogCreateView(APIView):
             and weight_rule.cooldown_seconds > 0
             and latest_reusable_log.created_at >= timezone.now() - timedelta(seconds=weight_rule.cooldown_seconds)
         ):
-            return Response(
-                {
-                    "id": latest_reusable_log.id,
-                    "type": latest_reusable_log.type,
-                    "logged_at": latest_reusable_log.created_at,
-                },
-                status=200,
-            )
+            response_serializer = InteractionViewLogResponseSerializer(latest_reusable_log)
+            return Response(response_serializer.data, status=200)
 
         repeat_count = InteractionLog.objects.filter(
             user=user,
@@ -208,11 +198,5 @@ class InteractionViewLogCreateView(APIView):
             metadata=data.get("metadata"),
         )
 
-        return Response(
-            {
-                "id": log.id,
-                "type": log.type,
-                "logged_at": log.created_at,
-            },
-            status=201,
-        )
+        response_serializer = InteractionViewLogResponseSerializer(log)
+        return Response(response_serializer.data, status=201)

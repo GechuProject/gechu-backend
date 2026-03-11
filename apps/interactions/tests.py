@@ -7,6 +7,7 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.games.models import Game
 from apps.interactions.models import InteractionContextRule, InteractionLog, InteractionWeightRule
 from apps.users.models import User
 
@@ -27,9 +28,7 @@ class InteractionViewLogCreateAPITestCase(TestCase):
             password="pw",
         )
 
-    def _create_game(self, **kwargs: Any) -> Any:
-        from apps.games.models import Game
-
+    def _create_game(self, **kwargs: Any) -> Game:
         defaults = {
             "rawg_id": 6001,
             "slug": "test-game",
