@@ -49,3 +49,75 @@ class UserMeRetrieveAPITest(TestCase):
         self.user.save(update_fields=["deleted_at"])
         res = client.get("/api/v1/users/me/")
         self.assertEqual(res.status_code, 404)
+
+    def test_patch_me_updates_user_info(self) -> None:
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        res = client.patch(
+            "/api/v1/users/me/",
+            {
+                "nickname": "updated123",
+                "birth_date": "2000-02-02",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["nickname"], "updated123")
+        self.assertEqual(res.data["birth_date"], "2000-02-02")
+        self.assertTrue(res.data["updated_at"])
+
+    def test_patch_me_updates_only_provided_fields(self) -> None:
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        res = client.patch(
+            "/api/v1/users/me/",
+            {
+                "nickname": "onlynickname",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["nickname"], "onlynickname")
+        self.assertEqual(res.data["birth_date"], "1999-01-01")
+
+    def test_patch_me_returns_401_when_not_authenticated(self) -> None:
+        res = self.client.patch(
+            "/api/v1/users/me/",
+            {
+                "nickname": "updated123",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 401)
+
+    def test_patch_me_returns_409_when_nickname_already_exists(self) -> None:
+        get_user_model().objects.create_user(
+            email="other@example.com",
+            password="Passw0rd!",
+            nickname="duplicated",
+            birth_date=datetime.date(1998, 1, 1),
+        )
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        res = client.patch(
+            "/api/v1/users/me/",
+            {
+                "nickname": "duplicated",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 409)
+
+    def test_patch_me_returns_400_when_birth_date_is_invalid(self) -> None:
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        res = client.patch(
+            "/api/v1/users/me/",
+            {
+                "birth_date": "invalid-date",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 400)
