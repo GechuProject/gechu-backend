@@ -235,9 +235,23 @@ SPECTACULAR_SETTINGS = {
 
 
 # RAWG API
-# RAWG_API_KEY = os.getenv("RAWG_API_KEY")
-# if not RAWG_API_KEY:
-#     raise ValueError("RAWG_API_KEY must be set")
+RAWG_API_KEY = os.getenv("RAWG_API_KEY")
+if not RAWG_API_KEY:
+    raise ValueError("RAWG_API_KEY must be set")
+
+# Celery Beat 스케줄 (매일 새벽 3시 증분 동기화)
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    "rawg-incremental-sync": {
+        "task": "games.incremental_sync",
+        "schedule": crontab(hour=3, minute=0),
+    },
+}
+
+CELERY_TASK_ACKS_LATE = True  # 실행 완료 후 ack → 워커 재시작 시 재실행 보장
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # 무거운 sync task는 1개씩
+
 
 # 최근 검색 내역 Redis 보관 개수
 SEARCH_HISTORY_MAX_SIZE = int(os.getenv("SEARCH_HISTORY_MAX_SIZE", "10"))
