@@ -69,3 +69,14 @@ class LoginSerializer(serializers.Serializer[dict[str, Any]]):
 
         attrs["user"] = user
         return attrs
+
+
+class AuthMeResponseSerializer(serializers.ModelSerializer[User]):
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "is_active",
+            "is_adult_verified",
+        ]
