@@ -15,20 +15,17 @@ def get_user_me(user: User) -> User:
 
 def update_user_me(user: User, *, nickname: str | None = None, birth_date: date | None = None) -> User:
     user = get_user_me(user)
+    update_fields: list[str] = []
 
     if nickname is not None:
         queryset = User.objects.filter(nickname=nickname).exclude(pk=user.pk)
         if queryset.exists():
             raise CustomAPIException(ErrorMessages.NICKNAME_ALREADY_EXISTS)
         user.nickname = nickname
+        update_fields.append("nickname")
 
     if birth_date is not None:
         user.birth_date = birth_date
-
-    update_fields: list[str] = []
-    if nickname is not None:
-        update_fields.append("nickname")
-    if birth_date is not None:
         update_fields.append("birth_date")
 
     if update_fields:

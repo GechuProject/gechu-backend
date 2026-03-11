@@ -49,6 +49,8 @@ def send_signup_email_code(email: str) -> int:
 def signup_user(*, email: str, code: str, password: str, nickname: str, birth_date: date) -> User:
     if User.objects.filter(email=email).exists():
         raise CustomAPIException(ErrorMessages.EMAIL_ALREADY_EXISTS)
+    if User.objects.filter(nickname=nickname).exists():
+        raise CustomAPIException(ErrorMessages.NICKNAME_ALREADY_EXISTS)
 
     saved_code = cache.get(f"email_code:{email}")
     if saved_code is None:
@@ -113,7 +115,7 @@ def refresh_access_token(refresh_token: str | None) -> tuple[str, int]:
 
         user = User.objects.filter(id=int(user_id)).first()
         if user is None:
-            raise CustomAPIException(ErrorMessages.ACCOUNT_DEACTIVATED)
+            raise CustomAPIException(ErrorMessages.INVALID_REFRESH_TOKEN)
         get_active_user_or_deactivated(user)
 
         access = refresh.access_token
