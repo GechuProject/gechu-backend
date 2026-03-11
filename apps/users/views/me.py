@@ -1,7 +1,7 @@
-from typing import cast
+from typing import Any, cast
 
 from drf_spectacular.utils import extend_schema
-from rest_framework import generics
+from rest_framework import generics, serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -17,7 +17,7 @@ from apps.users.serializers.me import (
 
 
 @extend_schema(tags=["Users"])
-class UserMeRetrieveAPIView(generics.RetrieveUpdateAPIView[User]):
+class UserMeAPIView(generics.RetrieveUpdateAPIView[User]):
     permission_classes = [IsAuthenticated]
     serializer_class = UserMeResponseSerializer
     http_method_names = ["get", "patch"]
@@ -28,9 +28,7 @@ class UserMeRetrieveAPIView(generics.RetrieveUpdateAPIView[User]):
             raise CustomAPIException(ErrorMessages.USER_NOT_FOUND)
         return user
 
-    def get_serializer_class(
-        self,
-    ) -> type[UserMeResponseSerializer] | type[UserMeUpdateRequestSerializer]:
+    def get_serializer_class(self) -> type[serializers.Serializer[Any]]:
         if self.request.method == "PATCH":
             return UserMeUpdateRequestSerializer
         return UserMeResponseSerializer
