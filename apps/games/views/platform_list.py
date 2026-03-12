@@ -18,4 +18,6 @@ class PlatformListAPIView(APIView):
         # service 호출
         platforms_data = PlatformService.get_all_platforms()
 
-        return Response({"results": platforms_data})
+        serializer = PlatformListResponseSerializer({"results": platforms_data})
+
+        return Response(serializer.data)

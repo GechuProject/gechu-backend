@@ -1,5 +1,6 @@
 from typing import Any
 
+from django.conf import settings
 from django.core.cache import cache
 from django.urls import reverse
 from rest_framework import status
@@ -75,7 +76,7 @@ class PlatformListAPITest(APITestCase):
     def test_get_all_platforms_cache_hit(self) -> None:
         # self.client.get(url)보다 먼저 실행되어 setup의 db데이터는 캐시 저장 x
         cache.set(
-            "platforms:all",
+            settings.PLATFORMS_CACHE_KEY,
             [
                 {
                     "id": 3,
