@@ -19,22 +19,23 @@ def record_view_interaction(
     source: str,
     metadata: dict[str, object] | list[object] | str | int | float | bool | None = None,
 ) -> tuple[InteractionLog, bool]:
-    game = Game.objects.filter(id=game_id, is_visible=True).first()
-    if game is None:
-        raise CustomAPIException(ErrorMessages.GAME_NOT_FOUND)
+    try:
+        game = Game.objects.get(id=game_id, is_visible=True)
+    except Game.DoesNotExist:
+        raise CustomAPIException(ErrorMessages.GAME_NOT_FOUND) from None
 
-    weight_rule = InteractionWeightRule.objects.filter(
-        interaction_type=InteractionLog.ActionType.VIEW,
-        is_active=True,
-    ).first()
-    if weight_rule is None:
-        raise CustomAPIException(ErrorMessages.INTERACTION_TYPE_NOT_FOUND)
+    try:
+        weight_rule = InteractionWeightRule.objects.get(
+            interaction_type=InteractionLog.ActionType.VIEW,
+            is_active=True,
+        )
+    except InteractionWeightRule.DoesNotExist:
+        raise CustomAPIException(ErrorMessages.INTERACTION_TYPE_NOT_FOUND) from None
 
-    context_rule = InteractionContextRule.objects.filter(
-        interaction_source=source,
-    ).first()
-    if context_rule is None:
-        raise CustomAPIException(ErrorMessages.SOURCE_NOT_FOUND)
+    try:
+        context_rule = InteractionContextRule.objects.get(interaction_source=source)
+    except InteractionContextRule.DoesNotExist:
+        raise CustomAPIException(ErrorMessages.SOURCE_NOT_FOUND) from None
 
     latest_reusable_log = (
         InteractionLog.objects.filter(
