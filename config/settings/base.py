@@ -118,8 +118,13 @@ CACHES = {
     }
 }
 
+# 장르 캐싱
 GENRES_CACHE_KEY = "genres:all"  # 캐싱 키
 GENRES_CACHE_TTL = 60 * 60  # 캐싱 TTL (초 단위) - 1시간
+
+# 플랫폼 캐싱
+PLATFORMS_CACHE_KEY = "platforms:all"
+PLATFORMS_CACHE_TTL = 60 * 60
 
 # Celery (RAWG 동기화, 추천 재생성 비동기 처리)
 CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/2"
