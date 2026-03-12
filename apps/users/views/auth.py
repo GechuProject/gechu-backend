@@ -26,7 +26,7 @@ from apps.users.services import (
     logout_user,
     refresh_access_token,
     reset_user_password,
-    send_signup_email_code,
+    send_email_code,
     signup_user,
 )
 
@@ -61,7 +61,10 @@ class EmailCodeSendAPIView(APIView):
         serializer = EmailCodeSendRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        expires_in = send_signup_email_code(serializer.validated_data["email"])
+        expires_in = send_email_code(
+            email=serializer.validated_data["email"],
+            purpose=serializer.validated_data["purpose"],
+        )
         response_serializer = EmailCodeSendResponseSerializer(
             {"message": "인증 코드가 발송되었습니다.", "expires_in": expires_in}
         )

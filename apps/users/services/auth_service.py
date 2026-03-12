@@ -18,6 +18,29 @@ from apps.users.models.user import User
 
 EMAIL_CODE_TTL_SECONDS = 300
 EMAIL_CODE_COOLDOWN_SECONDS = 60
+EMAIL_CODE_VERIFY_MAX_ATTEMPTS = 5
+EMAIL_CODE_VERIFY_BLOCK_SECONDS = 20 * 60
+EMAIL_CODE_PURPOSE_SIGNUP = "signup"
+EMAIL_CODE_PURPOSE_PASSWORD_RESET = "password_reset"
+
+
+def _email_code_key(*, purpose: str, email: str) -> str:
+    return f"email_code:{purpose}:{email}"
+
+
+def _email_code_cooldown_key(*, purpose: str, email: str) -> str:
+    return f"email_code_cooldown:{purpose}:{email}"
+
+
+def _email_code_attempts_key(*, purpose: str, email: str) -> str:
+    return f"email_code_attempts:{purpose}:{email}"
+
+
+def _should_issue_email_code(*, email: str, purpose: str) -> bool:
+    user_exists = User.objects.filter(email=email).exists()
+    if purpose == EMAIL_CODE_PURPOSE_SIGNUP:
+        return not user_exists
+    return user_exists
 
 
 def get_active_user_or_deactivated(user: User) -> User:
@@ -26,24 +49,25 @@ def get_active_user_or_deactivated(user: User) -> User:
     return user
 
 
-def send_signup_email_code(email: str) -> int:
-    if User.objects.filter(email=email).exists():
-        raise CustomAPIException(ErrorMessages.EMAIL_ALREADY_EXISTS)
-
-    cooldown_key = f"email_code_cooldown:{email}"
+def send_email_code(*, email: str, purpose: str) -> int:
+    cooldown_key = _email_code_cooldown_key(purpose=purpose, email=email)
     if cache.get(cooldown_key):
         raise CustomAPIException(ErrorMessages.TOO_MANY_REQUESTS)
 
-    code = f"{secrets.randbelow(1000000):06d}"
     cache.set(cooldown_key, True, timeout=EMAIL_CODE_COOLDOWN_SECONDS)
-    cache.set(f"email_code:{email}", code, timeout=EMAIL_CODE_TTL_SECONDS)
-    send_mail(
-        subject="[Gechu] 이메일 인증 코드",
-        message=f"인증 코드: {code}\n이 코드는 {EMAIL_CODE_TTL_SECONDS // 60}분 동안 유효합니다.",
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[email],
-        fail_silently=False,
-    )
+
+    if _should_issue_email_code(email=email, purpose=purpose):
+        code = f"{secrets.randbelow(1000000):06d}"
+        cache.set(_email_code_key(purpose=purpose, email=email), code, timeout=EMAIL_CODE_TTL_SECONDS)
+        cache.delete(_email_code_attempts_key(purpose=purpose, email=email))
+        send_mail(
+            subject="[Gechu] Email verification code",
+            message=f"Verification code: {code}\nThis code is valid for {EMAIL_CODE_TTL_SECONDS // 60} minutes.",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+
     return EMAIL_CODE_TTL_SECONDS
 
 
@@ -53,7 +77,7 @@ def signup_user(*, email: str, code: str, password: str, nickname: str, birth_da
     if User.objects.filter(nickname=nickname).exists():
         raise CustomAPIException(ErrorMessages.NICKNAME_ALREADY_EXISTS)
 
-    saved_code = cache.get(f"email_code:{email}")
+    saved_code = cache.get(_email_code_key(purpose=EMAIL_CODE_PURPOSE_SIGNUP, email=email))
     if saved_code is None:
         raise CustomAPIException(ErrorMessages.CODE_EXPIRED)
     if str(saved_code) != code:
@@ -70,7 +94,8 @@ def signup_user(*, email: str, code: str, password: str, nickname: str, birth_da
         nickname=nickname,
         birth_date=birth_date,
     )
-    cache.delete(f"email_code:{email}")
+    cache.delete(_email_code_key(purpose=EMAIL_CODE_PURPOSE_SIGNUP, email=email))
+    cache.delete(_email_code_attempts_key(purpose=EMAIL_CODE_PURPOSE_SIGNUP, email=email))
     return user
 
 
@@ -94,8 +119,17 @@ def revoke_all_refresh_tokens(user: User) -> None:
 
 
 def reset_user_password(*, email: str, code: str, new_password: str) -> None:
-    saved_code = cache.get(f"email_code:{email}")
+    attempts_key = _email_code_attempts_key(purpose=EMAIL_CODE_PURPOSE_PASSWORD_RESET, email=email)
+    failed_attempts = int(cache.get(attempts_key, 0))
+    if failed_attempts >= EMAIL_CODE_VERIFY_MAX_ATTEMPTS:
+        raise CustomAPIException(ErrorMessages.TOO_MANY_REQUESTS)
+
+    saved_code = cache.get(_email_code_key(purpose=EMAIL_CODE_PURPOSE_PASSWORD_RESET, email=email))
     if saved_code is None or not secrets.compare_digest(str(saved_code), code):
+        failed_attempts += 1
+        cache.set(attempts_key, failed_attempts, timeout=EMAIL_CODE_VERIFY_BLOCK_SECONDS)
+        if failed_attempts >= EMAIL_CODE_VERIFY_MAX_ATTEMPTS:
+            cache.delete(_email_code_key(purpose=EMAIL_CODE_PURPOSE_PASSWORD_RESET, email=email))
         raise CustomAPIException(ErrorMessages.INVALID_CODE)
 
     user = User.objects.filter(email=email).first()
@@ -113,7 +147,8 @@ def reset_user_password(*, email: str, code: str, new_password: str) -> None:
     user.set_password(new_password)
     user.save(update_fields=["password"])
     revoke_all_refresh_tokens(user)
-    cache.delete(f"email_code:{email}")
+    cache.delete(_email_code_key(purpose=EMAIL_CODE_PURPOSE_PASSWORD_RESET, email=email))
+    cache.delete(attempts_key)
 
 
 def issue_auth_tokens(user: User) -> tuple[str, str, int]:

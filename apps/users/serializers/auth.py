@@ -25,6 +25,7 @@ class SignupResponseSerializer(serializers.ModelSerializer[User]):
 
 class EmailCodeSendRequestSerializer(serializers.Serializer):  # type: ignore[type-arg]
     email = serializers.EmailField(required=True)
+    purpose = serializers.ChoiceField(choices=["signup", "password_reset"], required=True)
 
 
 class EmailCodeSendResponseSerializer(serializers.Serializer):  # type: ignore[type-arg]

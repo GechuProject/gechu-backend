@@ -12,7 +12,7 @@ class SignupAPITestCase(TestCase):
         code = "123456"
 
         # signup 전제조건: Redis에 인증코드가 있어야 함
-        cache.set(f"email_code:{email}", code, timeout=300)
+        cache.set(f"email_code:signup:{email}", code, timeout=300)
 
         payload = {
             "email": email,

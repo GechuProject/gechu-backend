@@ -14,16 +14,22 @@ from apps.users.models.user import User
 class PasswordResetAPITestCase(TestCase):
     def setUp(self) -> None:
         self.client = APIClient()
+        self.email = "reset@example.com"
+        self.url = "/api/v1/auth/password/reset/"
+
+        cache.delete(f"email_code:password_reset:{self.email}")
+        cache.delete(f"email_code_cooldown:password_reset:{self.email}")
+        cache.delete(f"email_code_attempts:password_reset:{self.email}")
+
         self.user = User.objects.create_user(
-            email="reset@example.com",
+            email=self.email,
             nickname="resetuser",
             birth_date=datetime.date(1997, 10, 2),
             password="OldPass1234!",
         )
-        self.url = "/api/v1/auth/password/reset/"
 
     def test_password_reset_success(self) -> None:
-        cache.set("email_code:reset@example.com", "123456", timeout=300)
+        cache.set("email_code:password_reset:reset@example.com", "123456", timeout=300)
 
         response = self.client.post(
             self.url,
@@ -40,10 +46,36 @@ class PasswordResetAPITestCase(TestCase):
 
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password("NewPass1234!"))
-        self.assertIsNone(cache.get("email_code:reset@example.com"))
+        self.assertIsNone(cache.get("email_code:password_reset:reset@example.com"))
+
+    def test_password_reset_reuse_code_fails(self) -> None:
+        cache.set("email_code:password_reset:reset@example.com", "123456", timeout=300)
+
+        first_response = self.client.post(
+            self.url,
+            {
+                "email": "reset@example.com",
+                "code": "123456",
+                "new_password": "NewPass1234!",
+            },
+            format="json",
+        )
+        second_response = self.client.post(
+            self.url,
+            {
+                "email": "reset@example.com",
+                "code": "123456",
+                "new_password": "NewPass1234!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 400)
+        self.assertEqual(second_response.json()["code"], ErrorMessages.INVALID_CODE.name)
 
     def test_password_reset_invalid_code(self) -> None:
-        cache.set("email_code:reset@example.com", "123456", timeout=300)
+        cache.set("email_code:password_reset:reset@example.com", "123456", timeout=300)
 
         response = self.client.post(
             self.url,
@@ -84,7 +116,7 @@ class PasswordResetAPITestCase(TestCase):
             provider=SocialUser.Provider.KAKAO,
             provider_uid="kakao-123",
         )
-        cache.set("email_code:social@example.com", "123456", timeout=300)
+        cache.set("email_code:password_reset:social@example.com", "123456", timeout=300)
 
         response = self.client.post(
             self.url,
@@ -100,7 +132,7 @@ class PasswordResetAPITestCase(TestCase):
         self.assertEqual(response.json()["code"], ErrorMessages.SOCIAL_USER_ONLY.name)
 
     def test_password_reset_invalid_password(self) -> None:
-        cache.set("email_code:reset@example.com", "123456", timeout=300)
+        cache.set("email_code:password_reset:reset@example.com", "123456", timeout=300)
 
         response = self.client.post(
             self.url,
@@ -116,7 +148,7 @@ class PasswordResetAPITestCase(TestCase):
         self.assertEqual(response.json()["code"], ErrorMessages.VALIDATION_ERROR.name)
 
     def test_password_reset_blacklists_existing_refresh_tokens(self) -> None:
-        cache.set("email_code:reset@example.com", "123456", timeout=300)
+        cache.set("email_code:password_reset:reset@example.com", "123456", timeout=300)
         RefreshToken.for_user(self.user)
         RefreshToken.for_user(self.user)
 
@@ -135,3 +167,48 @@ class PasswordResetAPITestCase(TestCase):
         self.assertEqual(
             BlacklistedToken.objects.filter(token__in=outstanding_tokens).count(), outstanding_tokens.count()
         )
+
+    def test_password_reset_nonexistent_email_returns_invalid_code(self) -> None:
+        cache.set("email_code:password_reset:missing@example.com", "123456", timeout=300)
+
+        response = self.client.post(
+            self.url,
+            {
+                "email": "missing@example.com",
+                "code": "123456",
+                "new_password": "NewPass1234!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["code"], ErrorMessages.INVALID_CODE.name)
+
+    def test_password_reset_blocks_after_five_invalid_attempts(self) -> None:
+        cache.set("email_code:password_reset:reset@example.com", "123456", timeout=300)
+
+        for _ in range(5):
+            response = self.client.post(
+                self.url,
+                {
+                    "email": "reset@example.com",
+                    "code": "654321",
+                    "new_password": "NewPass1234!",
+                },
+                format="json",
+            )
+
+        blocked_response = self.client.post(
+            self.url,
+            {
+                "email": "reset@example.com",
+                "code": "123456",
+                "new_password": "NewPass1234!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["code"], ErrorMessages.INVALID_CODE.name)
+        self.assertEqual(blocked_response.status_code, 429)
+        self.assertEqual(blocked_response.json()["code"], ErrorMessages.TOO_MANY_REQUESTS.name)
