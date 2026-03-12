@@ -13,6 +13,14 @@ if not RAW_ALLOWED_HOSTS:
 
 ALLOWED_HOSTS = [h.strip() for h in re.split(r"[,\s]+", RAW_ALLOWED_HOSTS) if h.strip()]
 
+# Static files (CSS, JavaScript, Images)
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+
 # cors & csrf settings
 raw_cors = os.getenv("CORS_ALLOWED_ORIGINS", "")
 
