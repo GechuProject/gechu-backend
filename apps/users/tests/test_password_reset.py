@@ -3,6 +3,8 @@ import datetime
 from django.core.cache import cache
 from django.test import TestCase
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.users.models.social_user import SocialUser
@@ -130,4 +132,6 @@ class PasswordResetAPITestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         outstanding_tokens = OutstandingToken.objects.filter(user=self.user)
-        self.assertEqual(BlacklistedToken.objects.filter(token__in=outstanding_tokens).count(), outstanding_tokens.count())
+        self.assertEqual(
+            BlacklistedToken.objects.filter(token__in=outstanding_tokens).count(), outstanding_tokens.count()
+        )

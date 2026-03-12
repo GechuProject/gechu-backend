@@ -9,6 +9,7 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.exceptions.exception_handler import CustomAPIException
@@ -84,6 +85,7 @@ def authenticate_user(*, email: str, password: str) -> User:
         raise CustomAPIException(ErrorMessages.INVALID_CREDENTIALS)
 
     return user
+
 
 def revoke_all_refresh_tokens(user: User) -> None:
     outstanding_tokens = OutstandingToken.objects.filter(user=user)
