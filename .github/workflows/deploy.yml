@@ -71,6 +71,9 @@ jobs:
             docker compose -f docker/docker-compose.prod.yml exec -T django \
               python manage.py migrate --noinput
 
+            docker compose -f docker/docker-compose.prod.yml exec -T django \
+              python manage.py collectstatic --noinput
+              
             docker image prune -f || true
 
             echo "[Success] Deployment successful"
