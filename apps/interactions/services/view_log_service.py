@@ -4,6 +4,7 @@ import json
 from datetime import timedelta
 from decimal import Decimal
 
+from django.db import transaction
 from django.utils import timezone
 
 from apps.core.exceptions.exception_handler import CustomAPIException
@@ -26,60 +27,61 @@ def record_view_interaction(
         except (TypeError, ValueError):
             raise CustomAPIException(ErrorMessages.VALIDATION_ERROR) from None
 
-    try:
-        game = Game.objects.get(id=game_id, is_visible=True)
-    except Game.DoesNotExist:
+    game = Game.objects.filter(id=game_id, is_visible=True).first()
+    if game is None:
         raise CustomAPIException(ErrorMessages.GAME_NOT_FOUND) from None
 
-    try:
-        weight_rule = InteractionWeightRule.objects.get(
-            interaction_type=InteractionLog.ActionType.VIEW,
-            is_active=True,
-        )
-    except InteractionWeightRule.DoesNotExist:
+    weight_rule = InteractionWeightRule.objects.filter(
+        interaction_type=InteractionLog.ActionType.VIEW,
+        is_active=True,
+    ).first()
+    if weight_rule is None:
         raise CustomAPIException(ErrorMessages.INTERACTION_TYPE_NOT_FOUND) from None
 
-    try:
-        context_rule = InteractionContextRule.objects.get(interaction_source=source)
-    except InteractionContextRule.DoesNotExist:
+    context_rule = InteractionContextRule.objects.filter(interaction_source=source).first()
+    if context_rule is None:
         raise CustomAPIException(ErrorMessages.SOURCE_NOT_FOUND) from None
 
-    latest_reusable_log = (
-        InteractionLog.objects.filter(
+    with transaction.atomic():
+        # 동일 사용자 요청을 직렬화해 cooldown 체크-생성 사이 경쟁 조건을 줄인다.
+        User.objects.select_for_update().get(pk=user.pk)
+
+        latest_reusable_log = (
+            InteractionLog.objects.filter(
+                user=user,
+                game=game,
+                type=InteractionLog.ActionType.VIEW,
+                source=source,
+                weight__isnull=False,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if (
+            latest_reusable_log is not None
+            and weight_rule.cooldown_seconds > 0
+            and latest_reusable_log.created_at >= timezone.now() - timedelta(seconds=weight_rule.cooldown_seconds)
+        ):
+            return latest_reusable_log, False
+
+        repeat_count = InteractionLog.objects.filter(
+            user=user,
+            game=game,
+            type=InteractionLog.ActionType.VIEW,
+        ).count()
+        effective_repeat_count = min(repeat_count, 10)
+        weight: Decimal = (
+            weight_rule.base_weight
+            * context_rule.multiplier
+            * (weight_rule.repeat_decay**effective_repeat_count)
+        ).quantize(Decimal("0.0001"))
+
+        log = InteractionLog.objects.create(
             user=user,
             game=game,
             type=InteractionLog.ActionType.VIEW,
             source=source,
-            weight__isnull=False,
+            weight=weight,
+            metadata=metadata,
         )
-        .order_by("-created_at")
-        .first()
-    )
-    if (
-        latest_reusable_log is not None
-        and weight_rule.cooldown_seconds > 0
-        and latest_reusable_log.created_at >= timezone.now() - timedelta(seconds=weight_rule.cooldown_seconds)
-    ):
-        return latest_reusable_log, False
-
-    repeat_count = InteractionLog.objects.filter(
-        user=user,
-        game=game,
-        type=InteractionLog.ActionType.VIEW,
-    ).count()
-    effective_repeat_count = min(repeat_count, 10)
-    weight: Decimal = (
-        weight_rule.base_weight
-        * context_rule.multiplier
-        * (weight_rule.repeat_decay**effective_repeat_count)
-    ).quantize(Decimal("0.0001"))
-
-    log = InteractionLog.objects.create(
-        user=user,
-        game=game,
-        type=InteractionLog.ActionType.VIEW,
-        source=source,
-        weight=weight,
-        metadata=metadata,
-    )
-    return log, True
+        return log, True
