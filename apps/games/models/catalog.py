@@ -1,9 +1,30 @@
+from typing import Any
+
 from django.db import models
 from django.utils import timezone
 
 
 # 게임
 class Game(models.Model):
+    class EsrbRating(models.TextChoices):
+        EVERYONE = "everyone", "전체 이용가"
+        EVERYONE_10_PLUS = "everyone_10_plus", "10세 이상"
+        TEEN = "teen", "13세 이상"
+        MATURE = "mature", "17세 이상"
+        ADULTS_ONLY = "adults_only", "성인 전용"
+        RATING_PENDING = "rating_pending", "심의 예정"
+        UNKNOWN = "unknown", "미분류"
+
+    _ESRB_AGE_MAP: dict[str, int] = {
+        EsrbRating.EVERYONE: 0,
+        EsrbRating.EVERYONE_10_PLUS: 10,
+        EsrbRating.TEEN: 13,
+        EsrbRating.MATURE: 17,
+        EsrbRating.ADULTS_ONLY: 18,
+        EsrbRating.RATING_PENDING: 0,
+        EsrbRating.UNKNOWN: 0,
+    }
+
     id = models.BigAutoField(primary_key=True)
     rawg_id = models.BigIntegerField(unique=True)
     slug = models.CharField(max_length=255, unique=True)
@@ -21,7 +42,7 @@ class Game(models.Model):
     playtime = models.IntegerField(default=0)
 
     # ESRB 등급
-    esrb_rating = models.CharField(max_length=20, default="unknown")
+    esrb_rating = models.CharField(max_length=20, choices=EsrbRating.choices, default=EsrbRating.UNKNOWN)
     age_rating_min = models.SmallIntegerField(default=0)
     is_visible = models.BooleanField(default=True)
 
@@ -39,6 +60,15 @@ class Game(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @classmethod
+    def get_age_min(cls, esrb_val: str) -> int:
+        return cls._ESRB_AGE_MAP.get(esrb_val, 0)
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        # esrb_rating에 따라 자동으로 age_rating_min 할당
+        self.age_rating_min = self.get_age_min(self.esrb_rating)
+        super().save(*args, **kwargs)
 
 
 # 게임장르

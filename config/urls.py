@@ -11,7 +11,8 @@ urlpatterns = [
     path("api/v1/interactions/", include("apps.interactions.urls")),
     path("admin/", admin.site.urls),
     path("api/v1/", include("apps.users.urls")),
-    path("api/v1/games/", include("apps.games.urls")),
+    path("api/v1/games/", include("apps.games.urls.games")),
+    path("admin/sync/rawg/", include("apps.games.urls.admin_sync")),
 ]
 
 if settings.DEBUG:

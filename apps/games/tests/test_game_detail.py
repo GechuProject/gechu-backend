@@ -106,7 +106,7 @@ class GameDetailAPITest(TestCase):
     def test_adult_game_requires_verification(self) -> None:
         """성인 게임 + 인증 안된 유저"""
 
-        self.game.age_rating_min = 18
+        self.game.esrb_rating = Game.EsrbRating.ADULTS_ONLY
         self.game.save()
 
         url = f"/api/v1/games/{self.game.id}/"
@@ -132,7 +132,7 @@ class GameDetailAPITest(TestCase):
 
         self.client.force_authenticate(user=user)
 
-        self.game.age_rating_min = 18
+        self.game.esrb_rating = Game.EsrbRating.ADULTS_ONLY
         self.game.save()
 
         url = f"/api/v1/games/{self.game.id}/"
