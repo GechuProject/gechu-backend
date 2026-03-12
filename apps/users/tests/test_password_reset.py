@@ -68,7 +68,7 @@ class PasswordResetAPITestCase(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["code"], ErrorMessages.CODE_EXPIRED.name)
+        self.assertEqual(response.json()["code"], ErrorMessages.INVALID_CODE.name)
 
     def test_password_reset_social_user_only(self) -> None:
         social_user = User.objects.create_user(
