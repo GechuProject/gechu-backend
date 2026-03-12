@@ -112,3 +112,22 @@ class PasswordResetAPITestCase(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["code"], ErrorMessages.VALIDATION_ERROR.name)
+
+    def test_password_reset_blacklists_existing_refresh_tokens(self) -> None:
+        cache.set("email_code:reset@example.com", "123456", timeout=300)
+        RefreshToken.for_user(self.user)
+        RefreshToken.for_user(self.user)
+
+        response = self.client.post(
+            self.url,
+            {
+                "email": "reset@example.com",
+                "code": "123456",
+                "new_password": "NewPass1234!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        outstanding_tokens = OutstandingToken.objects.filter(user=self.user)
+        self.assertEqual(BlacklistedToken.objects.filter(token__in=outstanding_tokens).count(), outstanding_tokens.count())

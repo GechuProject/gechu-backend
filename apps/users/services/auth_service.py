@@ -85,6 +85,11 @@ def authenticate_user(*, email: str, password: str) -> User:
 
     return user
 
+def revoke_all_refresh_tokens(user: User) -> None:
+    outstanding_tokens = OutstandingToken.objects.filter(user=user)
+    for token in outstanding_tokens:
+        BlacklistedToken.objects.get_or_create(token=token)
+
 
 def reset_user_password(*, email: str, code: str, new_password: str) -> None:
     saved_code = cache.get(f"email_code:{email}")
@@ -105,6 +110,7 @@ def reset_user_password(*, email: str, code: str, new_password: str) -> None:
 
     user.set_password(new_password)
     user.save(update_fields=["password"])
+    revoke_all_refresh_tokens(user)
     cache.delete(f"email_code:{email}")
 
 
