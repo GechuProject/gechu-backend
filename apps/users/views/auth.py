@@ -13,7 +13,8 @@ from apps.users.serializers.auth import (
     EmailCodeSendRequestSerializer,
     EmailCodeSendResponseSerializer,
     LoginRequestSerializer,
-    LogoutResponseSerializer,
+    MessageResponseSerializer,
+    PasswordResetRequestSerializer,
     SignupRequestSerializer,
     SignupResponseSerializer,
     TokenResponseSerializer,
@@ -24,6 +25,7 @@ from apps.users.services import (
     issue_auth_tokens,
     logout_user,
     refresh_access_token,
+    reset_user_password,
     send_signup_email_code,
     signup_user,
 )
@@ -102,7 +104,7 @@ class LoginAPIView(APIView):
 @extend_schema(
     summary="로그아웃",
     request=None,
-    responses={200: LogoutResponseSerializer},
+    responses={200: MessageResponseSerializer},
     tags=["auth"],
 )
 class LogoutAPIView(APIView):
@@ -111,7 +113,7 @@ class LogoutAPIView(APIView):
     def post(self, request: Request) -> Response:
         logout_user(request.COOKIES.get("refresh_token"))
 
-        response_serializer = LogoutResponseSerializer({"message": "로그아웃 되었습니다."})
+        response_serializer = MessageResponseSerializer({"message": "로그아웃 되었습니다."})
         response = Response(response_serializer.data, status=status.HTTP_200_OK)
         response.delete_cookie("refresh_token")
         return response
@@ -135,6 +137,24 @@ class RefreshAPIView(APIView):
                 "expires_in": expires_in,
             }
         )
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    summary="비밀번호 재설정",
+    request=PasswordResetRequestSerializer,
+    responses={200: MessageResponseSerializer},
+    tags=["auth"],
+)
+class PasswordResetAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request) -> Response:
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        reset_user_password(**serializer.validated_data)
+        response_serializer = MessageResponseSerializer({"message": "비밀번호가 재설정되었습니다."})
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 

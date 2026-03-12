@@ -86,6 +86,30 @@ def authenticate_user(*, email: str, password: str) -> User:
     return user
 
 
+def reset_user_password(*, email: str, code: str, new_password: str) -> None:
+    user = User.objects.filter(email=email).first()
+    if user is None:
+        raise CustomAPIException(ErrorMessages.INVALID_CODE)
+
+    saved_code = cache.get(f"email_code:{email}")
+    if saved_code is None:
+        raise CustomAPIException(ErrorMessages.CODE_EXPIRED)
+    if str(saved_code) != code:
+        raise CustomAPIException(ErrorMessages.INVALID_CODE)
+
+    if user.social_accounts.exists() and not user.has_usable_password():
+        raise CustomAPIException(ErrorMessages.SOCIAL_USER_ONLY)
+
+    try:
+        validate_password(new_password)
+    except DjangoValidationError as err:
+        raise CustomAPIException(ErrorMessages.VALIDATION_ERROR) from err
+
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+    cache.delete(f"email_code:{email}")
+
+
 def issue_auth_tokens(user: User) -> tuple[str, str, int]:
     refresh = RefreshToken.for_user(user)
     access = refresh.access_token
