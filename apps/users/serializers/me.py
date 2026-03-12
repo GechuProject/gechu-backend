@@ -1,7 +1,5 @@
 from rest_framework import serializers
 
-from apps.core.exceptions.exception_handler import CustomAPIException
-from apps.core.exceptions.exception_message import ErrorMessages
 from apps.users.models.user import User
 
 
@@ -33,24 +31,6 @@ class UserMeUpdateResponseSerializer(serializers.ModelSerializer[User]):
         ]
 
 
-class UserMeUpdateRequestSerializer(serializers.ModelSerializer[User]):
-    nickname = serializers.CharField(
-        required=False,
-        max_length=30,
-        validators=[],
-    )
-
-    class Meta:
-        model = User
-        fields = [
-            "nickname",
-            "birth_date",
-        ]
-
-    def validate_nickname(self, value: str) -> str:
-        queryset = User.objects.filter(nickname=value)
-        if self.instance is not None:
-            queryset = queryset.exclude(pk=self.instance.pk)
-        if queryset.exists():
-            raise CustomAPIException(ErrorMessages.NICKNAME_ALREADY_EXISTS)
-        return value
+class UserMeUpdateRequestSerializer(serializers.Serializer[dict[str, object]]):
+    nickname = serializers.CharField(required=False, max_length=30)
+    birth_date = serializers.DateField(required=False)

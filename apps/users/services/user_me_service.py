@@ -1,0 +1,34 @@
+from __future__ import annotations
+
+from datetime import date
+
+from apps.core.exceptions.exception_handler import CustomAPIException
+from apps.core.exceptions.exception_message import ErrorMessages
+from apps.users.models.user import User
+
+
+def get_user_me(user: User) -> User:
+    if user.deleted_at is not None:
+        raise CustomAPIException(ErrorMessages.USER_NOT_FOUND)
+    return user
+
+
+def update_user_me(user: User, *, nickname: str | None = None, birth_date: date | None = None) -> User:
+    user = get_user_me(user)
+    update_fields: list[str] = []
+
+    if nickname is not None:
+        queryset = User.objects.filter(nickname=nickname).exclude(pk=user.pk)
+        if queryset.exists():
+            raise CustomAPIException(ErrorMessages.NICKNAME_ALREADY_EXISTS)
+        user.nickname = nickname
+        update_fields.append("nickname")
+
+    if birth_date is not None:
+        user.birth_date = birth_date
+        update_fields.append("birth_date")
+
+    if update_fields:
+        user.save(update_fields=update_fields + ["updated_at"])
+
+    return user

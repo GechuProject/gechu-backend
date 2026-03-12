@@ -17,7 +17,6 @@ class LogoutAPITestCase(TestCase):
         )
 
     def test_logout(self) -> None:
-        # 로그인 요청
         login_res = self.client.post(
             "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},
@@ -32,7 +31,6 @@ class LogoutAPITestCase(TestCase):
         access_token = data["access_token"]
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
 
-        # 로그아웃 요청
         logout_res = self.client.post(
             "/api/v1/auth/logout/",
             format="json",
