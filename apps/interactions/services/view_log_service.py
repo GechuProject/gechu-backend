@@ -71,9 +71,7 @@ def record_view_interaction(
         ).count()
         effective_repeat_count = min(repeat_count, 10)
         weight: Decimal = (
-            weight_rule.base_weight
-            * context_rule.multiplier
-            * (weight_rule.repeat_decay**effective_repeat_count)
+            weight_rule.base_weight * context_rule.multiplier * (weight_rule.repeat_decay**effective_repeat_count)
         ).quantize(Decimal("0.0001"))
 
         log = InteractionLog.objects.create(
