@@ -165,6 +165,26 @@ class InteractionViewLogCreateAPITestCase(TestCase):
         self.assertIn("logged_at", data)
         self.assertEqual(InteractionLog.objects.count(), 1)
 
+    def test_interaction_view_different_source_is_logged_even_in_cooldown(self) -> None:
+        user = self._create_user()
+        game = self._create_game()
+        self.client.force_authenticate(user=user)
+
+        first = self.client.post(
+            self.url,
+            {"game_id": game.id, "source": "detail_page"},
+            format="json",
+        )
+        self.assertEqual(first.status_code, 201)
+
+        second = self.client.post(
+            self.url,
+            {"game_id": game.id, "source": "search_result"},
+            format="json",
+        )
+        self.assertEqual(second.status_code, 201)
+        self.assertEqual(InteractionLog.objects.count(), 2)
+
     def test_interaction_view_recent_null_weight_log_is_not_reused_for_cooldown(self) -> None:
         user = self._create_user()
         game = self._create_game()

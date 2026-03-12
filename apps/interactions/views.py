@@ -24,7 +24,7 @@ from apps.users.models import User
     description=(
         "게임 조회(view) 행동을 기록합니다.\n\n"
         "- 최초 기록 시: `201`\n"
-        "- 쿨다운 내 중복 요청 시: 로그를 추가 생성하지 않고 `200`으로 기존 최근 로그를 반환합니다.\n"
+        "- 동일 source에서 쿨다운 내 중복 요청 시: 로그를 추가 생성하지 않고 `200`으로 기존 최근 로그를 반환합니다.\n"
         "- 가중치는 `interaction_weight_rules`(type=view)와 "
         "`interaction_context_rules`(source) 조합으로 계산됩니다."
     ),

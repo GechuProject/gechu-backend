@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 from decimal import Decimal
 
@@ -19,6 +20,12 @@ def record_view_interaction(
     source: str,
     metadata: dict[str, object] | list[object] | str | int | float | bool | None = None,
 ) -> tuple[InteractionLog, bool]:
+    if metadata is not None:
+        try:
+            json.dumps(metadata)
+        except (TypeError, ValueError):
+            raise CustomAPIException(ErrorMessages.VALIDATION_ERROR) from None
+
     try:
         game = Game.objects.get(id=game_id, is_visible=True)
     except Game.DoesNotExist:
@@ -42,6 +49,7 @@ def record_view_interaction(
             user=user,
             game=game,
             type=InteractionLog.ActionType.VIEW,
+            source=source,
             weight__isnull=False,
         )
         .order_by("-created_at")
@@ -59,8 +67,11 @@ def record_view_interaction(
         game=game,
         type=InteractionLog.ActionType.VIEW,
     ).count()
+    effective_repeat_count = min(repeat_count, 10)
     weight: Decimal = (
-        weight_rule.base_weight * context_rule.multiplier * (weight_rule.repeat_decay**repeat_count)
+        weight_rule.base_weight
+        * context_rule.multiplier
+        * (weight_rule.repeat_decay**effective_repeat_count)
     ).quantize(Decimal("0.0001"))
 
     log = InteractionLog.objects.create(
