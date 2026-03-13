@@ -4,7 +4,8 @@ from .auth_service import (
     issue_auth_tokens,
     logout_user,
     refresh_access_token,
-    send_signup_email_code,
+    reset_user_password,
+    send_email_code,
     signup_user,
 )
 from .user_me_service import get_user_me, update_user_me
@@ -16,7 +17,8 @@ __all__ = [
     "issue_auth_tokens",
     "logout_user",
     "refresh_access_token",
-    "send_signup_email_code",
+    "reset_user_password",
+    "send_email_code",
     "signup_user",
     "update_user_me",
 ]
