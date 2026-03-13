@@ -83,19 +83,82 @@ class RawgClient:
         status = response.status_code
 
         if status == 404:
-            raise RawgNotFoundError("RAWG resource not found")
+            raise RawgNotFoundError()
 
         if status == 429:
-            raise RawgRateLimitError("RAWG rate limit exceeded")
+            raise RawgRateLimitError()
 
         if 500 <= status < 600:
-            raise RawgServerError(f"RAWG server error: {status}")
+            raise RawgServerError(status=status)
 
         response.raise_for_status()
 
         return response.json()
 
-#     # TODO: _paginate(path, params) → 페이지네이션 제너레이터, rate limit 재시도 포함
-#
-#     # TODO: iter_games / get_game_detail / get_game_screenshots / get_game_trailers
-#     #       iter_genres / iter_platforms / iter_tags / iter_stores
+#   # TODO: _paginate(path, params) → 페이지네이션 제너레이터, rate limit 재시도 포함
+    def _paginate(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+    ) -> Generator[dict[str, Any], None, None]:
+
+        params = params or {}
+        params["page_size"] = _PAGE_SIZE
+
+        page = 1
+
+        for _ in range(_MAX_PAGES):
+            params["page"] = page
+
+            data = self._get(path, params)
+
+            results = data.get("results", [])
+
+            if not results:
+                break
+
+            for item in results:
+                yield item
+
+            if not data.get("next"):
+                break
+
+            page += 1
+
+            time.sleep(_PAGE_INTERVAL)
+
+#   # TODO: iter_games / get_game_detail / get_game_screenshots / get_game_trailers
+#   #       iter_genres / iter_platforms / iter_tags / iter_stores
+    # 게임전체 조회
+    def iter_games(self) -> Generator[dict[str, Any], None, None]:
+        yield from self._paginate("games")
+
+    # 게임상세 조회
+    def get_game_detail(self, game_id: int) -> dict[str, Any]:
+        return self._get(f"games/{game_id}")
+
+    # 게임 스크린샷 조회
+    def get_game_screenshots(self, game_id: int) -> list[dict[str, Any]]:
+        data = self._get(f"games/{game_id}/screenshots")
+        return data.get("results", [])
+
+    # 게임 트레일러 조회
+    def get_game_trailers(self, game_id: int) -> list[dict[str, Any]]:
+        data = self._get(f"games/{game_id}/movies")
+        return data.get("results", [])
+
+    # 장르 조회
+    def iter_genres(self) -> Generator[dict[str, Any], None, None]:
+        yield from self._paginate("genres")
+
+    # 플랫폼 조회
+    def iter_platforms(self) -> Generator[dict[str, Any], None, None]:
+        yield from self._paginate("platforms")
+
+    # 태그 조회
+    def iter_tags(self) -> Generator[dict[str, Any], None, None]:
+        yield from self._paginate("tags")
+
+    # 스토어 조회
+    def iter_stores(self) -> Generator[dict[str, Any], None, None]:
+        yield from self._paginate("stores")
