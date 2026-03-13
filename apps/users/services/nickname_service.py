@@ -74,8 +74,8 @@ NICKNAME_SUFFIXES = [
 
 def generate_unique_nickname() -> str:
     while True:
-        prefix = NICKNAME_PREFIXES[secrets.randbelow(len(NICKNAME_PREFIXES))]
-        suffix = NICKNAME_SUFFIXES[secrets.randbelow(len(NICKNAME_SUFFIXES))]
+        prefix = secrets.choice(NICKNAME_PREFIXES)
+        suffix = secrets.choice(NICKNAME_SUFFIXES)
         nickname = f"{prefix}{suffix}"
 
         if not User.objects.filter(nickname=nickname).exists():

@@ -5,6 +5,7 @@ from urllib.parse import urlencode
 import requests
 from django.conf import settings
 from django.core.cache import cache
+from django.db import IntegrityError
 
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
@@ -12,6 +13,9 @@ from apps.users.models.social_user import SocialUser
 from apps.users.models.user import User
 from apps.users.services.auth_service import get_active_user_or_deactivated, issue_auth_tokens
 from apps.users.services.nickname_service import generate_unique_nickname
+
+# Provider가 생년월일 정보를 주지 않는 경우 소셜 가입 기본값을 사용합니다.
+DEFAULT_SOCIAL_BIRTH_DATE = date(2000, 1, 1)
 
 
 def build_kakao_login_url() -> str:
@@ -106,7 +110,7 @@ def extract_kakao_user_data(user_info: dict[str, object]) -> tuple[str, str | No
 
     kakao_account = user_info.get("kakao_account", {})
     email = None
-    birth_date = date(2000, 1, 1)
+    birth_date = DEFAULT_SOCIAL_BIRTH_DATE
 
     if isinstance(kakao_account, dict):
         raw_email = kakao_account.get("email")
@@ -151,13 +155,20 @@ def get_or_create_kakao_user(*, provider_uid: str, email: str | None, birth_date
         )
         return existing_user, False
 
-    nickname = generate_unique_nickname()
-    user = User.objects.create_user(
-        email=email,
-        nickname=nickname,
-        birth_date=birth_date,
-        password=None,
-    )
+    for _ in range(5):
+        nickname = generate_unique_nickname()
+        try:
+            user = User.objects.create_user(
+                email=email,
+                nickname=nickname,
+                birth_date=birth_date,
+                password=None,
+            )
+            break
+        except IntegrityError:
+            continue
+    else:
+        raise CustomAPIException(ErrorMessages.OAUTH_CALLBACK_ERROR)
 
     SocialUser.objects.create(
         user=user,
