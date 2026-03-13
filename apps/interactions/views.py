@@ -1,25 +1,20 @@
 from __future__ import annotations
 
-from datetime import timedelta
-from decimal import Decimal
 from typing import cast
 
-from django.utils import timezone
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.core.serializers.error_serializer import ErrorResponseSerializer
-from apps.games.models import Game
-from apps.interactions.models import InteractionContextRule, InteractionLog, InteractionWeightRule
 from apps.interactions.serializers import (
     InteractionViewLogRequestSerializer,
     InteractionViewLogResponseSerializer,
 )
+from apps.interactions.services import record_view_interaction
 from apps.users.models import User
 
 
@@ -28,8 +23,8 @@ from apps.users.models import User
     summary="게임 조회 행동 기록",
     description=(
         "게임 조회(view) 행동을 기록합니다.\n\n"
-        "- 최초 기록 시: `201` + `logged=true`\n"
-        "- 쿨다운 내 중복 요청 시: 로그를 추가 생성하지 않고 `200`으로 기존 최근 로그를 반환합니다.\n"
+        "- 최초 기록 시: `201`\n"
+        "- 동일 source에서 쿨다운 내 중복 요청 시: 로그를 추가 생성하지 않고 `200`으로 기존 최근 로그를 반환합니다.\n"
         "- 가중치는 `interaction_weight_rules`(type=view)와 "
         "`interaction_context_rules`(source) 조합으로 계산됩니다."
     ),
@@ -144,59 +139,13 @@ class InteractionViewLogCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        game = Game.objects.filter(id=data["game_id"], is_visible=True).first()
-        if game is None:
-            raise CustomAPIException(ErrorMessages.GAME_NOT_FOUND)
-
-        weight_rule = InteractionWeightRule.objects.filter(
-            interaction_type=InteractionLog.ActionType.VIEW,
-            is_active=True,
-        ).first()
-        if weight_rule is None:
-            raise CustomAPIException(ErrorMessages.INTERACTION_TYPE_NOT_FOUND)
-
-        context_rule = InteractionContextRule.objects.filter(
-            interaction_source=data["source"],
-        ).first()
-        if context_rule is None:
-            raise CustomAPIException(ErrorMessages.SOURCE_NOT_FOUND)
-
         user = cast(User, request.user)
-        latest_reusable_log = (
-            InteractionLog.objects.filter(
-                user=user,
-                game=game,
-                type=InteractionLog.ActionType.VIEW,
-                weight__isnull=False,
-            )
-            .order_by("-created_at")
-            .first()
-        )
-        if (
-            latest_reusable_log is not None
-            and weight_rule.cooldown_seconds > 0
-            and latest_reusable_log.created_at >= timezone.now() - timedelta(seconds=weight_rule.cooldown_seconds)
-        ):
-            response_serializer = InteractionViewLogResponseSerializer(latest_reusable_log)
-            return Response(response_serializer.data, status=200)
-
-        repeat_count = InteractionLog.objects.filter(
+        log, created = record_view_interaction(
             user=user,
-            game=game,
-            type=InteractionLog.ActionType.VIEW,
-        ).count()
-        weight: Decimal = (
-            weight_rule.base_weight * context_rule.multiplier * (weight_rule.repeat_decay**repeat_count)
-        ).quantize(Decimal("0.0001"))
-
-        log = InteractionLog.objects.create(
-            user=user,
-            game=game,
-            type=InteractionLog.ActionType.VIEW,
+            game_id=data["game_id"],
             source=data["source"],
-            weight=weight,
             metadata=data.get("metadata"),
         )
 
         response_serializer = InteractionViewLogResponseSerializer(log)
-        return Response(response_serializer.data, status=201)
+        return Response(response_serializer.data, status=201 if created else 200)
