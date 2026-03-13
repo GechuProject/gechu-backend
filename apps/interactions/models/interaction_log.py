@@ -39,6 +39,14 @@ class InteractionLog(models.Model):
         blank=True,
     )
 
+    store = models.ForeignKey(
+        "games.ExternalStore",
+        on_delete=models.CASCADE,
+        db_column="store_id",
+        null=True,
+        blank=True,
+    )
+
     search_query = models.TextField(
         null=True,
         blank=True,
@@ -75,6 +83,7 @@ class InteractionLog(models.Model):
         indexes = [
             models.Index(fields=["user"]),
             models.Index(fields=["game"]),
+            models.Index(fields=["store"]),
             models.Index(fields=["type"]),
             models.Index(fields=["created_at"]),
         ]
