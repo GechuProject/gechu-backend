@@ -15,7 +15,6 @@ from apps.users.views.social_auth import (
     KakaoLoginAPIView,
 )
 
-
 urlpatterns = [
     path("auth/signup/", SignupAPIView.as_view(), name="auth-signup"),
     path("auth/email/code/", EmailCodeSendAPIView.as_view(), name="auth-email-code"),
