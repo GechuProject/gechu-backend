@@ -30,3 +30,28 @@ class InteractionViewLogResponseSerializer(serializers.Serializer):  # type: ign
     id = serializers.IntegerField()
     type = serializers.CharField()
     logged_at = serializers.DateTimeField(source="created_at")
+
+
+class InteractionSearchLogRequestSerializer(serializers.Serializer[dict[str, Any]]):
+    game_id = serializers.IntegerField(min_value=1, required=False)
+    search_query = serializers.CharField(required=False)
+    source = serializers.CharField(required=False)  # type: ignore[assignment]
+    metadata = serializers.JSONField(required=False)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        if attrs.get("search_query") is None:
+            raise CustomAPIException(ErrorMessages.SEARCH_QUERY_MISSING)
+        if attrs.get("game_id") is None or attrs.get("source") is None:
+            raise CustomAPIException(ErrorMessages.GAME_ID_OR_SOURCE_MISSING)
+        return attrs
+
+    def validate_source(self, value: str) -> str:
+        if value != InteractionLog.SourceType.SEARCH_RESULT:
+            raise CustomAPIException(ErrorMessages.INVALID_SOURCE)
+        return value
+
+
+class InteractionSearchLogResponseSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    id = serializers.IntegerField()
+    type = serializers.CharField()
+    created_at = serializers.DateTimeField()
