@@ -11,10 +11,12 @@ from rest_framework.views import APIView
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.core.serializers.error_serializer import ErrorResponseSerializer
 from apps.interactions.serializers import (
+    InteractionSearchLogRequestSerializer,
+    InteractionSearchLogResponseSerializer,
     InteractionViewLogRequestSerializer,
     InteractionViewLogResponseSerializer,
 )
-from apps.interactions.services import record_view_interaction
+from apps.interactions.services import record_search_interaction, record_view_interaction
 from apps.users.models import User
 
 
@@ -148,4 +150,148 @@ class InteractionViewLogCreateView(APIView):
         )
 
         response_serializer = InteractionViewLogResponseSerializer(log)
+        return Response(response_serializer.data, status=201 if created else 200)
+
+
+@extend_schema(
+    tags=["Interactions"],
+    summary="게임 검색 행동 기록",
+    description=(
+        "게임 검색(search) 행동을 기록합니다.\n\n"
+        "- 이 API는 **게임이 선택된 검색 행동만** 기록하므로 `game_id`가 필수입니다.\n"
+        "- 최초 기록 시: `201`\n"
+        "- 동일 검색어/동일 game/source에서 쿨다운 내 중복 요청 시: 로그를 추가 생성하지 않고 `200`으로 기존 최근 로그를 반환합니다.\n"
+        "- 가중치는 `interaction_weight_rules`(type=search)와 "
+        "`interaction_context_rules`(source=search_result) 조합으로 계산됩니다."
+    ),
+    request=InteractionSearchLogRequestSerializer,
+    examples=[
+        OpenApiExample(
+            "요청 예시",
+            value={
+                "game_id": 1,
+                "search_query": "elden ring",
+                "source": "search_result",
+                "metadata": {"result_rank": 2, "keyword_length": 10},
+            },
+            request_only=True,
+        ),
+        OpenApiExample(
+            "생성 응답 예시 (201)",
+            value={
+                "id": 201,
+                "type": "search",
+                "created_at": "2026-03-11T08:30:00Z",
+            },
+            response_only=True,
+            status_codes=["201"],
+        ),
+        OpenApiExample(
+            "쿨다운 무시 응답 예시 (200)",
+            value={
+                "id": 201,
+                "type": "search",
+                "created_at": "2026-03-11T08:30:00Z",
+            },
+            response_only=True,
+            status_codes=["200"],
+        ),
+    ],
+    responses={
+        200: InteractionSearchLogResponseSerializer,
+        201: InteractionSearchLogResponseSerializer,
+        400: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Bad Request",
+            examples=[
+                OpenApiExample(
+                    "search_query 누락",
+                    value={
+                        "status_code": ErrorMessages.SEARCH_QUERY_MISSING.status_code,
+                        "code": ErrorMessages.SEARCH_QUERY_MISSING.name,
+                        "message": ErrorMessages.SEARCH_QUERY_MISSING.message,
+                    },
+                ),
+                OpenApiExample(
+                    "game_id/source 누락",
+                    value={
+                        "status_code": ErrorMessages.GAME_ID_OR_SOURCE_MISSING.status_code,
+                        "code": ErrorMessages.GAME_ID_OR_SOURCE_MISSING.name,
+                        "message": ErrorMessages.GAME_ID_OR_SOURCE_MISSING.message,
+                    },
+                ),
+                OpenApiExample(
+                    "source 값 오류",
+                    value={
+                        "status_code": ErrorMessages.INVALID_SOURCE.status_code,
+                        "code": ErrorMessages.INVALID_SOURCE.name,
+                        "message": ErrorMessages.INVALID_SOURCE.message,
+                    },
+                ),
+            ],
+        ),
+        401: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Unauthorized",
+            examples=[
+                OpenApiExample(
+                    "인증 필요",
+                    value={
+                        "status_code": ErrorMessages.UNAUTHORIZED.status_code,
+                        "code": ErrorMessages.UNAUTHORIZED.name,
+                        "message": ErrorMessages.UNAUTHORIZED.message,
+                    },
+                )
+            ],
+        ),
+        404: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Not Found",
+            examples=[
+                OpenApiExample(
+                    "게임 없음",
+                    value={
+                        "status_code": ErrorMessages.GAME_NOT_FOUND.status_code,
+                        "code": ErrorMessages.GAME_NOT_FOUND.name,
+                        "message": ErrorMessages.GAME_NOT_FOUND.message,
+                    },
+                ),
+                OpenApiExample(
+                    "search 룰 없음",
+                    value={
+                        "status_code": ErrorMessages.INTERACTION_TYPE_NOT_FOUND.status_code,
+                        "code": ErrorMessages.INTERACTION_TYPE_NOT_FOUND.name,
+                        "message": ErrorMessages.INTERACTION_TYPE_NOT_FOUND.message,
+                    },
+                ),
+                OpenApiExample(
+                    "source 룰 없음",
+                    value={
+                        "status_code": ErrorMessages.SOURCE_NOT_FOUND.status_code,
+                        "code": ErrorMessages.SOURCE_NOT_FOUND.name,
+                        "message": ErrorMessages.SOURCE_NOT_FOUND.message,
+                    },
+                ),
+            ],
+        ),
+    },
+)
+class InteractionSearchLogCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request) -> Response:
+        serializer = InteractionSearchLogRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        user = cast(User, request.user)
+        log, created = record_search_interaction(
+            user=user,
+            game_id=data["game_id"],
+            search_query=data["search_query"],
+            source=data["source"],
+            metadata=data.get("metadata"),
+        )
+
+        response_serializer = InteractionSearchLogResponseSerializer(log)
         return Response(response_serializer.data, status=201 if created else 200)

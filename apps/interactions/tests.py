@@ -268,3 +268,243 @@ class InteractionViewLogCreateAPITestCase(TestCase):
         second_log = InteractionLog.objects.get(id=second_id)
         self.assertIsNotNone(second_log.weight)
         self.assertEqual(float(cast(Any, second_log.weight)), 0.216)  # 0.2 * 1.2 * 0.9^1
+
+
+class InteractionSearchLogCreateAPITestCase(TestCase):
+    client: APIClient
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/interactions/search/"
+        self._create_search_rules()
+
+    def _create_user(self) -> User:
+        return User.objects.create_user(
+            email="search-user@ex.com",
+            nickname="search-user",
+            birth_date=date(1992, 1, 1),
+            password="pw",
+        )
+
+    def _create_game(self, **kwargs: Any) -> Game:
+        defaults = {
+            "rawg_id": 7001,
+            "slug": "search-game",
+            "name": "Search Game",
+            "thumbnail_img_url": "https://example.com/search-thumb.jpg",
+            "website": "https://example.com/search",
+            "rawg_rating": 4.20,
+            "is_visible": True,
+        }
+        defaults.update(kwargs)
+        return Game.objects.create(**defaults)
+
+    def _create_search_rules(self) -> None:
+        InteractionWeightRule.objects.create(
+            interaction_type=InteractionWeightRule.ActionType.SEARCH,
+            base_weight=0.10,
+            cooldown_seconds=120,
+            repeat_decay=0.900,
+            is_active=True,
+        )
+        InteractionContextRule.objects.get_or_create(
+            interaction_source=InteractionContextRule.InteractionSource.SEARCH_RESULT,
+            defaults={"multiplier": 1.10},
+        )
+
+    def test_interaction_search_unauthorized(self) -> None:
+        response = self.client.post(
+            self.url,
+            {"game_id": 1, "search_query": "elden ring", "source": "search_result"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_interaction_search_missing_search_query_returns_400(self) -> None:
+        user = self._create_user()
+        game = self._create_game()
+        self.client.force_authenticate(user=user)
+
+        response = self.client.post(
+            self.url,
+            {"game_id": game.id, "source": "search_result"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "SEARCH_QUERY_MISSING")
+
+    def test_interaction_search_missing_game_id_or_source_returns_400(self) -> None:
+        user = self._create_user()
+        self.client.force_authenticate(user=user)
+
+        response = self.client.post(
+            self.url,
+            {"search_query": "elden ring", "source": "search_result"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "GAME_ID_OR_SOURCE_MISSING")
+
+    def test_interaction_search_invalid_source_returns_400(self) -> None:
+        user = self._create_user()
+        game = self._create_game()
+        self.client.force_authenticate(user=user)
+
+        response = self.client.post(
+            self.url,
+            {"game_id": game.id, "search_query": "elden ring", "source": "detail_page"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "INVALID_SOURCE")
+
+    def test_interaction_search_game_not_found_returns_404(self) -> None:
+        user = self._create_user()
+        self.client.force_authenticate(user=user)
+
+        response = self.client.post(
+            self.url,
+            {"game_id": 999999, "search_query": "elden ring", "source": "search_result"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "GAME_NOT_FOUND")
+
+    def test_interaction_search_success(self) -> None:
+        user = self._create_user()
+        game = self._create_game()
+        self.client.force_authenticate(user=user)
+
+        response = self.client.post(
+            self.url,
+            {
+                "game_id": game.id,
+                "search_query": "elden ring",
+                "source": "search_result",
+                "metadata": {"result_rank": 3},
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+
+        data = cast(dict[str, Any], response.data)
+        self.assertIn("id", data)
+        self.assertEqual(data["type"], "search")
+        self.assertIn("created_at", data)
+
+        log = InteractionLog.objects.get(id=data["id"])
+        self.assertEqual(log.user_id, user.id)
+        self.assertEqual(log.game_id, game.id)
+        self.assertEqual(log.type, InteractionLog.ActionType.SEARCH)
+        self.assertEqual(log.source, InteractionLog.SourceType.SEARCH_RESULT)
+        self.assertEqual(log.search_query, "elden ring")
+        self.assertIsNotNone(log.weight)
+        self.assertEqual(float(cast(Any, log.weight)), 0.11)
+
+    def test_interaction_search_cooldown_ignored_returns_200(self) -> None:
+        user = self._create_user()
+        game = self._create_game()
+        self.client.force_authenticate(user=user)
+
+        first = self.client.post(
+            self.url,
+            {"game_id": game.id, "search_query": "elden ring", "source": "search_result"},
+            format="json",
+        )
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(InteractionLog.objects.count(), 1)
+
+        second = self.client.post(
+            self.url,
+            {"game_id": game.id, "search_query": "elden ring", "source": "search_result"},
+            format="json",
+        )
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(InteractionLog.objects.count(), 1)
+
+    def test_interaction_search_different_query_is_logged_even_in_cooldown(self) -> None:
+        user = self._create_user()
+        game = self._create_game()
+        self.client.force_authenticate(user=user)
+
+        first = self.client.post(
+            self.url,
+            {"game_id": game.id, "search_query": "elden ring", "source": "search_result"},
+            format="json",
+        )
+        self.assertEqual(first.status_code, 201)
+
+        second = self.client.post(
+            self.url,
+            {"game_id": game.id, "search_query": "stardew valley", "source": "search_result"},
+            format="json",
+        )
+        self.assertEqual(second.status_code, 201)
+        self.assertEqual(InteractionLog.objects.count(), 2)
+
+    def test_interaction_search_missing_weight_rule_returns_404(self) -> None:
+        user = self._create_user()
+        game = self._create_game()
+        self.client.force_authenticate(user=user)
+        InteractionWeightRule.objects.filter(interaction_type=InteractionWeightRule.ActionType.SEARCH).delete()
+
+        response = self.client.post(
+            self.url,
+            {"game_id": game.id, "search_query": "elden ring", "source": "search_result"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "INTERACTION_TYPE_NOT_FOUND")
+
+    def test_interaction_search_missing_source_rule_returns_404(self) -> None:
+        user = self._create_user()
+        game = self._create_game()
+        self.client.force_authenticate(user=user)
+        InteractionContextRule.objects.filter(
+            interaction_source=InteractionContextRule.InteractionSource.SEARCH_RESULT
+        ).delete()
+
+        response = self.client.post(
+            self.url,
+            {"game_id": game.id, "search_query": "elden ring", "source": "search_result"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "SOURCE_NOT_FOUND")
+
+    def test_interaction_search_repeat_decay_applied(self) -> None:
+        user = self._create_user()
+        game = self._create_game()
+        self.client.force_authenticate(user=user)
+        InteractionWeightRule.objects.filter(interaction_type=InteractionWeightRule.ActionType.SEARCH).update(
+            cooldown_seconds=0,
+            repeat_decay=0.900,
+        )
+
+        first = self.client.post(
+            self.url,
+            {"game_id": game.id, "search_query": "elden ring", "source": "search_result"},
+            format="json",
+        )
+        self.assertEqual(first.status_code, 201)
+        first_id = cast(dict[str, Any], first.data)["id"]
+        first_log = InteractionLog.objects.get(id=first_id)
+        self.assertIsNotNone(first_log.weight)
+        self.assertEqual(float(cast(Any, first_log.weight)), 0.11)  # 0.1 * 1.1 * 0.9^0
+
+        second = self.client.post(
+            self.url,
+            {"game_id": game.id, "search_query": "elden ring", "source": "search_result"},
+            format="json",
+        )
+        self.assertEqual(second.status_code, 201)
+        second_id = cast(dict[str, Any], second.data)["id"]
+        second_log = InteractionLog.objects.get(id=second_id)
+        self.assertIsNotNone(second_log.weight)
+        self.assertEqual(float(cast(Any, second_log.weight)), 0.099)  # 0.1 * 1.1 * 0.9^1

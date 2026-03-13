@@ -1,7 +1,8 @@
 from django.urls import path
 
-from apps.interactions.views import InteractionViewLogCreateView
+from apps.interactions.views import InteractionSearchLogCreateView, InteractionViewLogCreateView
 
 urlpatterns = [
     path("view/", InteractionViewLogCreateView.as_view(), name="interaction-view-create"),
+    path("search/", InteractionSearchLogCreateView.as_view(), name="interaction-search-create"),
 ]
