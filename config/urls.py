@@ -13,7 +13,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/", include("apps.users.urls")),
     path("api/v1/games/", include("apps.games.urls.games")),
-    path("admin/sync/rawg/", include("apps.games.urls.admin_sync")),
+    path("api/v1/admin/", include("apps.games.urls.admin_sync")),
 ]
 
 if settings.DEBUG:

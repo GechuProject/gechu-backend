@@ -248,7 +248,7 @@ from celery.schedules import crontab  # noqa: E402
 
 CELERY_BEAT_SCHEDULE = {
     "rawg-incremental-sync": {
-        "task": "games.incremental_sync",
+        "task": "apps.games.tasks.incremental_sync",
         "schedule": crontab(hour=3, minute=0),
     },
     "recommendation-process-pending-jobs": {
