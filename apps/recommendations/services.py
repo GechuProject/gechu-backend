@@ -19,23 +19,19 @@ class RecommendationStatusResult(TypedDict):
 class RecommendationStatusService:
     @staticmethod
     def get_status(*, user: User) -> RecommendationStatusResult:
-        latest_job = RecommendationService._get_latest_user_refresh_job(user=user)
+        latest_job = RecommendationService.get_latest_user_refresh_job(user=user)
         latest_recommendation = (
-            UserRecommendation.objects.filter(user=user)
-            .order_by("-generation_version", "-generated_at")
-            .first()
+            UserRecommendation.objects.filter(user=user).order_by("-generation_version", "-generated_at").first()
         )
 
         has_recommendation = latest_recommendation is not None
 
-        if latest_job is None:
+        if latest_job is None or latest_job.status == RecommendationJob.Status.SUCCESS:
             status = "success" if has_recommendation else "pending"
         elif latest_job.status in (RecommendationJob.Status.PENDING, RecommendationJob.Status.RUNNING):
             status = "pending"
         elif latest_job.status == RecommendationJob.Status.FAILED:
             status = "failed"
-        elif latest_job.status == RecommendationJob.Status.SUCCESS:
-            status = "success" if has_recommendation else "pending"
         else:
             status = "pending"
 
@@ -49,7 +45,7 @@ class RecommendationStatusService:
 
 class RecommendationService:
     @staticmethod
-    def _get_latest_user_refresh_job(*, user: User) -> RecommendationJob | None:
+    def get_latest_user_refresh_job(*, user: User) -> RecommendationJob | None:
         return (
             RecommendationJob.objects.filter(
                 target_user=user,
@@ -61,7 +57,7 @@ class RecommendationService:
 
     @staticmethod
     def is_recommendation_ready(*, user: User) -> bool:
-        latest_user_refresh_job = RecommendationService._get_latest_user_refresh_job(user=user)
+        latest_user_refresh_job = RecommendationService.get_latest_user_refresh_job(user=user)
         if latest_user_refresh_job is not None and latest_user_refresh_job.status in {
             RecommendationJob.Status.PENDING,
             RecommendationJob.Status.RUNNING,
@@ -105,7 +101,7 @@ class RecommendationService:
 
     @staticmethod
     def enqueue_user_refresh_job_if_needed(*, user: User) -> RecommendationJob:
-        latest_user_refresh_job = RecommendationService._get_latest_user_refresh_job(user=user)
+        latest_user_refresh_job = RecommendationService.get_latest_user_refresh_job(user=user)
         if latest_user_refresh_job is not None and latest_user_refresh_job.status in {
             RecommendationJob.Status.PENDING,
             RecommendationJob.Status.RUNNING,
