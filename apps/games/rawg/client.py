@@ -102,8 +102,8 @@ class RawgClient:
         # status = 200 일때 !
         try:
             data: dict[str, Any] = response.json()
-        except requests.JSONDecodeError:
-            raise RawgServerError(status=status)
+        except requests.JSONDecodeError as err:
+            raise RawgServerError(status=status) from err
 
         return data
 
