@@ -8,25 +8,26 @@
     python manage.py sync_rawg --game-id 3498
 """
 
-import logging
+# import logging
+#
+# from django.core.management.base import BaseCommand
+#
+# logger = logging.getLogger(__name__)
+#
+#
+# class Command(BaseCommand):
+#     help = "RAWG API 데이터를 DB에 동기화합니다"
 
-from django.core.management.base import BaseCommand, CommandError
-
-from apps.games.services.rawg_sync import RawgSyncService
-
-logger = logging.getLogger(__name__)
-
-class Command(BaseCommand):
-    help = "RAWG API 데이터를 DB에 동기화합니다"
 
 # TODO: add_arguments - --all/--lookup-only/--games/--game-id (mutually exclusive)
 #                       --max-pages / --ordering (choices 제한) / --no-detail
-def add_arguments(self, parser):
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--all", action="store_true", help="전체 데이터 동기화")
-    group.add_argument("--lookup-only", action="store_true", help="장르/플랫폼/태그/스토어 조회만")
-    group.add_argument("--games", action="store_true", help="게임 데이터만 동기화")
-    group.add_argument("--game-id", type=int, help="특정 게임 ID만 동기화")
+# def add_arguments(self, parser: ArgumentParser) -> None:
+#     group = parser.add_mutually_exclusive_group(required=True)
+#     group.add_argument("--all", action="store_true", help="전체 데이터 동기화")
+#     group.add_argument("--lookup-only", action="store_true", help="장르/플랫폼/태그/스토어 조회만")
+#     group.add_argument("--games", action="store_true", help="게임 데이터만 동기화")
+#     group.add_argument("--game-id", type=int, help="특정 게임 ID만 동기화")
+
 
 # TODO: handle - 옵션별 분기, CommandError로 예외 래핑
 
