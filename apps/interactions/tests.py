@@ -394,7 +394,7 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
         data = cast(dict[str, Any], response.data)
         self.assertIn("id", data)
         self.assertEqual(data["type"], "search")
-        self.assertIn("created_at", data)
+        self.assertIn("logged_at", data)
 
         log = InteractionLog.objects.get(id=data["id"])
         self.assertEqual(log.user_id, user.id)
@@ -683,7 +683,7 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
         data = cast(dict[str, Any], response.data)
         self.assertIn("id", data)
         self.assertEqual(data["type"], "store_click")
-        self.assertIn("routed_at", data)
+        self.assertIn("logged_at", data)
 
         log = InteractionLog.objects.get(id=data["id"])
         self.assertEqual(log.user_id, user.id)

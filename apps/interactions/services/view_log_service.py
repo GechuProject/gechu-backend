@@ -13,6 +13,9 @@ from apps.games.models import ExternalStore, Game, GameStore
 from apps.interactions.models import InteractionContextRule, InteractionLog, InteractionWeightRule
 from apps.users.models import User
 
+MAX_EFFECTIVE_REPEAT_COUNT = 10
+WEIGHT_QUANTIZE_UNIT = Decimal("0.0001")
+
 
 def record_view_interaction(
     *,
@@ -69,10 +72,10 @@ def record_view_interaction(
             game=game,
             type=InteractionLog.ActionType.VIEW,
         ).count()
-        effective_repeat_count = min(repeat_count, 10)
+        effective_repeat_count = min(repeat_count, MAX_EFFECTIVE_REPEAT_COUNT)
         weight: Decimal = (
             weight_rule.base_weight * context_rule.multiplier * (weight_rule.repeat_decay**effective_repeat_count)
-        ).quantize(Decimal("0.0001"))
+        ).quantize(WEIGHT_QUANTIZE_UNIT)
 
         log = InteractionLog.objects.create(
             user=user,
@@ -142,10 +145,10 @@ def record_search_interaction(
             game=game,
             type=InteractionLog.ActionType.SEARCH,
         ).count()
-        effective_repeat_count = min(repeat_count, 10)
+        effective_repeat_count = min(repeat_count, MAX_EFFECTIVE_REPEAT_COUNT)
         weight: Decimal = (
             weight_rule.base_weight * context_rule.multiplier * (weight_rule.repeat_decay**effective_repeat_count)
-        ).quantize(Decimal("0.0001"))
+        ).quantize(WEIGHT_QUANTIZE_UNIT)
 
         log = InteractionLog.objects.create(
             user=user,
@@ -223,10 +226,10 @@ def record_store_click_interaction(
             store=store,
             type=InteractionLog.ActionType.STORE_CLICK,
         ).count()
-        effective_repeat_count = min(repeat_count, 10)
+        effective_repeat_count = min(repeat_count, MAX_EFFECTIVE_REPEAT_COUNT)
         weight: Decimal = (
             weight_rule.base_weight * context_rule.multiplier * (weight_rule.repeat_decay**effective_repeat_count)
-        ).quantize(Decimal("0.0001"))
+        ).quantize(WEIGHT_QUANTIZE_UNIT)
 
         log = InteractionLog.objects.create(
             user=user,

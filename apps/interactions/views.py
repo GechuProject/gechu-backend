@@ -187,7 +187,7 @@ class InteractionViewLogCreateView(APIView):
             value={
                 "id": 201,
                 "type": "search",
-                "created_at": "2026-03-11T08:30:00Z",
+                "logged_at": "2026-03-11T08:30:00Z",
             },
             response_only=True,
             status_codes=["201"],
@@ -197,7 +197,7 @@ class InteractionViewLogCreateView(APIView):
             value={
                 "id": 201,
                 "type": "search",
-                "created_at": "2026-03-11T08:30:00Z",
+                "logged_at": "2026-03-11T08:30:00Z",
             },
             response_only=True,
             status_codes=["200"],
@@ -332,7 +332,7 @@ class InteractionSearchLogCreateView(APIView):
             value={
                 "id": 301,
                 "type": "store_click",
-                "routed_at": "2026-03-11T08:30:00Z",
+                "logged_at": "2026-03-11T08:30:00Z",
             },
             response_only=True,
             status_codes=["201"],
@@ -342,7 +342,7 @@ class InteractionSearchLogCreateView(APIView):
             value={
                 "id": 301,
                 "type": "store_click",
-                "routed_at": "2026-03-11T08:30:00Z",
+                "logged_at": "2026-03-11T08:30:00Z",
             },
             response_only=True,
             status_codes=["200"],
