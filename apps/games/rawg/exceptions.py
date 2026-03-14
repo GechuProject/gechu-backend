@@ -10,8 +10,14 @@ class RawgException(Exception):
     default_message: str = "RAWG API 오류가 발생했습니다."
 
     def __init__(self, message: str | None = None, status: int | None = None):
+        if message is None:
+            message = self.default_message
+
+        self.status = status
+
         if status:
-            message = message or f"{self.default_message} (status: {status})"
+            message = f"{message} (status: {status})"
+
         super().__init__(message)
 
 

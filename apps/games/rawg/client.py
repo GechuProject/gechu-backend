@@ -77,7 +77,7 @@ class RawgClient:
     def _get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         url = urljoin(self.BASE_URL, path)
 
-        params = params or {}
+        params = (params or {}).copy()
         params["key"] = self._api_key  # 모든 api 호출에 자동으로 내 key 추가
 
         response = self._session.get(
@@ -89,16 +89,21 @@ class RawgClient:
         status = response.status_code
 
         if status == 404:
-            raise RawgNotFoundError()
+            raise RawgNotFoundError(status=status)
 
         if status == 429:
-            raise RawgRateLimitError()
+            raise RawgRateLimitError(status=status)
 
         if 500 <= status < 600:
             raise RawgServerError(status=status)
 
         response.raise_for_status()
-        data: dict[str, Any] = response.json()
+
+        # status = 200 일때 !
+        try:
+            data: dict[str, Any] = response.json()
+        except requests.JSONDecodeError:
+            raise RawgServerError(status=status)
 
         return data
 
