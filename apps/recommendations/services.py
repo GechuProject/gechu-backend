@@ -130,3 +130,7 @@ class RecommendationAdminService:
             qs = qs.filter(job_type=job_type)
 
         return qs.order_by("-created_at")
+
+    @staticmethod
+    def get_recommendation_job(*, job_id: int) -> RecommendationJob | None:
+        return RecommendationJob.objects.select_related("target_user").filter(id=job_id).first()

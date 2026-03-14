@@ -123,3 +123,13 @@ class RecommendationJobListResponseSerializer(serializers.Serializer):  # type: 
     next = serializers.CharField(allow_null=True)
     previous = serializers.CharField(allow_null=True)
     results = RecommendationJobItemSerializer(many=True)
+
+
+class RecommendationJobDetailResponseSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    id = serializers.IntegerField()
+    type = serializers.CharField(source="job_type")
+    status = serializers.CharField()
+    target_user = serializers.IntegerField(source="target_user_id", allow_null=True)
+    error_message = serializers.CharField(allow_null=True)
+    started_at = serializers.DateTimeField(allow_null=True)
+    created_at = serializers.DateTimeField()
