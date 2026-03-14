@@ -45,6 +45,9 @@ class ErrorMessages(Enum):
     INVALID_REFRESH_TOKEN = (401, "유효하지 않은 리프레시 토큰입니다.")
     REFRESH_TOKEN_EXPIRED = (401, "리프레시 토큰이 만료되었습니다.")
 
+    # 202 Accepted
+    RECOMMENDATION_NOT_READY = (202, "추천 데이터를 준비중입니다 잠시 후 다시 요청해주세요.")
+
     # 403 Forbidden
     FORBIDDEN = (403, "관리자 권한이 필요합니다.")
     ADULT_VERIFICATION_REQUIRED = (403, "성인 인증이 필요한 게임입니다.")
