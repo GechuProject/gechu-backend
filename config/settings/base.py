@@ -247,6 +247,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "games.incremental_sync",
         "schedule": crontab(hour=3, minute=0),
     },
+    "recommendation-process-pending-jobs": {
+        "task": "apps.recommendations.tasks.process_pending_recommendation_jobs",
+        "schedule": timedelta(seconds=30),
+    },
 }
 
 CELERY_TASK_ACKS_LATE = True  # 실행 완료 후 ack → 워커 재시작 시 재실행 보장
