@@ -82,6 +82,10 @@ def _upsert_recommendations(
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
 def process_user_refresh_job(self, job_id: int) -> None:  # type: ignore[no-untyped-def]
+    run_user_refresh_job(job_id)
+
+
+def run_user_refresh_job(job_id: int) -> None:
     target_user_id: int | None = None
     current_retry_count = 0
     with transaction.atomic():
