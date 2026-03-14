@@ -11,6 +11,7 @@ from django.utils import timezone
 from apps.games.models import Game
 from apps.interactions.models import InteractionLog
 from apps.recommendations.models import GameSimilarity, RecommendationJob, UserRecommendation
+from apps.users.models import User
 
 MAX_SEED_GAMES = 20
 MAX_RECENT_LOG_SCAN = 200
@@ -81,6 +82,8 @@ def _upsert_recommendations(
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
 def process_user_refresh_job(self, job_id: int) -> None:  # type: ignore[no-untyped-def]
+    target_user_id: int | None = None
+    current_retry_count = 0
     with transaction.atomic():
         job = (
             RecommendationJob.objects.select_for_update()
@@ -94,6 +97,8 @@ def process_user_refresh_job(self, job_id: int) -> None:  # type: ignore[no-unty
             return
         if job.status not in {RecommendationJob.Status.PENDING, RecommendationJob.Status.RUNNING}:
             return
+        target_user_id = job.target_user_id
+        current_retry_count = job.retry_count
 
         job.status = RecommendationJob.Status.RUNNING
         job.started_at = timezone.now()
@@ -101,7 +106,9 @@ def process_user_refresh_job(self, job_id: int) -> None:  # type: ignore[no-unty
         job.save(update_fields=["status", "started_at", "error_message"])
 
     try:
-        user = job.target_user
+        if target_user_id is None:
+            return
+        user = User.objects.get(id=target_user_id)
         seed_game_ids = _collect_seed_game_ids(user_id=user.id)
         candidates = _build_similarity_candidates(seed_game_ids=seed_game_ids, is_adult_verified=user.is_adult_verified)
         if not candidates:
@@ -128,7 +135,7 @@ def process_user_refresh_job(self, job_id: int) -> None:  # type: ignore[no-unty
         RecommendationJob.objects.filter(id=job_id).update(
             status=RecommendationJob.Status.FAILED,
             finished_at=timezone.now(),
-            retry_count=job.retry_count + 1,
+            retry_count=current_retry_count + 1,
             error_message=str(err)[:1000],
         )
         raise

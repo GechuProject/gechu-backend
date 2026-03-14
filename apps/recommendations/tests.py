@@ -162,7 +162,7 @@ class RecommendationListAPITestCase(TestCase):
 
         response = self.client.get(
             self.url,
-            {"type": "similarity", "genre": str(genre_action.id), "tag": str(tag_rpg.id), "is_adult": True},
+            {"type": "similarity", "genre": str(genre_action.id), "tag": str(tag_rpg.id), "is_adult": "true"},
         )
         self.assertEqual(response.status_code, 200)
         payload = cast(dict[str, Any], response.data)
