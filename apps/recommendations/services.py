@@ -8,8 +8,8 @@ from apps.users.models import User
 
 class RecommendationService:
     @staticmethod
-    def is_recommendation_ready(*, user: User) -> bool:
-        latest_user_refresh_job = (
+    def _get_latest_user_refresh_job(*, user: User) -> RecommendationJob | None:
+        return (
             RecommendationJob.objects.filter(
                 target_user=user,
                 job_type=RecommendationJob.JobType.USER_REFRESH,
@@ -17,6 +17,10 @@ class RecommendationService:
             .order_by("-created_at")
             .first()
         )
+
+    @staticmethod
+    def is_recommendation_ready(*, user: User) -> bool:
+        latest_user_refresh_job = RecommendationService._get_latest_user_refresh_job(user=user)
         if latest_user_refresh_job is not None and latest_user_refresh_job.status in {
             RecommendationJob.Status.PENDING,
             RecommendationJob.Status.RUNNING,
@@ -60,14 +64,7 @@ class RecommendationService:
 
     @staticmethod
     def enqueue_user_refresh_job_if_needed(*, user: User) -> RecommendationJob:
-        latest_user_refresh_job = (
-            RecommendationJob.objects.filter(
-                target_user=user,
-                job_type=RecommendationJob.JobType.USER_REFRESH,
-            )
-            .order_by("-created_at")
-            .first()
-        )
+        latest_user_refresh_job = RecommendationService._get_latest_user_refresh_job(user=user)
         if latest_user_refresh_job is not None and latest_user_refresh_job.status in {
             RecommendationJob.Status.PENDING,
             RecommendationJob.Status.RUNNING,
