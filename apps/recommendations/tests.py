@@ -733,3 +733,108 @@ class AdminRecommendationJobDetailAPITestCase(TestCase):
         self.assertEqual(payload["error_message"], "Connection timeout")
         self.assertIsNotNone(payload["started_at"])
         self.assertIsNotNone(payload["created_at"])
+
+
+class AdminRecommendationJobRunAPITestCase(TestCase):
+    client: APIClient
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/admin/recommendation-jobs/run/"
+        self.admin_user = User.objects.create_user(
+            email="admin-run@ex.com",
+            nickname="admin-run",
+            birth_date=date(1990, 1, 1),
+            password="pw",
+            is_staff=True,
+        )
+        self.normal_user = User.objects.create_user(
+            email="normal-run@ex.com",
+            nickname="normal-run",
+            birth_date=date(1994, 1, 1),
+            password="pw",
+        )
+
+    def test_admin_recommendation_job_run_unauthorized(self) -> None:
+        response = self.client.post(self.url, data={"job_type": "user_refresh"}, format="json")
+        self.assertEqual(response.status_code, 401)
+
+    def test_admin_recommendation_job_run_forbidden_for_non_admin(self) -> None:
+        self.client.force_authenticate(user=self.normal_user)
+        response = self.client.post(self.url, data={"job_type": "user_refresh"}, format="json")
+
+        self.assertEqual(response.status_code, 403)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["code"], ErrorMessages.FORBIDDEN.name)
+
+    def test_admin_recommendation_job_run_bad_request_when_job_type_missing(self) -> None:
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.post(self.url, data={}, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["code"], ErrorMessages.JOB_TYPE_MISSING.name)
+
+    def test_admin_recommendation_job_run_conflict_when_pending_exists(self) -> None:
+        RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=None,
+            status=RecommendationJob.Status.PENDING,
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.post(self.url, data={"job_type": "user_refresh"}, format="json")
+
+        self.assertEqual(response.status_code, 409)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["code"], ErrorMessages.JOB_ALREADY_RUNNING.name)
+
+    def test_admin_recommendation_job_run_success(self) -> None:
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.post(
+            self.url,
+            data={"job_type": "user_refresh", "target_user": None},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        payload = cast(dict[str, Any], response.data)
+        self.assertEqual(payload["type"], RecommendationJob.JobType.USER_REFRESH)
+        self.assertEqual(payload["status"], RecommendationJob.Status.PENDING)
+        self.assertIsNotNone(payload["created_at"])
+
+    def test_admin_recommendation_job_run_enqueues_when_target_user_exists(self) -> None:
+        target_user = User.objects.create_user(
+            email="target-run@ex.com",
+            nickname="target-run",
+            birth_date=date(1995, 1, 1),
+            password="pw",
+        )
+        self.client.force_authenticate(user=self.admin_user)
+
+        with patch("apps.recommendations.views_admin.process_user_refresh_job.delay") as mocked_delay:
+            response = self.client.post(
+                self.url,
+                data={"job_type": "user_refresh", "target_user": target_user.id},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        job_id = cast(dict[str, Any], response.data)["id"]
+        mocked_delay.assert_called_once_with(job_id)
+
+    def test_admin_recommendation_job_run_similarity_rebuild_rejects_target_user(self) -> None:
+        target_user = User.objects.create_user(
+            email="target-run2@ex.com",
+            nickname="target-run2",
+            birth_date=date(1996, 1, 1),
+            password="pw",
+        )
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.post(
+            self.url,
+            data={"job_type": "similarity_rebuild", "target_user": target_user.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
