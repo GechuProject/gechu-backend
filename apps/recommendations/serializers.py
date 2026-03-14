@@ -83,3 +83,10 @@ class RecommendationListResponseSerializer(serializers.Serializer):  # type: ign
     next = serializers.CharField(allow_null=True)
     previous = serializers.CharField(allow_null=True)
     results = RecommendationItemSerializer(many=True)
+
+
+class RecommendationStatusResponseSerializer(serializers.Serializer[dict[str, Any]]):
+    status = serializers.ChoiceField(choices=["pending", "success", "failed"])
+    generation = serializers.IntegerField(allow_null=True)
+    generated_at = serializers.DateTimeField(allow_null=True)
+    expires_at = serializers.DateTimeField(allow_null=True)

@@ -99,7 +99,8 @@ def run_user_refresh_job(job_id: int) -> None:
         )
         if job is None or job.target_user_id is None:
             return
-        if job.status not in {RecommendationJob.Status.PENDING, RecommendationJob.Status.RUNNING}:
+        # Duplicate queued tasks can exist; only the first PENDING->RUNNING transition should execute.
+        if job.status != RecommendationJob.Status.PENDING:
             return
         target_user_id = job.target_user_id
         current_retry_count = job.retry_count

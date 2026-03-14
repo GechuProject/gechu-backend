@@ -1,9 +1,50 @@
 from __future__ import annotations
 
+from datetime import datetime
+from typing import TypedDict
+
 from django.db.models import QuerySet
 
 from apps.recommendations.models import RecommendationJob, UserRecommendation
 from apps.users.models import User
+
+
+class RecommendationStatusResult(TypedDict):
+    status: str
+    generation: int | None
+    generated_at: datetime | None
+    expires_at: datetime | None
+
+
+class RecommendationStatusService:
+    @staticmethod
+    def get_status(*, user: User) -> RecommendationStatusResult:
+        latest_job = RecommendationService._get_latest_user_refresh_job(user=user)
+        latest_recommendation = (
+            UserRecommendation.objects.filter(user=user)
+            .order_by("-generation_version", "-generated_at")
+            .first()
+        )
+
+        has_recommendation = latest_recommendation is not None
+
+        if latest_job is None:
+            status = "success" if has_recommendation else "pending"
+        elif latest_job.status in (RecommendationJob.Status.PENDING, RecommendationJob.Status.RUNNING):
+            status = "pending"
+        elif latest_job.status == RecommendationJob.Status.FAILED:
+            status = "failed"
+        elif latest_job.status == RecommendationJob.Status.SUCCESS:
+            status = "success" if has_recommendation else "pending"
+        else:
+            status = "pending"
+
+        return {
+            "status": status,
+            "generation": latest_recommendation.generation_version if latest_recommendation else None,
+            "generated_at": latest_recommendation.generated_at if latest_recommendation else None,
+            "expires_at": latest_recommendation.expires_at if latest_recommendation else None,
+        }
 
 
 class RecommendationService:
