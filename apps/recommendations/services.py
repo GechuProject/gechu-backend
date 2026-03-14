@@ -113,3 +113,20 @@ class RecommendationService:
             target_user=user,
             status=RecommendationJob.Status.PENDING,
         )
+
+
+class RecommendationAdminService:
+    @staticmethod
+    def list_recommendation_jobs(
+        *,
+        job_status: str | None = None,
+        job_type: str | None = None,
+    ) -> QuerySet[RecommendationJob]:
+        qs = RecommendationJob.objects.select_related("target_user").all()
+
+        if job_status:
+            qs = qs.filter(status=job_status)
+        if job_type:
+            qs = qs.filter(job_type=job_type)
+
+        return qs.order_by("-created_at")

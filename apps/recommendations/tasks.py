@@ -99,8 +99,14 @@ def run_user_refresh_job(job_id: int) -> None:
         )
         if job is None or job.target_user_id is None:
             return
-        # Duplicate queued tasks can exist; only the first PENDING->RUNNING transition should execute.
-        if job.status != RecommendationJob.Status.PENDING:
+        # Allow exactly one worker execution:
+        # - PENDING: legacy/manual path
+        # - RUNNING with started_at=None: pre-claimed by scheduler, not started yet
+        if job.status == RecommendationJob.Status.PENDING:
+            pass
+        elif job.status == RecommendationJob.Status.RUNNING and job.started_at is None:
+            pass
+        else:
             return
         target_user_id = job.target_user_id
         current_retry_count = job.retry_count
@@ -148,15 +154,27 @@ def run_user_refresh_job(job_id: int) -> None:
 
 @shared_task
 def process_pending_recommendation_jobs(limit: int = 20) -> int:
-    pending_job_ids = list(
-        RecommendationJob.objects.filter(
-            job_type=RecommendationJob.JobType.USER_REFRESH,
-            status=RecommendationJob.Status.PENDING,
-            target_user_id__isnull=False,
+    with transaction.atomic():
+        pending_job_ids = list(
+            RecommendationJob.objects.select_for_update(skip_locked=True)
+            .filter(
+                job_type=RecommendationJob.JobType.USER_REFRESH,
+                status=RecommendationJob.Status.PENDING,
+                target_user_id__isnull=False,
+            )
+            .order_by("created_at")
+            .values_list("id", flat=True)[:limit]
         )
-        .order_by("created_at")
-        .values_list("id", flat=True)[:limit]
-    )
+
+        if pending_job_ids:
+            RecommendationJob.objects.filter(
+                id__in=pending_job_ids,
+                status=RecommendationJob.Status.PENDING,
+            ).update(
+                status=RecommendationJob.Status.RUNNING,
+                started_at=None,
+            )
+
     for job_id in pending_job_ids:
         process_user_refresh_job.delay(job_id)
     return len(pending_job_ids)
