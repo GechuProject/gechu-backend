@@ -36,6 +36,10 @@ class UserMeUpdateRequestSerializer(serializers.Serializer[dict[str, object]]):
     birth_date = serializers.DateField(required=False)
 
 
+class UserMeDeleteResponseSerializer(serializers.Serializer[dict[str, object]]):
+    message = serializers.CharField()
+
+
 class UserPasswordVerifyRequestSerializer(serializers.Serializer[dict[str, object]]):
     password = serializers.CharField(write_only=True)
 
