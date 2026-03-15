@@ -256,6 +256,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.games.tasks.incremental_sync",
         "schedule": crontab(hour=3, minute=0),
     },
+    "users-purge-soft-deleted": {
+        "task": "apps.users.tasks.purge_soft_deleted_users",
+        "schedule": crontab(hour=4, minute=0),
+    },
     "igdb-incremental-sync": {
         "task": "apps.games.igdb.tasks.incremental_sync",
         "schedule": crontab(hour=2, minute=0),  # rawg와 1시간 간격

@@ -36,5 +36,10 @@ class UserMeUpdateRequestSerializer(serializers.Serializer[dict[str, object]]):
     birth_date = serializers.DateField(required=False)
 
 
+<<<<<<< HEAD
 class UserPasswordVerifyRequestSerializer(serializers.Serializer[dict[str, object]]):
     password = serializers.CharField(write_only=True)
+=======
+class UserMeDeleteResponseSerializer(serializers.Serializer[dict[str, object]]):
+    message = serializers.CharField()
+>>>>>>> 614a6fb (feat(users): add soft delete and purge for user accounts)

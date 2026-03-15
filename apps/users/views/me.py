@@ -10,19 +10,24 @@ from rest_framework.views import APIView
 from apps.users.models.user import User
 from apps.users.serializers.auth import MessageResponseSerializer
 from apps.users.serializers.me import (
+    UserMeDeleteResponseSerializer,
     UserMeResponseSerializer,
     UserMeUpdateRequestSerializer,
     UserMeUpdateResponseSerializer,
     UserPasswordVerifyRequestSerializer,
 )
+<<<<<<< HEAD
 from apps.users.services import get_user_me, update_user_me, verify_user_password
+=======
+from apps.users.services import delete_user_me, get_user_me, update_user_me
+>>>>>>> 614a6fb (feat(users): add soft delete and purge for user accounts)
 
 
 @extend_schema(tags=["Users"])
-class UserMeAPIView(generics.RetrieveUpdateAPIView[User]):
+class UserMeAPIView(generics.RetrieveUpdateDestroyAPIView[User]):
     permission_classes = [IsAuthenticated]
     serializer_class = UserMeResponseSerializer
-    http_method_names = ["get", "patch"]
+    http_method_names = ["get", "patch", "delete"]
 
     def get_object(self) -> User:
         return get_user_me(cast(User, self.request.user))
@@ -55,6 +60,7 @@ class UserMeAPIView(generics.RetrieveUpdateAPIView[User]):
         response_serializer = UserMeUpdateResponseSerializer(updated_user)
         return Response(response_serializer.data)
 
+<<<<<<< HEAD
 
 @extend_schema(
     summary="비밀번호 확인",
@@ -74,3 +80,13 @@ class UserPasswordVerifyAPIView(APIView):
             password=cast(str, serializer.validated_data["password"]),
         )
         return Response(MessageResponseSerializer({"message": "비밀번호가 확인되었습니다."}).data)
+=======
+    @extend_schema(
+        summary="회원 탈퇴",
+        responses={200: UserMeDeleteResponseSerializer},
+    )
+    def delete(self, request: Request, *args: object, **kwargs: object) -> Response:
+        result = delete_user_me(self.get_object())
+        response_serializer = UserMeDeleteResponseSerializer(result)
+        return Response(response_serializer.data)
+>>>>>>> 614a6fb (feat(users): add soft delete and purge for user accounts)

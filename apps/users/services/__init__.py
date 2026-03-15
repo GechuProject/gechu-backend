@@ -9,10 +9,12 @@ from .auth_service import (
     signup_user,
 )
 from .social_auth_service import build_kakao_login_url, handle_kakao_callback
+from .user_me_service import delete_user_me, get_user_me, update_user_me
 from .user_me_service import get_user_me, update_user_me, verify_user_password
 
 __all__ = [
     "authenticate_user",
+    "delete_user_me",
     "get_active_user_or_deactivated",
     "get_user_me",
     "issue_auth_tokens",
