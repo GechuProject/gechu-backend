@@ -1,5 +1,8 @@
 """
 RAWG API 관련 예외 클래스
+    - 구체적 예외를 타입 구분용으로 사용함.
+    - Celery 재시도 및 서비스 레이어에서 특정 예외를 명시적으로 처리 가능
+    - 실제 로직은 API 호출/DB sync 부분에서 발생하며, 예외 클래스 자체에는 동작 구현 필요없음
 
 계층 구조:
     RawgException
@@ -13,6 +16,8 @@ RAWG API 관련 예외 클래스
 
 class RawgException(Exception):
     """RAWG API 관련 모든 예외의 베이스 클래스"""
+
+    pass
 
 
 class RawgRateLimitError(RawgException):
@@ -30,6 +35,8 @@ class RawgRateLimitError(RawgException):
 class RawgNotFoundError(RawgException):
     """HTTP 404 Not Found. 존재하지 않는 게임 ID 조회 시 발생"""
 
+    pass
+
 
 class RawgServerError(RawgException):
     """HTTP 5xx Server Error. autoretry_for 대상"""
@@ -44,3 +51,5 @@ class RawgSyncError(RawgException):
     DB 동기화 중 발생하는 비-HTTP 오류
     예) 컨버터 변환 실패, 필수 FK 누락 등
     """
+
+    pass

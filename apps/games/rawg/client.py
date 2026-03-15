@@ -174,8 +174,7 @@ class RawgClient:
             merged_params["page"] = page
             time.sleep(_PAGE_INTERVAL)
 
-    # ── 공개 인터페이스 ────────────────────────────────────────────────────
-
+    # 공개 인터페이스 --------------------------------------------------------
     def iter_games(self, **params: Any) -> Generator[list[dict[str, Any]]]:
         """
         GET /games 페이지 순회

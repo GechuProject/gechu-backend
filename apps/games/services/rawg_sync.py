@@ -88,18 +88,12 @@ class RawgSyncService:
 
         # 게임 10페이지
         service.sync_games(max_pages=10)
-
-        # 단일 게임
-        service.sync_single_game(3498)
     """
 
     def __init__(self, client: RawgClient | None = None) -> None:
         self._client = client or RawgClient()
 
-    # ─────────────────────────────────────────────
-    # Lookup tables
-    # ─────────────────────────────────────────────
-
+    # 룩업 테이블 ------------------------------------------
     def sync_genres(self) -> dict[str, int]:
         """RAWG /genres → DB upsert"""
 
@@ -195,15 +189,9 @@ class RawgSyncService:
 
         return {"synced": total}
 
-    # ─────────────────────────────────────────────
-    # Game sync
-    # ─────────────────────────────────────────────
-
+    # Game sync ------------------------------------------
     def sync_games(
-        self,
-        ordering: str = "-added",
-        max_pages: int | None = None,
-        fetch_detail: bool = True,
+        self, ordering: str = "-added", max_pages: int | None = None, fetch_detail: bool = True
     ) -> dict[str, int]:
         """
         RAWG /games 전체 동기화
@@ -241,16 +229,16 @@ class RawgSyncService:
             "failed": total_failed,
         }
 
-    # ─────────────────────────────────────────────
-    # Page sync
-    # ─────────────────────────────────────────────
-
-    def _sync_game_page(
-        self,
-        page_results: list[dict[str, Any]],
-        fetch_detail: bool,
-    ) -> tuple[int, int]:
-        """게임 목록 한 페이지 처리"""
+    # Page sync------------------------------------------
+    def _sync_game_page(self, page_results: list[dict[str, Any]], fetch_detail: bool) -> tuple[int, int]:
+        """
+        게임 목록 한 페이지 처리
+        - dict 변환: RAWG API 응답 → 모델 저장용 dict (convert_game)
+        - bulk_create(upsert): DB에 한 번에 저장, 쿼리 수 최소화
+        - relations sync: M2M / through 테이블 관계 처리
+        - media sync: 스크린샷·트레일러 등 관련 미디어 저장
+        - 실패 처리: 변환·저장 실패 시 로그만 기록, 나머지는 계속 진행
+        """
 
         games_data = []
         raw_map = {}
@@ -310,11 +298,13 @@ class RawgSyncService:
 
         return synced, failed
 
-    # ─────────────────────────────────────────────
-    # Relations
-    # ─────────────────────────────────────────────
-
+    # Relations ------------------------------------------
     def _sync_game_relations(self, game: Game, list_raw: dict[str, Any], detail_raw: dict[str, Any] | None) -> None:
+        """
+        Game M2M 관계 처리
+        - 장르, 태그, 플랫폼, 스토어 관계를 bulk_create로 upsert
+        - 불필요한 DELETE 방지, 관리자 설정 보존
+        """
 
         self._sync_game_genres(game, list_raw)
         self._sync_game_tags(game, list_raw)
@@ -406,11 +396,14 @@ class RawgSyncService:
             update_fields=["url"],
         )
 
-    # ─────────────────────────────────────────────
-    # Media
-    # ─────────────────────────────────────────────
-
+    # Media ------------------------------------------
     def _sync_game_media(self, game: Game) -> None:
+        """
+        게임 관련 미디어 처리
+        - RAWG 스크린샷/트레일러 조회
+        - game_id 교체 후 bulk_create(upsert)
+        - 실패 시 경고 로그만 남기고 진행
+        """
 
         media = []
 

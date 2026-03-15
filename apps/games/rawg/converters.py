@@ -31,8 +31,7 @@ def _utcnow() -> datetime:
     return datetime.now(tz=UTC)
 
 
-# ── ESRB 매핑 ────────────────────────────────────────────────────────────
-
+# ESRB 매핑 ------------------------------------------------
 # RAWG ESRB slug → Game.EsrbRating DB value
 _RAWG_ESRB_SLUG_TO_DB: dict[str, str] = {
     "everyone": "everyone",
@@ -55,9 +54,7 @@ _ESRB_AGE_MAP: dict[str, int] = {
 }
 
 
-# ── 룩업 테이블 컨버터 ─────────────────────────────────────────────────────
-
-
+# 룩업 테이블 컨버터 ------------------------------------------
 def convert_genre(raw: dict[str, Any]) -> dict[str, Any]:
     """RAWG /genres 항목 → Genre 모델 dict"""
     return {
@@ -107,12 +104,13 @@ def convert_store(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-# ── ESRB 파싱 헬퍼 ────────────────────────────────────────────────────────
-
-
+# ESRB 파싱 헬퍼 ------------------------------------------------------
 def _parse_esrb(raw_esrb: dict[str, Any] | None) -> tuple[str, int]:
     """
     RAWG esrb_rating 필드 파싱
+
+    dict → tuple:
+      DB에 저장할 수 있는 값(db_value, age_rating_min)으로 변환하기 위함
 
     Returns:
         (db_value, age_rating_min) 튜플
@@ -129,6 +127,11 @@ def _parse_esrb(raw_esrb: dict[str, Any] | None) -> tuple[str, int]:
 def _parse_rawg_updated(raw: dict[str, Any]) -> datetime | None:
     """
     RAWG updated 필드(ISO 문자열) → timezone-aware datetime
+
+    dict → datetime:
+      DB DateTimeField에 저장하거나 bulk_create 시 직접 비교/정렬할 수 있도록
+      파이썬 datetime 객체로 변환
+
     파싱 실패 시 None 반환
     """
     updated_str: str | None = raw.get("updated")
@@ -143,9 +146,7 @@ def _parse_rawg_updated(raw: dict[str, Any]) -> datetime | None:
         return None
 
 
-# ── 게임 컨버터 ───────────────────────────────────────────────────────────
-
-
+# 게임 컨버터 -----------------------------------------------------------
 def convert_game(list_raw: dict[str, Any], detail_raw: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     RAWG /games 목록 항목 + /games/{id} 상세 항목 → Game 모델 dict
@@ -194,9 +195,7 @@ def convert_game(list_raw: dict[str, Any], detail_raw: dict[str, Any] | None = N
     }
 
 
-# ── 관계 데이터 추출 ──────────────────────────────────────────────────────
-
-
+# 관계 데이터 추출 ------------------------------------------------------
 def extract_genre_rawg_ids(list_raw: dict[str, Any]) -> list[int]:
     """list_raw에서 장르 rawg_id 목록 추출"""
     return [g["id"] for g in list_raw.get("genres", []) if g.get("id")]
@@ -253,9 +252,7 @@ def extract_store_entries(detail_raw: dict[str, Any]) -> list[dict[str, Any]]:
     return entries
 
 
-# ── 미디어 컨버터 ─────────────────────────────────────────────────────────
-
-
+# 미디어 컨버터 ---------------------------------------------------------
 def convert_screenshot(game_rawg_id: int, raw: dict[str, Any]) -> dict[str, Any]:
     """
     RAWG /games/{id}/screenshots 항목 → GameMedia 모델 dict
