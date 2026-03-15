@@ -8,6 +8,7 @@ from .auth_service import (
     send_email_code,
     signup_user,
 )
+from .social_auth_service import build_kakao_login_url, handle_kakao_callback
 from .user_me_service import get_user_me, update_user_me
 
 __all__ = [
@@ -21,4 +22,6 @@ __all__ = [
     "send_email_code",
     "signup_user",
     "update_user_me",
+    "build_kakao_login_url",
+    "handle_kakao_callback",
 ]

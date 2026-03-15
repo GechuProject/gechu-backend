@@ -36,6 +36,8 @@ class ErrorMessages(Enum):
     REACTION_DATA_REQUIRED = (400, "is_saved 또는 reaction 중 하나 이상 필요합니다.")
     INVALID_SOURCE = (400, "유효하지 않은 source 값입니다.")
     PREFERENCE_FIELDS_REQUIRED = (400, "genre_ids, platform_ids, tag_ids는 필수 항목입니다.")
+    INVALID_STATE = (400, "유효하지 않은 state 파라미터입니다.")
+    OAUTH_CALLBACK_ERROR = (400, "카카오 인증에 실패했습니다.")
 
     # 401 Unauthorized
     UNAUTHORIZED = (401, "인증이 필요합니다.")
