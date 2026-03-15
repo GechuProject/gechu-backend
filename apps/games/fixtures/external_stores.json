@@ -1,0 +1,68 @@
+[
+{
+  "model": "games.externalstore",
+  "pk": 1,
+  "fields": {
+    "rawg_id": 1,
+    "name": "Steam",
+    "slug": "steam",
+    "domain": "store.steampowered.com",
+    "icon_url": ""
+  }
+},
+{
+  "model": "games.externalstore",
+  "pk": 2,
+  "fields": {
+    "rawg_id": 2,
+    "name": "Epic Games Store",
+    "slug": "epic-games",
+    "domain": "epicgames.com",
+    "icon_url": ""
+  }
+},
+{
+  "model": "games.externalstore",
+  "pk": 3,
+  "fields": {
+    "rawg_id": 3,
+    "name": "GOG",
+    "slug": "gog",
+    "domain": "gog.com",
+    "icon_url": ""
+  }
+},
+{
+  "model": "games.externalstore",
+  "pk": 4,
+  "fields": {
+    "rawg_id": 4,
+    "name": "Nintendo eShop",
+    "slug": "nintendo-eshop",
+    "domain": "nintendo.com",
+    "icon_url": ""
+  }
+},
+{
+  "model": "games.externalstore",
+  "pk": 5,
+  "fields": {
+    "rawg_id": 5,
+    "name": "PlayStation Store",
+    "slug": "playstation-store",
+    "domain": "store.playstation.com",
+    "icon_url": ""
+  }
+},
+{
+  "model": "games.externalstore",
+  "pk": 6,
+  "fields": {
+    "rawg_id": 6,
+    "name": "Xbox Store",
+    "slug": "xbox-store",
+    "domain": "xbox.com",
+    "icon_url": ""
+  }
+}
+]

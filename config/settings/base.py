@@ -238,18 +238,27 @@ SPECTACULAR_SETTINGS = {
 # DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI")
 
 
+# Game data sync
 # RAWG API
 RAWG_API_KEY = os.getenv("RAWG_API_KEY")
-if not RAWG_API_KEY:
-    raise ValueError("RAWG_API_KEY must be set")
+# if not RAWG_API_KEY:
+#     raise ValueError("RAWG_API_KEY must be set")
 
-# Celery Beat 스케줄 (매일 새벽 3시 증분 동기화)
+# IGDB API
+IGDB_CLIENT_ID = os.getenv("IGDB_CLIENT_ID")
+IGDB_CLIENT_SECRET = os.getenv("IGDB_CLIENT_SECRET")
+
+# Celery Beat 스케줄
 from celery.schedules import crontab  # noqa: E402
 
 CELERY_BEAT_SCHEDULE = {
     "rawg-incremental-sync": {
         "task": "apps.games.tasks.incremental_sync",
         "schedule": crontab(hour=3, minute=0),
+    },
+    "igdb-incremental-sync": {
+        "task": "apps.games.igdb.tasks.incremental_sync",
+        "schedule": crontab(hour=2, minute=0),  # rawg와 1시간 간격
     },
     "recommendation-process-pending-jobs": {
         "task": "apps.recommendations.tasks.process_pending_recommendation_jobs",
