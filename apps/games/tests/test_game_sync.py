@@ -56,7 +56,7 @@ class RawgSyncServiceTestCase(TestCase):
                 "id": 200,
                 "name": "Trailer 1",
                 "preview": "https://img.example.com/prev.png",
-                "data": {"max": "https://video.max", "data_480": "https://video.480"},
+                "data": {"max": "https://video.max", "480": "https://video.480"},
             }
         ]
 
@@ -479,7 +479,7 @@ class ConvertTrailerTestCase(TestCase):
             "preview": "https://img.example.com/prev.png",
             "data": {
                 "max": "https://video.example.com/max.mp4",
-                "data_480": "https://video.example.com/480.mp4",
+                "480": "https://video.example.com/480.mp4",
             },
         }
         result = convert_trailer(game_rawg_id=10, raw=raw)

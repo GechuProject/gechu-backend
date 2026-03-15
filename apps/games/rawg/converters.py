@@ -12,12 +12,11 @@ RAWG 응답 구조 참고:
     /games/{id} → detail_raw (description, website, stores 포함)
     두 응답을 병합하여 convert_game()에 전달
 
-수정 이력:
-    - convert_platform: icon_url → None (RAWG에 플랫폼 아이콘 전용 필드 없음)
-    - convert_store: icon_url [:255] 슬라이싱으로 max_length 방어
-    - convert_game: slug 없을 때 f"rawg-{id}" fallback (unique 제약 방어)
-    - convert_game: search_vector 의도적 제외 (별도 업데이트 예정)
-    - convert_game: rawg_rating 5.00 상한 적용
+- convert_platform: icon_url → None (RAWG에 플랫폼 아이콘 전용 필드 없음)
+- convert_store: icon_url [:255] 슬라이싱으로 max_length 방어
+- convert_game: slug 없을 때 f"rawg-{id}" fallback (unique 제약 방어)
+- convert_game: search_vector 의도적 제외 (별도 업데이트 예정)
+- convert_game: rawg_rating 5.00 상한 적용
 """
 
 from __future__ import annotations
@@ -281,7 +280,7 @@ def convert_trailer(game_rawg_id: int, raw: dict[str, Any]) -> dict[str, Any]:
             "id": int,
             "name": str,
             "preview": str,   # 썸네일 URL
-            "video_url": {
+            "data": {
                 "480": str,   # 480p 비디오 URL
                 "max": str,   # 최고화질 비디오 URL
             }
@@ -293,7 +292,7 @@ def convert_trailer(game_rawg_id: int, raw: dict[str, Any]) -> dict[str, Any]:
         "rawg_id": raw["id"],
         "type": "trailer",
         "media_url": raw.get("preview", ""),
-        "video_url_480": data.get("data_480") or None,
+        "video_url_480": data.get("480") or None,
         "video_url_max": data.get("max") or None,
         "video_name": raw.get("name") or None,
     }

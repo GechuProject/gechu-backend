@@ -36,7 +36,7 @@ from apps.games.services.rawg_sync import RawgSyncService
 logger = logging.getLogger(__name__)
 
 _LOCK_KEY = "rawg_sync_running"
-_LOCK_TIMEOUT = 60 * 60  # 1시간
+_LOCK_TIMEOUT = 60 * 60 * 8  # 8시간
 
 
 # 룩업 테이블 -------------------------------------------------
