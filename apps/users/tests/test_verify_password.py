@@ -71,3 +71,17 @@ class UserPasswordVerifyAPITest(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["code"], ErrorMessages.SOCIAL_USER_ONLY.name)
+
+    def test_verify_password_returns_401_for_deactivated_user(self) -> None:
+        self.user.is_active = False
+        self.user.save(update_fields=["is_active"])
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            self.url,
+            {"password": "Passw0rd!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["code"], ErrorMessages.ACCOUNT_DEACTIVATED.name)
