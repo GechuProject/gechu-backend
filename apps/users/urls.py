@@ -9,7 +9,7 @@ from apps.users.views.auth import (
     RefreshAPIView,
     SignupAPIView,
 )
-from apps.users.views.me import UserMeAPIView
+from apps.users.views.me import UserMeAPIView, UserPasswordVerifyAPIView
 from apps.users.views.social_auth import (
     KakaoCallbackAPIView,
     KakaoLoginAPIView,
@@ -24,6 +24,7 @@ urlpatterns = [
     path("auth/password/reset/", PasswordResetAPIView.as_view(), name="auth-password-reset"),
     path("auth/me/", AuthMeAPIView.as_view(), name="auth-me"),
     path("users/me/", UserMeAPIView.as_view(), name="users-me"),
+    path("users/me/verify-password/", UserPasswordVerifyAPIView.as_view(), name="users-me-verify-password"),
     path("auth/kakao/login/", KakaoLoginAPIView.as_view(), name="auth-kakao-login"),
     path("auth/kakao/callback/", KakaoCallbackAPIView.as_view(), name="auth-kakao-callback"),
 ]

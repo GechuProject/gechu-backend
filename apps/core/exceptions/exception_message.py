@@ -42,6 +42,7 @@ class ErrorMessages(Enum):
     # 401 Unauthorized
     UNAUTHORIZED = (401, "인증이 필요합니다.")
     INVALID_CREDENTIALS = (401, "이메일 또는 비밀번호가 올바르지 않습니다.")
+    INVALID_PASSWORD = (401, "비밀번호가 올바르지 않습니다.")
     ACCOUNT_DEACTIVATED = (401, "비활성화된 계정입니다.")
     TOKEN_EXPIRED = (401, "액세스 토큰이 만료되었습니다.")
     INVALID_REFRESH_TOKEN = (401, "유효하지 않은 리프레시 토큰입니다.")

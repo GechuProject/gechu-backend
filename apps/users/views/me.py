@@ -5,14 +5,17 @@ from rest_framework import generics, serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.users.models.user import User
+from apps.users.serializers.auth import MessageResponseSerializer
 from apps.users.serializers.me import (
     UserMeResponseSerializer,
     UserMeUpdateRequestSerializer,
     UserMeUpdateResponseSerializer,
+    UserPasswordVerifyRequestSerializer,
 )
-from apps.users.services import get_user_me, update_user_me
+from apps.users.services import get_user_me, update_user_me, verify_user_password
 
 
 @extend_schema(tags=["Users"])
@@ -51,3 +54,23 @@ class UserMeAPIView(generics.RetrieveUpdateAPIView[User]):
         updated_user = update_user_me(instance, **serializer.validated_data)
         response_serializer = UserMeUpdateResponseSerializer(updated_user)
         return Response(response_serializer.data)
+
+
+@extend_schema(
+    summary="비밀번호 확인",
+    request=UserPasswordVerifyRequestSerializer,
+    responses={200: MessageResponseSerializer},
+    tags=["Users"],
+)
+class UserPasswordVerifyAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request) -> Response:
+        serializer = UserPasswordVerifyRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        verify_user_password(
+            cast(User, request.user),
+            password=cast(str, serializer.validated_data["password"]),
+        )
+        return Response(MessageResponseSerializer({"message": "비밀번호가 확인되었습니다."}).data)
