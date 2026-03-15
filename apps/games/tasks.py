@@ -148,11 +148,11 @@ def incremental_sync() -> None:
     logger.info("incremental_sync: lock 설정 완료")
 
     try:
-        # s() → signature를 생성. apply_async 시 인자로 전달 가능
+        # si() → immutable signature를 생성. 이전 task 결과를 전달하지 않고, 명시한 인자만 전달됨.
         # 체인 내부에서 인자는 kwargs로 전달
         task_chain = chain(
-            sync_lookup_tables.s(),  # lookup 테이블 먼저
-            sync_all_games.s(ordering="-updated", max_pages=50, fetch_detail=True),
+            sync_lookup_tables.si(),  # lookup 테이블 먼저
+            sync_all_games.si(ordering="-updated", max_pages=50, fetch_detail=True),
         )
 
         # 체인 실행
