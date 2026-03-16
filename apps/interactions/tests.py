@@ -5,6 +5,7 @@ from typing import Any, cast
 
 from django.test import TestCase
 from django.utils import timezone
+from django_redis import get_redis_connection
 from rest_framework.test import APIClient
 
 from apps.games.models import ExternalStore
@@ -253,6 +254,7 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
         self.client = APIClient()
         self.url = "/api/v1/interactions/search/"
         self._create_search_rules()
+        self.connection = get_redis_connection("default")
 
     def _create_user(self) -> User:
         return User.objects.create_user(
@@ -274,6 +276,9 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
             interaction_source=InteractionContextRule.InteractionSource.SEARCH_RESULT,
             defaults={"multiplier": 1.10},
         )
+
+    def _recent_search_key(self, *, user_id: int) -> str:
+        return f"search:recent:{user_id}"
 
     def test_interaction_search_unauthorized(self) -> None:
         response = self.client.post(
@@ -325,6 +330,7 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
     def test_interaction_search_success(self) -> None:
         user = self._create_user()
         self.client.force_authenticate(user=user)
+        self.connection.delete(self._recent_search_key(user_id=user.id))
 
         response = self.client.post(
             self.url,
@@ -351,10 +357,16 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
         self.assertEqual(log.search_query, "elden ring")
         self.assertIsNotNone(log.weight)
         self.assertEqual(float(cast(Any, log.weight)), 0.11)
+        recent_keywords = [
+            keyword.decode("utf-8") if isinstance(keyword, bytes) else str(keyword)
+            for keyword in self.connection.lrange(self._recent_search_key(user_id=user.id), 0, -1)
+        ]
+        self.assertEqual(recent_keywords, ["elden ring"])
 
     def test_interaction_search_cooldown_ignored_returns_200(self) -> None:
         user = self._create_user()
         self.client.force_authenticate(user=user)
+        self.connection.delete(self._recent_search_key(user_id=user.id))
 
         first = self.client.post(
             self.url,
@@ -371,6 +383,11 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
         )
         self.assertEqual(second.status_code, 200)
         self.assertEqual(InteractionLog.objects.count(), 1)
+        recent_keywords = [
+            keyword.decode("utf-8") if isinstance(keyword, bytes) else str(keyword)
+            for keyword in self.connection.lrange(self._recent_search_key(user_id=user.id), 0, -1)
+        ]
+        self.assertEqual(recent_keywords, ["elden ring"])
 
     def test_interaction_search_different_query_is_logged_even_in_cooldown(self) -> None:
         user = self._create_user()
