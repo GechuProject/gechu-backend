@@ -17,9 +17,11 @@ def save_recent_search_keyword(*, user: User, keyword: str) -> None:
     user = get_user_me(user)
     connection = get_redis_connection("default")
     key = _recent_search_key(user_id=user.id)
-    connection.lrem(key, 0, keyword)
-    connection.lpush(key, keyword)
-    connection.ltrim(key, 0, settings.SEARCH_HISTORY_MAX_SIZE - 1)
+    with connection.pipeline() as pipe:
+        pipe.lrem(key, 0, keyword)
+        pipe.lpush(key, keyword)
+        pipe.ltrim(key, 0, settings.SEARCH_HISTORY_MAX_SIZE - 1)
+        pipe.execute()
 
 
 def get_recent_searches(*, user: User) -> dict[str, object]:
