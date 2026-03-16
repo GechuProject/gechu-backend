@@ -64,10 +64,14 @@ def complete_adult_verification(*, code: str, state: str) -> dict[str, object]:
     if adult_flag != "Y" or not _is_over_18(user.birth_date, birth_year):
         raise CustomAPIException(ErrorMessages.UNDERAGE)
 
-    if AdultVerification.objects.filter(
-        provider=AdultVerification.Provider.BBATON,
-        provider_uid=provider_uid,
-    ).exclude(user=user).exists():
+    if (
+        AdultVerification.objects.filter(
+            provider=AdultVerification.Provider.BBATON,
+            provider_uid=provider_uid,
+        )
+        .exclude(user=user)
+        .exists()
+    ):
         raise CustomAPIException(ErrorMessages.VERIFICATION_ALREADY_USED)
 
     verified_at = timezone.now()
@@ -128,7 +132,7 @@ def _request_bbaton_access_token(*, code: str) -> str:
     if not token_url or not client_id or not client_secret or not redirect_uri:
         raise CustomAPIException(ErrorMessages.SERVER_ERROR)
 
-    basic_token = base64.b64encode(f"{client_id}:{client_secret}".encode("utf-8")).decode("utf-8")
+    basic_token = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode("utf-8")
 
     try:
         response = requests.post(
@@ -146,12 +150,12 @@ def _request_bbaton_access_token(*, code: str) -> str:
         )
         response.raise_for_status()
     except requests.RequestException as err:
-        raise CustomAPIException(ErrorMessages.OAUTH_CALLBACK_ERROR) from err
+        raise CustomAPIException(ErrorMessages.ADULT_VERIFICATION_CALLBACK_ERROR) from err
 
     payload = response.json()
     access_token = payload.get("access_token")
     if not isinstance(access_token, str):
-        raise CustomAPIException(ErrorMessages.OAUTH_CALLBACK_ERROR)
+        raise CustomAPIException(ErrorMessages.ADULT_VERIFICATION_CALLBACK_ERROR)
 
     return access_token
 
@@ -169,11 +173,11 @@ def _request_bbaton_user_info(*, access_token: str) -> dict[str, object]:
         )
         response.raise_for_status()
     except requests.RequestException as err:
-        raise CustomAPIException(ErrorMessages.OAUTH_CALLBACK_ERROR) from err
+        raise CustomAPIException(ErrorMessages.ADULT_VERIFICATION_CALLBACK_ERROR) from err
 
     payload = response.json()
     if not isinstance(payload, dict):
-        raise CustomAPIException(ErrorMessages.OAUTH_CALLBACK_ERROR)
+        raise CustomAPIException(ErrorMessages.ADULT_VERIFICATION_CALLBACK_ERROR)
 
     return payload
 
@@ -184,10 +188,10 @@ def _extract_bbaton_verification_data(user_info: dict[str, object]) -> tuple[str
     birth_year = user_info.get("birth_year")
 
     if not isinstance(provider_uid, str) or not isinstance(adult_flag, str):
-        raise CustomAPIException(ErrorMessages.OAUTH_CALLBACK_ERROR)
+        raise CustomAPIException(ErrorMessages.ADULT_VERIFICATION_CALLBACK_ERROR)
 
     if birth_year is not None and not isinstance(birth_year, str):
-        raise CustomAPIException(ErrorMessages.OAUTH_CALLBACK_ERROR)
+        raise CustomAPIException(ErrorMessages.ADULT_VERIFICATION_CALLBACK_ERROR)
 
     return provider_uid, adult_flag, birth_year
 

@@ -1,5 +1,10 @@
 from django.urls import path
 
+from apps.users.views.adult_verification import (
+    AdultVerificationCallbackAPIView,
+    AdultVerificationInitiateAPIView,
+    AdultVerificationStatusAPIView,
+)
 from apps.users.views.auth import (
     AuthMeAPIView,
     EmailCodeSendAPIView,
@@ -14,12 +19,6 @@ from apps.users.views.social_auth import (
     KakaoCallbackAPIView,
     KakaoLoginAPIView,
 )
-from apps.users.views.adult_verification import (
-    AdultVerificationCallbackAPIView,
-    AdultVerificationInitiateAPIView,
-    AdultVerificationStatusAPIView,
-)
-
 
 urlpatterns = [
     path("auth/signup/", SignupAPIView.as_view(), name="auth-signup"),
