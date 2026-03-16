@@ -5,6 +5,8 @@ from typing import TypedDict
 
 from django.db.models import QuerySet
 
+from apps.core.exceptions.exception_handler import CustomAPIException
+from apps.core.exceptions.exception_message import ErrorMessages
 from apps.recommendations.models import RecommendationJob, UserRecommendation
 from apps.users.models import User
 
@@ -134,3 +136,23 @@ class RecommendationAdminService:
     @staticmethod
     def get_recommendation_job(*, job_id: int) -> RecommendationJob | None:
         return RecommendationJob.objects.select_related("target_user").filter(id=job_id).first()
+
+    @staticmethod
+    def create_recommendation_job(
+        *,
+        job_type: str,
+        target_user_id: int | None,
+    ) -> RecommendationJob:
+        has_running_job = RecommendationJob.objects.filter(
+            job_type=job_type,
+            target_user_id=target_user_id,
+            status__in=[RecommendationJob.Status.PENDING, RecommendationJob.Status.RUNNING],
+        ).exists()
+        if has_running_job:
+            raise CustomAPIException(ErrorMessages.JOB_ALREADY_RUNNING)
+
+        return RecommendationJob.objects.create(
+            job_type=job_type,
+            target_user_id=target_user_id,
+            status=RecommendationJob.Status.PENDING,
+        )

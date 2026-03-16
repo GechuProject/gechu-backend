@@ -21,8 +21,11 @@ from apps.recommendations.serializers import (
     RecommendationJobItemSerializer,
     RecommendationJobListQuerySerializer,
     RecommendationJobListResponseSerializer,
+    RecommendationJobRunRequestSerializer,
+    RecommendationJobRunResponseSerializer,
 )
 from apps.recommendations.services import RecommendationAdminService
+from apps.recommendations.tasks import process_user_refresh_job
 from apps.users.models import User
 
 
@@ -220,3 +223,109 @@ class AdminRecommendationJobDetailView(APIView):
 
         serializer = RecommendationJobDetailResponseSerializer(job)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["admin"],
+    summary="추천 작업 수동 실행",
+    description="관리자 권한으로 추천 작업을 수동 실행합니다.",
+    request=RecommendationJobRunRequestSerializer,
+    responses={
+        201: RecommendationJobRunResponseSerializer,
+        400: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Bad Request",
+            examples=[
+                OpenApiExample(
+                    "job_type 누락",
+                    value={
+                        "status_code": ErrorMessages.JOB_TYPE_MISSING.status_code,
+                        "code": ErrorMessages.JOB_TYPE_MISSING.name,
+                        "message": ErrorMessages.JOB_TYPE_MISSING.message,
+                    },
+                )
+            ],
+        ),
+        401: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Unauthorized",
+            examples=[
+                OpenApiExample(
+                    "인증 필요",
+                    value={
+                        "status_code": ErrorMessages.UNAUTHORIZED.status_code,
+                        "code": ErrorMessages.UNAUTHORIZED.name,
+                        "message": ErrorMessages.UNAUTHORIZED.message,
+                    },
+                )
+            ],
+        ),
+        403: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Forbidden",
+            examples=[
+                OpenApiExample(
+                    "관리자 권한 필요",
+                    value={
+                        "status_code": ErrorMessages.FORBIDDEN.status_code,
+                        "code": ErrorMessages.FORBIDDEN.name,
+                        "message": ErrorMessages.FORBIDDEN.message,
+                    },
+                )
+            ],
+        ),
+        409: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Conflict",
+            examples=[
+                OpenApiExample(
+                    "이미 실행 중인 작업",
+                    value={
+                        "status_code": ErrorMessages.JOB_ALREADY_RUNNING.status_code,
+                        "code": ErrorMessages.JOB_ALREADY_RUNNING.name,
+                        "message": ErrorMessages.JOB_ALREADY_RUNNING.message,
+                    },
+                )
+            ],
+        ),
+    },
+    examples=[
+        OpenApiExample(
+            "요청 예시",
+            value={"job_type": "user_refresh", "target_user": None},
+            request_only=True,
+        ),
+        OpenApiExample(
+            "응답 예시",
+            value={
+                "id": 11,
+                "type": "user_refresh",
+                "status": "pending",
+                "created_at": "2025-08-01T12:00:00Z",
+            },
+            response_only=True,
+            status_codes=["201"],
+        ),
+    ],
+)
+class AdminRecommendationJobRunView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request) -> Response:
+        user = cast(User, request.user)
+        if not user.is_staff:
+            raise CustomAPIException(ErrorMessages.FORBIDDEN)
+
+        req_serializer = RecommendationJobRunRequestSerializer(data=request.data)
+        req_serializer.is_valid(raise_exception=True)
+        data = req_serializer.validated_data
+
+        job = RecommendationAdminService.create_recommendation_job(
+            job_type=cast(str, data["job_type"]),
+            target_user_id=cast(int | None, data.get("target_user")),
+        )
+        if job.job_type == RecommendationJob.JobType.USER_REFRESH and job.target_user_id is not None:
+            process_user_refresh_job.delay(job.id)
+
+        serializer = RecommendationJobRunResponseSerializer(job)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

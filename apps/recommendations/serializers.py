@@ -6,7 +6,8 @@ from rest_framework import serializers
 
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
-from apps.recommendations.models import UserRecommendation
+from apps.recommendations.models import RecommendationJob, UserRecommendation
+from apps.users.models import User
 
 
 class RecommendationQuerySerializer(serializers.Serializer[dict[str, Any]]):
@@ -132,4 +133,33 @@ class RecommendationJobDetailResponseSerializer(serializers.Serializer):  # type
     target_user = serializers.IntegerField(source="target_user_id", allow_null=True)
     error_message = serializers.CharField(allow_null=True)
     started_at = serializers.DateTimeField(allow_null=True)
+    created_at = serializers.DateTimeField()
+
+
+class RecommendationJobRunRequestSerializer(serializers.Serializer[dict[str, Any]]):
+    job_type = serializers.CharField(required=False)
+    target_user = serializers.IntegerField(required=False, allow_null=True)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        job_type = attrs.get("job_type")
+        if not job_type:
+            raise CustomAPIException(ErrorMessages.JOB_TYPE_MISSING)
+
+        if job_type not in set(RecommendationJob.JobType.values):
+            raise CustomAPIException(ErrorMessages.VALIDATION_ERROR)
+
+        target_user = attrs.get("target_user")
+        if target_user is not None and not User.objects.filter(id=target_user).exists():
+            raise CustomAPIException(ErrorMessages.VALIDATION_ERROR)
+
+        if job_type == RecommendationJob.JobType.SIMILARITY_REBUILD and target_user is not None:
+            raise CustomAPIException(ErrorMessages.VALIDATION_ERROR)
+
+        return attrs
+
+
+class RecommendationJobRunResponseSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    id = serializers.IntegerField()
+    type = serializers.CharField(source="job_type")
+    status = serializers.CharField()
     created_at = serializers.DateTimeField()
