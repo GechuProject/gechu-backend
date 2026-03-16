@@ -14,9 +14,16 @@ from apps.users.serializers.me import (
     UserMeResponseSerializer,
     UserMeUpdateRequestSerializer,
     UserMeUpdateResponseSerializer,
+    UserPasswordChangeRequestSerializer,
     UserPasswordVerifyRequestSerializer,
 )
-from apps.users.services import delete_user_me, get_user_me, update_user_me, verify_user_password
+from apps.users.services import (
+    change_user_password,
+    delete_user_me,
+    get_user_me,
+    update_user_me,
+    verify_user_password,
+)
 
 
 @extend_schema(tags=["Users"])
@@ -85,3 +92,23 @@ class UserPasswordVerifyAPIView(APIView):
             password=cast(str, serializer.validated_data["password"]),
         )
         return Response(MessageResponseSerializer({"message": "비밀번호가 확인되었습니다."}).data)
+
+
+@extend_schema(
+    summary="비밀번호 변경",
+    request=UserPasswordChangeRequestSerializer,
+    responses={200: MessageResponseSerializer},
+    tags=["Users"],
+)
+class UserPasswordChangeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request: Request) -> Response:
+        serializer = UserPasswordChangeRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        change_user_password(
+            cast(User, request.user),
+            new_password=cast(str, serializer.validated_data["new_password"]),
+        )
+        return Response(MessageResponseSerializer({"message": "비밀번호가 변경되었습니다."}).data)
