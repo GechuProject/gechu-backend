@@ -13,7 +13,7 @@ from apps.users.models import User
 
 class RecommendationStatusResult(TypedDict):
     status: str
-    generation: int | None
+    generation_version: int | None
     generated_at: datetime | None
     expires_at: datetime | None
 
@@ -30,8 +30,10 @@ class RecommendationStatusService:
 
         if latest_job is None or latest_job.status == RecommendationJob.Status.SUCCESS:
             status = "success" if has_recommendation else "pending"
-        elif latest_job.status in (RecommendationJob.Status.PENDING, RecommendationJob.Status.RUNNING):
+        elif latest_job.status == RecommendationJob.Status.PENDING:
             status = "pending"
+        elif latest_job.status == RecommendationJob.Status.RUNNING:
+            status = "running"
         elif latest_job.status == RecommendationJob.Status.FAILED:
             status = "failed"
         else:
@@ -39,7 +41,7 @@ class RecommendationStatusService:
 
         return {
             "status": status,
-            "generation": latest_recommendation.generation_version if latest_recommendation else None,
+            "generation_version": latest_recommendation.generation_version if latest_recommendation else None,
             "generated_at": latest_recommendation.generated_at if latest_recommendation else None,
             "expires_at": latest_recommendation.expires_at if latest_recommendation else None,
         }

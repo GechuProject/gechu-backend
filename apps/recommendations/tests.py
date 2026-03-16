@@ -250,11 +250,11 @@ class RecommendationStatusAPITestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         data = cast(dict[str, Any], response.data)
         self.assertEqual(data["status"], "pending")
-        self.assertIsNone(data["generation"])
+        self.assertIsNone(data["generation_version"])
         self.assertIsNone(data["generated_at"])
         self.assertIsNone(data["expires_at"])
 
-    def test_status_pending_when_job_running(self) -> None:
+    def test_status_running_when_job_running(self) -> None:
         rec = self._create_recommendation(generation=2)
         RecommendationJob.objects.create(
             job_type=RecommendationJob.JobType.USER_REFRESH,
@@ -267,8 +267,8 @@ class RecommendationStatusAPITestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         data = cast(dict[str, Any], response.data)
-        self.assertEqual(data["status"], "pending")
-        self.assertEqual(data["generation"], rec.generation_version)
+        self.assertEqual(data["status"], "running")
+        self.assertEqual(data["generation_version"], rec.generation_version)
 
     def test_status_success_when_job_success_and_recommendation_exists(self) -> None:
         rec = self._create_recommendation(generation=3)
@@ -284,7 +284,7 @@ class RecommendationStatusAPITestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         data = cast(dict[str, Any], response.data)
         self.assertEqual(data["status"], "success")
-        self.assertEqual(data["generation"], rec.generation_version)
+        self.assertEqual(data["generation_version"], rec.generation_version)
 
     def test_status_pending_when_job_success_but_no_recommendation(self) -> None:
         RecommendationJob.objects.create(
@@ -299,7 +299,7 @@ class RecommendationStatusAPITestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         data = cast(dict[str, Any], response.data)
         self.assertEqual(data["status"], "pending")
-        self.assertIsNone(data["generation"])
+        self.assertIsNone(data["generation_version"])
 
     def test_status_failed_when_job_failed(self) -> None:
         rec = self._create_recommendation(generation=4)
@@ -315,7 +315,7 @@ class RecommendationStatusAPITestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         data = cast(dict[str, Any], response.data)
         self.assertEqual(data["status"], "failed")
-        self.assertEqual(data["generation"], rec.generation_version)
+        self.assertEqual(data["generation_version"], rec.generation_version)
 
 
 class RecommendationTaskTestCase(TestCase):
