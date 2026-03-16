@@ -1,16 +1,14 @@
+from __future__ import annotations
+
 from typing import Any
 
 from rest_framework import serializers
 
 
-class RawgSyncRequestSerializer(serializers.Serializer[Any]):
+class IgdbSyncRequestSerializer(serializers.Serializer[Any]):
     full_sync = serializers.BooleanField(
         default=False,
-        help_text=(
-            "동기화 범위 설정\n"
-            "- `false`(기본): 최근 변경분만 동기화 (ordering='-updated', max_pages=50)\n"
-            "- `true`: 전체 재동기화 (ordering='-added', max_pages=None)"
-        ),
+        help_text=("동기화 범위 설정\n- `false`(기본): 최근 50페이지만 동기화\n- `true`: 전체 재동기화"),
     )
 
 

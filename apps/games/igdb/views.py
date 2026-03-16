@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from django.core.cache import cache
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework import status
@@ -6,26 +8,26 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.games.serializers.rawg_sync import RawgSyncRequestSerializer, TaskEnqueuedSerializer
-from apps.games.tasks import incremental_sync, sync_all_games
+from .serializers import IgdbSyncRequestSerializer, TaskEnqueuedSerializer
+from .tasks import incremental_sync, sync_all_games
 
-_LOCK_KEY = "rawg_sync_running"
+_LOCK_KEY = "igdb_sync_running"
 
 
-class RawgSyncView(APIView):
+class IgdbSyncView(APIView):
     permission_classes = [IsAdminUser]
 
     @extend_schema(
         tags=["Admin"],
-        summary="RAWG 게임 데이터 동기화 실행",
+        summary="IGDB 게임 데이터 동기화 실행",
         description=(
-            "RAWG API 데이터를 DB에 동기화합니다.\n\n"
-            "- `full_sync=false`(기본): 최근 변경분만 동기화. ordering='-updated', max_pages=50\n"
-            "- `full_sync=true`: 전체 재동기화. ordering='-added', 전체 페이지\n\n"
+            "IGDB API 데이터를 DB에 동기화합니다.\n\n"
+            "- `full_sync=false`(기본): 최근 50페이지만 동기화\n"
+            "- `full_sync=true`: 전체 재동기화\n\n"
             "비동기(Celery) 태스크로 실행되며, 202 Accepted 즉시 반환합니다.\n"
             "이미 동기화가 진행 중인 경우 409를 반환합니다."
         ),
-        request=RawgSyncRequestSerializer,
+        request=IgdbSyncRequestSerializer,
         responses={
             202: OpenApiResponse(
                 response=TaskEnqueuedSerializer,
@@ -35,7 +37,7 @@ class RawgSyncView(APIView):
                         value={
                             "job_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
                             "status": "pending",
-                            "message": "RAWG 동기화 작업이 시작되었습니다.",
+                            "message": "IGDB 동기화 작업이 시작되었습니다.",
                         },
                     )
                 ],
@@ -46,7 +48,7 @@ class RawgSyncView(APIView):
         },
     )
     def post(self, request: Request) -> Response:
-        serializer = RawgSyncRequestSerializer(data=request.data)
+        serializer = IgdbSyncRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         full_sync = serializer.validated_data["full_sync"]
 
@@ -61,11 +63,7 @@ class RawgSyncView(APIView):
             )
 
         if full_sync:
-            task = sync_all_games.delay(
-                ordering="-added",
-                max_pages=None,
-                fetch_detail=True,
-            )
+            task = sync_all_games.delay(max_pages=None)
         else:
             task = incremental_sync.delay()
 
@@ -73,7 +71,7 @@ class RawgSyncView(APIView):
             data={
                 "job_id": task.id,
                 "status": "pending",
-                "message": "RAWG 동기화 작업이 시작되었습니다.",
+                "message": "IGDB 동기화 작업이 시작되었습니다.",
             }
         )
         response_serializer.is_valid(raise_exception=True)
