@@ -4,8 +4,12 @@ from typing import cast
 
 from django.db.models import QuerySet
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema
+from rest_framework import status
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
@@ -13,6 +17,7 @@ from apps.core.serializers.error_serializer import ErrorResponseSerializer
 from apps.core.utils.pagination import PAGINATION_PARAMS, Pagination
 from apps.recommendations.models import RecommendationJob
 from apps.recommendations.serializers import (
+    RecommendationJobDetailResponseSerializer,
     RecommendationJobItemSerializer,
     RecommendationJobListQuerySerializer,
     RecommendationJobListResponseSerializer,
@@ -133,3 +138,85 @@ class AdminRecommendationJobListView(ListAPIView):  # type: ignore[type-arg]
             job_status=cast(str | None, data.get("status")),
             job_type=cast(str | None, data.get("type")),
         )
+
+
+@extend_schema(
+    tags=["admin"],
+    summary="추천 작업 상세 조회",
+    description="관리자 권한으로 추천 작업 상세 정보를 조회합니다.",
+    responses={
+        200: RecommendationJobDetailResponseSerializer,
+        401: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Unauthorized",
+            examples=[
+                OpenApiExample(
+                    "인증 필요",
+                    value={
+                        "status_code": ErrorMessages.UNAUTHORIZED.status_code,
+                        "code": ErrorMessages.UNAUTHORIZED.name,
+                        "message": ErrorMessages.UNAUTHORIZED.message,
+                    },
+                )
+            ],
+        ),
+        403: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Forbidden",
+            examples=[
+                OpenApiExample(
+                    "관리자 권한 필요",
+                    value={
+                        "status_code": ErrorMessages.FORBIDDEN.status_code,
+                        "code": ErrorMessages.FORBIDDEN.name,
+                        "message": ErrorMessages.FORBIDDEN.message,
+                    },
+                )
+            ],
+        ),
+        404: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Not Found",
+            examples=[
+                OpenApiExample(
+                    "작업 없음",
+                    value={
+                        "status_code": ErrorMessages.JOB_NOT_FOUND.status_code,
+                        "code": ErrorMessages.JOB_NOT_FOUND.name,
+                        "message": ErrorMessages.JOB_NOT_FOUND.message,
+                    },
+                )
+            ],
+        ),
+    },
+    examples=[
+        OpenApiExample(
+            "응답 예시",
+            value={
+                "id": 5,
+                "type": "user_refresh",
+                "status": "failed",
+                "target_user": 2,
+                "error_message": "Connection timeout",
+                "started_at": "2025-06-10T01:00:00Z",
+                "created_at": "2025-06-10T00:59:00Z",
+            },
+            response_only=True,
+            status_codes=["200"],
+        ),
+    ],
+)
+class AdminRecommendationJobDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, job_id: int) -> Response:
+        user = cast(User, request.user)
+        if not user.is_staff:
+            raise CustomAPIException(ErrorMessages.FORBIDDEN)
+
+        job = RecommendationAdminService.get_recommendation_job(job_id=job_id)
+        if job is None:
+            raise CustomAPIException(ErrorMessages.JOB_NOT_FOUND)
+
+        serializer = RecommendationJobDetailResponseSerializer(job)
+        return Response(serializer.data, status=status.HTTP_200_OK)

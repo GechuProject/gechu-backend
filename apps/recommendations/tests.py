@@ -658,3 +658,78 @@ class AdminRecommendationJobListAPITestCase(TestCase):
         payload = cast(dict[str, Any], response.data)
         self.assertEqual(payload["count"], 3)
         self.assertEqual(len(payload["results"]), 2)
+
+
+class AdminRecommendationJobDetailAPITestCase(TestCase):
+    client: APIClient
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.admin_user = User.objects.create_user(
+            email="admin-detail@ex.com",
+            nickname="admin-detail",
+            birth_date=date(1990, 1, 1),
+            password="pw",
+            is_staff=True,
+        )
+        self.normal_user = User.objects.create_user(
+            email="normal-detail@ex.com",
+            nickname="normal-detail",
+            birth_date=date(1994, 1, 1),
+            password="pw",
+        )
+
+    def _url(self, job_id: int) -> str:
+        return f"/api/v1/admin/recommendation-jobs/{job_id}/"
+
+    def test_admin_recommendation_job_detail_unauthorized(self) -> None:
+        job = RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=self.normal_user,
+            status=RecommendationJob.Status.PENDING,
+        )
+        response = self.client.get(self._url(job.id))
+        self.assertEqual(response.status_code, 401)
+
+    def test_admin_recommendation_job_detail_forbidden_for_non_admin(self) -> None:
+        job = RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=self.normal_user,
+            status=RecommendationJob.Status.PENDING,
+        )
+        self.client.force_authenticate(user=self.normal_user)
+        response = self.client.get(self._url(job.id))
+
+        self.assertEqual(response.status_code, 403)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["code"], ErrorMessages.FORBIDDEN.name)
+
+    def test_admin_recommendation_job_detail_not_found(self) -> None:
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self._url(999999))
+
+        self.assertEqual(response.status_code, 404)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["code"], ErrorMessages.JOB_NOT_FOUND.name)
+
+    def test_admin_recommendation_job_detail_success(self) -> None:
+        job = RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=self.normal_user,
+            status=RecommendationJob.Status.FAILED,
+            error_message="Connection timeout",
+            started_at=timezone.now(),
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self._url(job.id))
+
+        self.assertEqual(response.status_code, 200)
+        payload = cast(dict[str, Any], response.data)
+        self.assertEqual(payload["id"], job.id)
+        self.assertEqual(payload["type"], RecommendationJob.JobType.USER_REFRESH)
+        self.assertEqual(payload["status"], RecommendationJob.Status.FAILED)
+        self.assertEqual(payload["target_user"], self.normal_user.id)
+        self.assertEqual(payload["error_message"], "Connection timeout")
+        self.assertIsNotNone(payload["started_at"])
+        self.assertIsNotNone(payload["created_at"])
