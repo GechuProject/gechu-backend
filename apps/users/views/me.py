@@ -16,11 +16,7 @@ from apps.users.serializers.me import (
     UserMeUpdateResponseSerializer,
     UserPasswordVerifyRequestSerializer,
 )
-<<<<<<< HEAD
-from apps.users.services import get_user_me, update_user_me, verify_user_password
-=======
-from apps.users.services import delete_user_me, get_user_me, update_user_me
->>>>>>> 614a6fb (feat(users): add soft delete and purge for user accounts)
+from apps.users.services import delete_user_me, get_user_me, update_user_me, verify_user_password
 
 
 @extend_schema(tags=["Users"])
@@ -60,7 +56,16 @@ class UserMeAPIView(generics.RetrieveUpdateDestroyAPIView[User]):
         response_serializer = UserMeUpdateResponseSerializer(updated_user)
         return Response(response_serializer.data)
 
-<<<<<<< HEAD
+    @extend_schema(
+        summary="회원 탈퇴",
+        responses={200: UserMeDeleteResponseSerializer},
+    )
+    def delete(self, request: Request, *args: object, **kwargs: object) -> Response:
+        delete_user_me(self.get_object())
+        result: dict[str, object] = {"message": "계정이 삭제되었습니다."}
+        response_serializer = UserMeDeleteResponseSerializer(result)
+        return Response(response_serializer.data)
+
 
 @extend_schema(
     summary="비밀번호 확인",
@@ -80,13 +85,3 @@ class UserPasswordVerifyAPIView(APIView):
             password=cast(str, serializer.validated_data["password"]),
         )
         return Response(MessageResponseSerializer({"message": "비밀번호가 확인되었습니다."}).data)
-=======
-    @extend_schema(
-        summary="회원 탈퇴",
-        responses={200: UserMeDeleteResponseSerializer},
-    )
-    def delete(self, request: Request, *args: object, **kwargs: object) -> Response:
-        result = delete_user_me(self.get_object())
-        response_serializer = UserMeDeleteResponseSerializer(result)
-        return Response(response_serializer.data)
->>>>>>> 614a6fb (feat(users): add soft delete and purge for user accounts)
