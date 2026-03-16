@@ -279,4 +279,4 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # 무거운 sync task는 1개씩
 
 
 # 최근 검색 내역 Redis 보관 개수
-SEARCH_HISTORY_MAX_SIZE = int(os.getenv("SEARCH_HISTORY_MAX_SIZE", "10"))
+SEARCH_HISTORY_MAX_SIZE = int(os.getenv("SEARCH_HISTORY_MAX_SIZE", "20"))

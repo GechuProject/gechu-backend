@@ -16,6 +16,10 @@ from apps.users.views.auth import (
     SignupAPIView,
 )
 from apps.users.views.me import UserMeAPIView, UserPasswordChangeAPIView, UserPasswordVerifyAPIView
+from apps.users.views.search_recent import (
+    RecentSearchAPIView,
+    RecentSearchKeywordDeleteAPIView,
+)
 from apps.users.views.social_auth import (
     KakaoCallbackAPIView,
     KakaoLoginAPIView,
@@ -30,6 +34,12 @@ urlpatterns = [
     path("auth/refresh/", RefreshAPIView.as_view(), name="auth-refresh"),
     path("auth/password/reset/", PasswordResetAPIView.as_view(), name="auth-password-reset"),
     path("auth/me/", AuthMeAPIView.as_view(), name="auth-me"),
+    path("search/recent/", RecentSearchAPIView.as_view(), name="search-recent"),
+    path(
+        "search/recent/<path:keyword>/",
+        RecentSearchKeywordDeleteAPIView.as_view(),
+        name="search-recent-keyword-delete",
+    ),
     path("users/me/", UserMeAPIView.as_view(), name="users-me"),
     path("users/me/verify-password/", UserPasswordVerifyAPIView.as_view(), name="users-me-verify-password"),
     path("users/me/password/", UserPasswordChangeAPIView.as_view(), name="users-me-password-change"),
