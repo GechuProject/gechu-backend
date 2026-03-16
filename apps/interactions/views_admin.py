@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import cast
 
-from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -15,6 +16,7 @@ from apps.core.serializers.error_serializer import ErrorResponseSerializer
 from apps.interactions.serializers import (
     InteractionWeightRuleItemSerializer,
     InteractionWeightRuleListResponseSerializer,
+    InteractionWeightRuleUpdateRequestSerializer,
 )
 from apps.interactions.services import InteractionAdminRuleService
 from apps.users.models import User
@@ -85,3 +87,133 @@ class AdminInteractionWeightRuleListView(APIView):
         rules = InteractionAdminRuleService.list_weight_rules()
         serializer = InteractionWeightRuleItemSerializer(rules, many=True)
         return Response({"results": serializer.data}, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["admin"],
+    summary="행동 가중치 수정",
+    description="관리자 권한으로 특정 행동 타입의 가중치 규칙을 수정합니다.",
+    parameters=[
+        OpenApiParameter(
+            name="interaction_type",
+            type=str,
+            location=OpenApiParameter.PATH,
+            required=True,
+            description="행동 타입",
+            enum=["view", "search", "saved_add", "saved_remove", "like", "dislike", "preference_set", "store_click"],
+        )
+    ],
+    request=InteractionWeightRuleUpdateRequestSerializer,
+    responses={
+        200: InteractionWeightRuleItemSerializer,
+        400: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Bad Request",
+            examples=[
+                OpenApiExample(
+                    "base_weight 범위 오류",
+                    value={
+                        "status_code": ErrorMessages.BASE_WEIGHT_INVALID.status_code,
+                        "code": ErrorMessages.BASE_WEIGHT_INVALID.name,
+                        "message": ErrorMessages.BASE_WEIGHT_INVALID.message,
+                    },
+                ),
+                OpenApiExample(
+                    "입력값 오류",
+                    value={
+                        "status_code": ErrorMessages.VALIDATION_ERROR.status_code,
+                        "code": ErrorMessages.VALIDATION_ERROR.name,
+                        "message": ErrorMessages.VALIDATION_ERROR.message,
+                    },
+                ),
+            ],
+        ),
+        401: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Unauthorized",
+            examples=[
+                OpenApiExample(
+                    "인증 필요",
+                    value={
+                        "status_code": ErrorMessages.UNAUTHORIZED.status_code,
+                        "code": ErrorMessages.UNAUTHORIZED.name,
+                        "message": ErrorMessages.UNAUTHORIZED.message,
+                    },
+                )
+            ],
+        ),
+        403: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Forbidden",
+            examples=[
+                OpenApiExample(
+                    "관리자 권한 필요",
+                    value={
+                        "status_code": ErrorMessages.FORBIDDEN.status_code,
+                        "code": ErrorMessages.FORBIDDEN.name,
+                        "message": ErrorMessages.FORBIDDEN.message,
+                    },
+                )
+            ],
+        ),
+        404: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Not Found",
+            examples=[
+                OpenApiExample(
+                    "행동 타입 없음",
+                    value={
+                        "status_code": ErrorMessages.INTERACTION_TYPE_NOT_FOUND.status_code,
+                        "code": ErrorMessages.INTERACTION_TYPE_NOT_FOUND.name,
+                        "message": ErrorMessages.INTERACTION_TYPE_NOT_FOUND.message,
+                    },
+                )
+            ],
+        ),
+    },
+    examples=[
+        OpenApiExample(
+            "요청 예시",
+            value={
+                "base_weight": 1.50,
+                "cooldown_seconds": 120,
+            },
+            request_only=True,
+        ),
+        OpenApiExample(
+            "응답 예시",
+            value={
+                "interaction_type": "view",
+                "base_weight": "1.50",
+                "cooldown_seconds": 120,
+                "repeat_decay": "0.800",
+                "updated_at": "2025-06-01T15:00:00Z",
+            },
+            response_only=True,
+            status_codes=["200"],
+        ),
+    ],
+)
+class AdminInteractionWeightRuleUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request: Request, interaction_type: str) -> Response:
+        user = cast(User, request.user)
+        if not user.is_staff:
+            raise CustomAPIException(ErrorMessages.FORBIDDEN)
+
+        req_serializer = InteractionWeightRuleUpdateRequestSerializer(data=request.data)
+        req_serializer.is_valid(raise_exception=True)
+        data = req_serializer.validated_data
+
+        rule = InteractionAdminRuleService.update_weight_rule(
+            interaction_type=interaction_type,
+            base_weight=cast(Decimal | None, data.get("base_weight")),
+            cooldown_seconds=cast(int | None, data.get("cooldown_seconds")),
+            repeat_decay=cast(Decimal | None, data.get("repeat_decay")),
+        )
+        if rule is None:
+            raise CustomAPIException(ErrorMessages.INTERACTION_TYPE_NOT_FOUND)
+
+        serializer = InteractionWeightRuleItemSerializer(rule)
+        return Response(serializer.data, status=status.HTTP_200_OK)

@@ -95,3 +95,27 @@ class InteractionWeightRuleItemSerializer(serializers.Serializer):  # type: igno
 
 class InteractionWeightRuleListResponseSerializer(serializers.Serializer):  # type: ignore[type-arg]
     results = InteractionWeightRuleItemSerializer(many=True)
+
+
+class InteractionWeightRuleUpdateRequestSerializer(serializers.Serializer[dict[str, Any]]):
+    base_weight = serializers.DecimalField(max_digits=4, decimal_places=2, required=False)
+    cooldown_seconds = serializers.IntegerField(required=False)
+    repeat_decay = serializers.DecimalField(max_digits=4, decimal_places=3, required=False)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        if not attrs:
+            raise CustomAPIException(ErrorMessages.VALIDATION_ERROR)
+
+        base_weight = attrs.get("base_weight")
+        if base_weight is not None and base_weight <= 0:
+            raise CustomAPIException(ErrorMessages.BASE_WEIGHT_INVALID)
+
+        cooldown_seconds = attrs.get("cooldown_seconds")
+        if cooldown_seconds is not None and cooldown_seconds < 0:
+            raise CustomAPIException(ErrorMessages.VALIDATION_ERROR)
+
+        repeat_decay = attrs.get("repeat_decay")
+        if repeat_decay is not None and repeat_decay <= 0:
+            raise CustomAPIException(ErrorMessages.VALIDATION_ERROR)
+
+        return attrs
