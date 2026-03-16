@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 
 from apps.users.models.user import User
 from apps.users.serializers.auth import (
+    AccountRestoreRequestSerializer,
     AuthMeResponseSerializer,
     EmailCodeSendRequestSerializer,
     EmailCodeSendResponseSerializer,
@@ -26,6 +27,7 @@ from apps.users.services import (
     logout_user,
     refresh_access_token,
     reset_user_password,
+    restore_user_account,
     send_email_code,
     signup_user,
 )
@@ -158,6 +160,24 @@ class PasswordResetAPIView(APIView):
 
         reset_user_password(**serializer.validated_data)
         response_serializer = MessageResponseSerializer({"message": "비밀번호가 재설정되었습니다."})
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    summary="탈퇴 계정 복구",
+    request=AccountRestoreRequestSerializer,
+    responses={200: MessageResponseSerializer},
+    tags=["auth"],
+)
+class AccountRestoreAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request) -> Response:
+        serializer = AccountRestoreRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        restore_user_account(**serializer.validated_data)
+        response_serializer = MessageResponseSerializer({"message": "계정이 복구되었습니다."})
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 

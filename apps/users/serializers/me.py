@@ -42,7 +42,3 @@ class UserMeDeleteResponseSerializer(serializers.Serializer[dict[str, object]]):
 
 class UserPasswordVerifyRequestSerializer(serializers.Serializer[dict[str, object]]):
     password = serializers.CharField(write_only=True)
-
-
-class UserMeDeleteResponseSerializer(serializers.Serializer[dict[str, object]]):
-    message = serializers.CharField()

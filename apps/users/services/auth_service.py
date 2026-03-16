@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import secrets
-from datetime import date
+from datetime import date, timedelta
 
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.cache import cache
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
+from django.utils import timezone
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -22,6 +23,7 @@ EMAIL_CODE_VERIFY_MAX_ATTEMPTS = 5
 EMAIL_CODE_VERIFY_BLOCK_SECONDS = 20 * 60
 EMAIL_CODE_PURPOSE_SIGNUP = "signup"
 EMAIL_CODE_PURPOSE_PASSWORD_RESET = "password_reset"
+ACCOUNT_RESTORE_RETENTION_DAYS = 7
 
 
 def _email_code_key(*, purpose: str, email: str) -> str:
@@ -110,6 +112,23 @@ def authenticate_user(*, email: str, password: str) -> User:
         raise CustomAPIException(ErrorMessages.INVALID_CREDENTIALS)
 
     return user
+
+
+def restore_user_account(*, email: str, password: str) -> None:
+    user = User.objects.filter(email=email).first()
+    if user is None or not user.check_password(password):
+        raise CustomAPIException(ErrorMessages.INVALID_CREDENTIALS)
+
+    if user.deleted_at is None:
+        raise CustomAPIException(ErrorMessages.ACCOUNT_NOT_DELETED)
+
+    restore_deadline = user.deleted_at + timedelta(days=ACCOUNT_RESTORE_RETENTION_DAYS)
+    if restore_deadline < timezone.now():
+        raise CustomAPIException(ErrorMessages.ACCOUNT_RESTORE_EXPIRED)
+
+    user.deleted_at = None
+    user.is_active = True
+    user.save(update_fields=["deleted_at", "is_active", "updated_at"])
 
 
 def revoke_all_refresh_tokens(user: User) -> None:

@@ -1,6 +1,7 @@
 import datetime
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
@@ -61,3 +62,17 @@ class LoginAPITestCase(TestCase):
         self.assertEqual(res.status_code, 401)
         data = res.json()
         self.assertEqual(data["code"], ErrorMessages.INVALID_CREDENTIALS.name)
+
+    def test_login_deleted_user_returns_401(self) -> None:
+        self.user.deleted_at = timezone.now()
+        self.user.is_active = False
+        self.user.save(update_fields=["deleted_at", "is_active"])
+
+        res = self.client.post(
+            "/api/v1/auth/login/",
+            {"email": "admin@example.com", "password": "password1100110011"},
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, 401)
+        self.assertEqual(res.json()["code"], ErrorMessages.ACCOUNT_DEACTIVATED.name)
