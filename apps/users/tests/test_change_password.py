@@ -2,6 +2,7 @@ import datetime
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.urls import reverse
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
@@ -18,7 +19,7 @@ class UserPasswordChangeAPITest(TestCase):
             nickname="changeuser",
             birth_date=datetime.date(1999, 1, 1),
         )
-        self.url = "/api/v1/users/me/password/"
+        self.url = reverse("users-me-password-change")
 
     def test_change_password_returns_200_when_password_changes(self) -> None:
         self.client.force_authenticate(user=self.user)

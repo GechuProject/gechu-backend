@@ -70,5 +70,5 @@ def change_user_password(user: User, *, new_password: str) -> None:
         raise CustomAPIException(ErrorMessages.VALIDATION_ERROR) from err
 
     user.set_password(new_password)
-    user.save(update_fields=["password"])
+    user.save(update_fields=["password", "updated_at"])
     revoke_all_refresh_tokens(user)
