@@ -34,3 +34,7 @@ class UserMeUpdateResponseSerializer(serializers.ModelSerializer[User]):
 class UserMeUpdateRequestSerializer(serializers.Serializer[dict[str, object]]):
     nickname = serializers.CharField(required=False, max_length=30)
     birth_date = serializers.DateField(required=False)
+
+
+class UserPasswordVerifyRequestSerializer(serializers.Serializer[dict[str, object]]):
+    password = serializers.CharField(write_only=True)
