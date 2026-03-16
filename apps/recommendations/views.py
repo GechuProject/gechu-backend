@@ -151,7 +151,7 @@ class RecommendationListView(ListAPIView):  # type: ignore[type-arg]
     description=(
         "추천 생성 상태를 조회합니다. "
         "상태 값은 최신 user_refresh 작업 상태와 추천 row 존재 여부를 함께 반영합니다. "
-        "추천 row가 없으면 generation/generated_at/expires_at는 null입니다."
+        "추천 row가 없으면 generation_version/generated_at/expires_at는 null입니다."
     ),
     responses={
         200: OpenApiResponse(
@@ -162,16 +162,25 @@ class RecommendationListView(ListAPIView):  # type: ignore[type-arg]
                     "대기 상태",
                     value={
                         "status": "pending",
-                        "generation": None,
+                        "generation_version": None,
                         "generated_at": None,
                         "expires_at": None,
+                    },
+                ),
+                OpenApiExample(
+                    "실행 중 상태",
+                    value={
+                        "status": "running",
+                        "generation_version": 2,
+                        "generated_at": "2026-03-08T09:00:00Z",
+                        "expires_at": "2026-03-15T09:00:00Z",
                     },
                 ),
                 OpenApiExample(
                     "생성 완료 상태",
                     value={
                         "status": "success",
-                        "generation": 3,
+                        "generation_version": 3,
                         "generated_at": "2026-03-08T09:00:00Z",
                         "expires_at": "2026-03-15T09:00:00Z",
                     },
