@@ -4,8 +4,12 @@ from typing import cast
 
 from django.db.models import QuerySet
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema
+from rest_framework import status
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
@@ -16,8 +20,9 @@ from apps.recommendations.serializers import (
     RecommendationItemSerializer,
     RecommendationListResponseSerializer,
     RecommendationQuerySerializer,
+    RecommendationStatusResponseSerializer,
 )
-from apps.recommendations.services import RecommendationService
+from apps.recommendations.services import RecommendationService, RecommendationStatusService
 from apps.users.models import User
 
 
@@ -138,3 +143,61 @@ class RecommendationListView(ListAPIView):  # type: ignore[type-arg]
             is_adult=cast(bool | None, data.get("is_adult")),
             is_free=cast(bool | None, data.get("is_free")),
         )
+
+
+@extend_schema(
+    tags=["recommendations"],
+    summary="추천 생성 상태 조회",
+    description=(
+        "추천 생성 상태를 조회합니다. "
+        "상태 값은 최신 user_refresh 작업 상태와 추천 row 존재 여부를 함께 반영합니다. "
+        "추천 row가 없으면 generation/generated_at/expires_at는 null입니다."
+    ),
+    responses={
+        200: OpenApiResponse(
+            response=RecommendationStatusResponseSerializer,
+            description="추천 상태 조회 성공",
+            examples=[
+                OpenApiExample(
+                    "대기 상태",
+                    value={
+                        "status": "pending",
+                        "generation": None,
+                        "generated_at": None,
+                        "expires_at": None,
+                    },
+                ),
+                OpenApiExample(
+                    "생성 완료 상태",
+                    value={
+                        "status": "success",
+                        "generation": 3,
+                        "generated_at": "2026-03-08T09:00:00Z",
+                        "expires_at": "2026-03-15T09:00:00Z",
+                    },
+                ),
+            ],
+        ),
+        401: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Unauthorized",
+            examples=[
+                OpenApiExample(
+                    "인증 필요",
+                    value={
+                        "status_code": ErrorMessages.UNAUTHORIZED.status_code,
+                        "code": ErrorMessages.UNAUTHORIZED.name,
+                        "message": ErrorMessages.UNAUTHORIZED.message,
+                    },
+                )
+            ],
+        ),
+    },
+)
+class RecommendationStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        user = cast(User, request.user)
+        result = RecommendationStatusService.get_status(user=user)
+        return Response(result, status=status.HTTP_200_OK)

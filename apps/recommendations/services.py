@@ -1,14 +1,51 @@
 from __future__ import annotations
 
+from datetime import datetime
+from typing import TypedDict
+
 from django.db.models import QuerySet
 
 from apps.recommendations.models import RecommendationJob, UserRecommendation
 from apps.users.models import User
 
 
+class RecommendationStatusResult(TypedDict):
+    status: str
+    generation: int | None
+    generated_at: datetime | None
+    expires_at: datetime | None
+
+
+class RecommendationStatusService:
+    @staticmethod
+    def get_status(*, user: User) -> RecommendationStatusResult:
+        latest_job = RecommendationService.get_latest_user_refresh_job(user=user)
+        latest_recommendation = (
+            UserRecommendation.objects.filter(user=user).order_by("-generation_version", "-generated_at").first()
+        )
+
+        has_recommendation = latest_recommendation is not None
+
+        if latest_job is None or latest_job.status == RecommendationJob.Status.SUCCESS:
+            status = "success" if has_recommendation else "pending"
+        elif latest_job.status in (RecommendationJob.Status.PENDING, RecommendationJob.Status.RUNNING):
+            status = "pending"
+        elif latest_job.status == RecommendationJob.Status.FAILED:
+            status = "failed"
+        else:
+            status = "pending"
+
+        return {
+            "status": status,
+            "generation": latest_recommendation.generation_version if latest_recommendation else None,
+            "generated_at": latest_recommendation.generated_at if latest_recommendation else None,
+            "expires_at": latest_recommendation.expires_at if latest_recommendation else None,
+        }
+
+
 class RecommendationService:
     @staticmethod
-    def _get_latest_user_refresh_job(*, user: User) -> RecommendationJob | None:
+    def get_latest_user_refresh_job(*, user: User) -> RecommendationJob | None:
         return (
             RecommendationJob.objects.filter(
                 target_user=user,
@@ -20,7 +57,7 @@ class RecommendationService:
 
     @staticmethod
     def is_recommendation_ready(*, user: User) -> bool:
-        latest_user_refresh_job = RecommendationService._get_latest_user_refresh_job(user=user)
+        latest_user_refresh_job = RecommendationService.get_latest_user_refresh_job(user=user)
         if latest_user_refresh_job is not None and latest_user_refresh_job.status in {
             RecommendationJob.Status.PENDING,
             RecommendationJob.Status.RUNNING,
@@ -64,7 +101,7 @@ class RecommendationService:
 
     @staticmethod
     def enqueue_user_refresh_job_if_needed(*, user: User) -> RecommendationJob:
-        latest_user_refresh_job = RecommendationService._get_latest_user_refresh_job(user=user)
+        latest_user_refresh_job = RecommendationService.get_latest_user_refresh_job(user=user)
         if latest_user_refresh_job is not None and latest_user_refresh_job.status in {
             RecommendationJob.Status.PENDING,
             RecommendationJob.Status.RUNNING,
@@ -76,3 +113,20 @@ class RecommendationService:
             target_user=user,
             status=RecommendationJob.Status.PENDING,
         )
+
+
+class RecommendationAdminService:
+    @staticmethod
+    def list_recommendation_jobs(
+        *,
+        job_status: str | None = None,
+        job_type: str | None = None,
+    ) -> QuerySet[RecommendationJob]:
+        qs = RecommendationJob.objects.select_related("target_user").all()
+
+        if job_status:
+            qs = qs.filter(status=job_status)
+        if job_type:
+            qs = qs.filter(job_type=job_type)
+
+        return qs.order_by("-created_at")

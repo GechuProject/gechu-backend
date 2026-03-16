@@ -83,3 +83,43 @@ class RecommendationListResponseSerializer(serializers.Serializer):  # type: ign
     next = serializers.CharField(allow_null=True)
     previous = serializers.CharField(allow_null=True)
     results = RecommendationItemSerializer(many=True)
+
+
+class RecommendationStatusResponseSerializer(serializers.Serializer[dict[str, Any]]):
+    status = serializers.ChoiceField(choices=["pending", "success", "failed"])
+    generation = serializers.IntegerField(allow_null=True)
+    generated_at = serializers.DateTimeField(allow_null=True)
+    expires_at = serializers.DateTimeField(allow_null=True)
+
+
+class RecommendationJobListQuerySerializer(serializers.Serializer[dict[str, Any]]):
+    status = serializers.CharField(required=False)
+    type = serializers.CharField(required=False)
+
+    def validate_status(self, value: str) -> str:
+        allowed = {"pending", "running", "success", "failed"}
+        if value not in allowed:
+            raise CustomAPIException(ErrorMessages.INVALID_QUERY_PARAM)
+        return value
+
+    def validate_type(self, value: str) -> str:
+        allowed = {"user_refresh", "similarity_rebuild"}
+        if value not in allowed:
+            raise CustomAPIException(ErrorMessages.INVALID_QUERY_PARAM)
+        return value
+
+
+class RecommendationJobItemSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.IntegerField()
+    type = serializers.CharField(source="job_type")
+    status = serializers.CharField()
+    target_user = serializers.IntegerField(source="target_user_id", allow_null=True)
+    started_at = serializers.DateTimeField(allow_null=True)
+    created_at = serializers.DateTimeField()
+
+
+class RecommendationJobListResponseSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    count = serializers.IntegerField()
+    next = serializers.CharField(allow_null=True)
+    previous = serializers.CharField(allow_null=True)
+    results = RecommendationJobItemSerializer(many=True)

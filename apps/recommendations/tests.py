@@ -9,6 +9,7 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.core.exceptions.exception_message import ErrorMessages
 from apps.games.models import Game, GameGenre, GameTag, Genre, Tag
 from apps.interactions.models import InteractionLog
 from apps.recommendations.models import RecommendationJob, UserRecommendation
@@ -200,6 +201,123 @@ class RecommendationListAPITestCase(TestCase):
         self.assertEqual(payload["code"], "INVALID_QUERY_PARAM")
 
 
+class RecommendationStatusAPITestCase(TestCase):
+    client: APIClient
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/recommendations/status/"
+        self.user = User.objects.create_user(
+            email="status-user@ex.com",
+            nickname="status-user",
+            birth_date=date(1991, 1, 1),
+            password="pw",
+        )
+
+    def _create_game(self, *, rawg_id: int, slug: str, name: str) -> Game:
+        return Game.objects.create(
+            rawg_id=rawg_id,
+            slug=slug,
+            name=name,
+            thumbnail_img_url="https://example.com/thumb.jpg",
+            website="https://example.com",
+            rawg_rating=Decimal("4.10"),
+            is_visible=True,
+        )
+
+    def _create_recommendation(self, *, generation: int) -> UserRecommendation:
+        game = self._create_game(rawg_id=9000 + generation, slug=f"status-{generation}", name=f"Status {generation}")
+        now = timezone.now()
+        return UserRecommendation.objects.create(
+            user=self.user,
+            game=game,
+            generation_version=generation,
+            score=Decimal("0.9000"),
+            rank=1,
+            reason=UserRecommendation.ReasonType.SIMILARITY,
+            generated_at=now,
+            expires_at=now + timedelta(days=7),
+        )
+
+    def test_status_unauthorized(self) -> None:
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 401)
+
+    def test_status_pending_when_no_job_and_no_recommendation(self) -> None:
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["status"], "pending")
+        self.assertIsNone(data["generation"])
+        self.assertIsNone(data["generated_at"])
+        self.assertIsNone(data["expires_at"])
+
+    def test_status_pending_when_job_running(self) -> None:
+        rec = self._create_recommendation(generation=2)
+        RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=self.user,
+            status=RecommendationJob.Status.RUNNING,
+        )
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["status"], "pending")
+        self.assertEqual(data["generation"], rec.generation_version)
+
+    def test_status_success_when_job_success_and_recommendation_exists(self) -> None:
+        rec = self._create_recommendation(generation=3)
+        RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=self.user,
+            status=RecommendationJob.Status.SUCCESS,
+        )
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["generation"], rec.generation_version)
+
+    def test_status_pending_when_job_success_but_no_recommendation(self) -> None:
+        RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=self.user,
+            status=RecommendationJob.Status.SUCCESS,
+        )
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["status"], "pending")
+        self.assertIsNone(data["generation"])
+
+    def test_status_failed_when_job_failed(self) -> None:
+        rec = self._create_recommendation(generation=4)
+        RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=self.user,
+            status=RecommendationJob.Status.FAILED,
+        )
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["status"], "failed")
+        self.assertEqual(data["generation"], rec.generation_version)
+
+
 class RecommendationTaskTestCase(TestCase):
     def _create_user(self) -> User:
         return User.objects.create_user(
@@ -365,6 +483,21 @@ class RecommendationTaskTestCase(TestCase):
         self.assertEqual(job.retry_count, 1)
         self.assertIn("boom", cast(str, job.error_message))
 
+    def test_run_user_refresh_job_skips_when_job_already_running(self) -> None:
+        user = self._create_user()
+        job = RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=user,
+            status=RecommendationJob.Status.RUNNING,
+            started_at=timezone.now(),
+        )
+
+        run_user_refresh_job(job.id)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, RecommendationJob.Status.RUNNING)
+        self.assertFalse(UserRecommendation.objects.filter(user=user).exists())
+
     def test_process_pending_recommendation_jobs_enqueues_pending_only(self) -> None:
         user = self._create_user()
         pending_1 = RecommendationJob.objects.create(
@@ -389,3 +522,139 @@ class RecommendationTaskTestCase(TestCase):
         self.assertEqual(queued, 2)
         mocked_delay.assert_any_call(pending_1.id)
         mocked_delay.assert_any_call(pending_2.id)
+
+    def test_process_pending_recommendation_jobs_claims_jobs_as_running_before_enqueue(self) -> None:
+        user = self._create_user()
+        job = RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=user,
+            status=RecommendationJob.Status.PENDING,
+        )
+
+        with patch("apps.recommendations.tasks.process_user_refresh_job.delay"):
+            queued = process_pending_recommendation_jobs(limit=20)
+
+        self.assertEqual(queued, 1)
+        job.refresh_from_db()
+        self.assertEqual(job.status, RecommendationJob.Status.RUNNING)
+        self.assertIsNone(job.started_at)
+
+
+class AdminRecommendationJobListAPITestCase(TestCase):
+    client: APIClient
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/admin/recommendation-jobs/"
+        self.admin_user = User.objects.create_user(
+            email="admin-rec@ex.com",
+            nickname="admin-rec",
+            birth_date=date(1990, 1, 1),
+            password="pw",
+            is_staff=True,
+        )
+        self.normal_user = User.objects.create_user(
+            email="normal-rec@ex.com",
+            nickname="normal-rec",
+            birth_date=date(1994, 1, 1),
+            password="pw",
+        )
+
+    def test_admin_recommendation_job_list_unauthorized(self) -> None:
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 401)
+
+    def test_admin_recommendation_job_list_forbidden_for_non_admin(self) -> None:
+        self.client.force_authenticate(user=self.normal_user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 403)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["code"], ErrorMessages.FORBIDDEN.name)
+
+    def test_admin_recommendation_job_list_success(self) -> None:
+        RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=self.normal_user,
+            status=RecommendationJob.Status.PENDING,
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        payload = cast(dict[str, Any], response.data)
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["results"][0]["type"], RecommendationJob.JobType.USER_REFRESH)
+        self.assertEqual(payload["results"][0]["status"], RecommendationJob.Status.PENDING)
+        self.assertEqual(payload["results"][0]["target_user"], self.normal_user.id)
+
+    def test_admin_recommendation_job_list_filters_status_and_type(self) -> None:
+        RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=self.normal_user,
+            status=RecommendationJob.Status.FAILED,
+        )
+        RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.SIMILARITY_REBUILD,
+            target_user=None,
+            status=RecommendationJob.Status.FAILED,
+        )
+        RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=self.normal_user,
+            status=RecommendationJob.Status.SUCCESS,
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self.url, {"status": "failed", "type": "user_refresh"})
+
+        self.assertEqual(response.status_code, 200)
+        payload = cast(dict[str, Any], response.data)
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["results"][0]["status"], RecommendationJob.Status.FAILED)
+        self.assertEqual(payload["results"][0]["type"], RecommendationJob.JobType.USER_REFRESH)
+
+    def test_admin_recommendation_job_list_invalid_query_param_returns_400(self) -> None:
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self.url, {"status": "wrong"})
+
+        self.assertEqual(response.status_code, 400)
+        payload = cast(dict[str, Any], response.data)
+        self.assertEqual(payload["code"], ErrorMessages.INVALID_QUERY_PARAM.name)
+
+    def test_admin_recommendation_job_list_orders_by_created_at_desc(self) -> None:
+        old_job = RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=self.normal_user,
+            status=RecommendationJob.Status.PENDING,
+        )
+        new_job = RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=self.normal_user,
+            status=RecommendationJob.Status.RUNNING,
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        payload = cast(dict[str, Any], response.data)
+        result_ids = [row["id"] for row in payload["results"]]
+        self.assertEqual(result_ids, [new_job.id, old_job.id])
+
+    def test_admin_recommendation_job_list_supports_page_size(self) -> None:
+        for _ in range(3):
+            RecommendationJob.objects.create(
+                job_type=RecommendationJob.JobType.USER_REFRESH,
+                target_user=self.normal_user,
+                status=RecommendationJob.Status.PENDING,
+            )
+
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self.url, {"page": 1, "page_size": 2})
+
+        self.assertEqual(response.status_code, 200)
+        payload = cast(dict[str, Any], response.data)
+        self.assertEqual(payload["count"], 3)
+        self.assertEqual(len(payload["results"]), 2)
