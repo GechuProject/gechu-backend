@@ -10,19 +10,20 @@ from rest_framework.views import APIView
 from apps.users.models.user import User
 from apps.users.serializers.auth import MessageResponseSerializer
 from apps.users.serializers.me import (
+    UserMeDeleteResponseSerializer,
     UserMeResponseSerializer,
     UserMeUpdateRequestSerializer,
     UserMeUpdateResponseSerializer,
     UserPasswordVerifyRequestSerializer,
 )
-from apps.users.services import get_user_me, update_user_me, verify_user_password
+from apps.users.services import delete_user_me, get_user_me, update_user_me, verify_user_password
 
 
 @extend_schema(tags=["Users"])
-class UserMeAPIView(generics.RetrieveUpdateAPIView[User]):
+class UserMeAPIView(generics.RetrieveUpdateDestroyAPIView[User]):
     permission_classes = [IsAuthenticated]
     serializer_class = UserMeResponseSerializer
-    http_method_names = ["get", "patch"]
+    http_method_names = ["get", "patch", "delete"]
 
     def get_object(self) -> User:
         return get_user_me(cast(User, self.request.user))
@@ -53,6 +54,16 @@ class UserMeAPIView(generics.RetrieveUpdateAPIView[User]):
         serializer.is_valid(raise_exception=True)
         updated_user = update_user_me(instance, **serializer.validated_data)
         response_serializer = UserMeUpdateResponseSerializer(updated_user)
+        return Response(response_serializer.data)
+
+    @extend_schema(
+        summary="회원 탈퇴",
+        responses={200: UserMeDeleteResponseSerializer},
+    )
+    def delete(self, request: Request, *args: object, **kwargs: object) -> Response:
+        delete_user_me(self.get_object())
+        result: dict[str, object] = {"message": "계정이 삭제되었습니다."}
+        response_serializer = UserMeDeleteResponseSerializer(result)
         return Response(response_serializer.data)
 
 

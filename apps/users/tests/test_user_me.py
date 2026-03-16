@@ -7,6 +7,8 @@ from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.test import APIClient
 
+from apps.users.tasks import purge_soft_deleted_users
+
 
 class UserMeRetrieveAPITest(TestCase):
     def setUp(self) -> None:
@@ -121,3 +123,40 @@ class UserMeRetrieveAPITest(TestCase):
             format="json",
         )
         self.assertEqual(res.status_code, 400)
+
+    def test_delete_me_soft_deletes_user(self) -> None:
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        res = client.delete("/api/v1/users/me/")
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json(), {"message": "계정이 삭제되었습니다."})
+        self.user.refresh_from_db()
+        self.assertIsNotNone(self.user.deleted_at)
+        self.assertFalse(self.user.is_active)
+
+    def test_delete_me_returns_401_when_not_authenticated(self) -> None:
+        res = self.client.delete("/api/v1/users/me/")
+
+        self.assertEqual(res.status_code, 401)
+
+    def test_purge_soft_deleted_users_deletes_users_after_7_days(self) -> None:
+        self.user.deleted_at = timezone.now() - datetime.timedelta(days=8)
+        self.user.is_active = False
+        self.user.save(update_fields=["deleted_at", "is_active"])
+
+        deleted_count = purge_soft_deleted_users()
+
+        self.assertEqual(deleted_count, 1)
+        self.assertFalse(get_user_model().objects.filter(id=self.user.id).exists())
+
+    def test_purge_soft_deleted_users_keeps_recently_deleted_users(self) -> None:
+        self.user.deleted_at = timezone.now() - datetime.timedelta(days=6)
+        self.user.is_active = False
+        self.user.save(update_fields=["deleted_at", "is_active"])
+
+        deleted_count = purge_soft_deleted_users()
+
+        self.assertEqual(deleted_count, 0)
+        self.assertTrue(get_user_model().objects.filter(id=self.user.id).exists())

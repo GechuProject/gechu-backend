@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
+from django.utils import timezone
+
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.users.models.user import User
@@ -33,6 +35,14 @@ def update_user_me(user: User, *, nickname: str | None = None, birth_date: date 
         user.save(update_fields=update_fields + ["updated_at"])
 
     return user
+
+
+def delete_user_me(user: User) -> dict[str, object]:
+    user = get_user_me(user)
+    user.deleted_at = timezone.now()
+    user.is_active = False
+    user.save(update_fields=["deleted_at", "is_active", "updated_at"])
+    return {"message": "계정이 삭제되었습니다."}
 
 
 def verify_user_password(user: User, *, password: str) -> None:
