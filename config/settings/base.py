@@ -257,6 +257,8 @@ IGDB_CLIENT_SECRET = os.getenv("IGDB_CLIENT_SECRET")
 # Celery Beat 스케줄
 from celery.schedules import crontab  # noqa: E402
 
+ACCOUNT_DELETION_RETENTION_DAYS = int(os.getenv("ACCOUNT_DELETION_RETENTION_DAYS", "7"))
+
 CELERY_BEAT_SCHEDULE = {
     "rawg-incremental-sync": {
         "task": "apps.games.tasks.incremental_sync",
