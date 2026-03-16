@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 import requests
 from django.conf import settings
 from django.core.cache import cache
+from django.db import transaction
 from django.utils import timezone
 
 from apps.core.exceptions.exception_handler import CustomAPIException
@@ -17,13 +18,19 @@ ADULT_VERIFICATION_STATE_TTL_SECONDS = 300
 ADULT_VERIFICATION_TTL_DAYS = 365
 
 
-def initiate_adult_verification(*, user: User) -> str:
-    authorize_url = getattr(settings, "BBATON_AUTHORIZE_URL", None)
-    client_id = getattr(settings, "BBATON_CLIENT_ID", None)
-    redirect_uri = getattr(settings, "BBATON_REDIRECT_URI", None)
-
-    if not authorize_url or not client_id or not redirect_uri:
+def _get_bbaton_config(*keys: str) -> tuple[str, ...]:
+    values = [getattr(settings, key, None) for key in keys]
+    if not all(isinstance(value, str) and value for value in values):
         raise CustomAPIException(ErrorMessages.SERVER_ERROR)
+    return tuple(str(value) for value in values)
+
+
+def initiate_adult_verification(*, user: User) -> str:
+    authorize_url, client_id, redirect_uri = _get_bbaton_config(
+        "BBATON_AUTHORIZE_URL",
+        "BBATON_CLIENT_ID",
+        "BBATON_REDIRECT_URI",
+    )
 
     state = secrets.token_urlsafe(32)
     cache.set(
@@ -77,26 +84,27 @@ def complete_adult_verification(*, code: str, state: str) -> dict[str, object]:
     verified_at = timezone.now()
     expires_at = verified_at + timedelta(days=ADULT_VERIFICATION_TTL_DAYS)
 
-    AdultVerification.objects.create(
-        user=user,
-        provider=AdultVerification.Provider.BBATON,
-        provider_uid=provider_uid,
-        raw_payload=user_info,
-        verified_at=verified_at,
-        expires_at=expires_at,
-    )
+    with transaction.atomic():
+        AdultVerification.objects.create(
+            user=user,
+            provider=AdultVerification.Provider.BBATON,
+            provider_uid=provider_uid,
+            raw_payload=user_info,
+            verified_at=verified_at,
+            expires_at=expires_at,
+        )
 
-    user.is_adult_verified = True
-    user.adult_verified_at = verified_at
-    user.adult_verification_expires_at = expires_at
-    user.save(
-        update_fields=[
-            "is_adult_verified",
-            "adult_verified_at",
-            "adult_verification_expires_at",
-            "updated_at",
-        ]
-    )
+        user.is_adult_verified = True
+        user.adult_verified_at = verified_at
+        user.adult_verification_expires_at = expires_at
+        user.save(
+            update_fields=[
+                "is_adult_verified",
+                "adult_verified_at",
+                "adult_verification_expires_at",
+                "updated_at",
+            ]
+        )
 
     return {
         "is_adult_verified": True,
@@ -124,13 +132,12 @@ def _is_adult_verification_valid(user: User) -> bool:
 
 
 def _request_bbaton_access_token(*, code: str) -> str:
-    token_url = getattr(settings, "BBATON_TOKEN_URL", None)
-    client_id = getattr(settings, "BBATON_CLIENT_ID", None)
-    client_secret = getattr(settings, "BBATON_CLIENT_SECRET", None)
-    redirect_uri = getattr(settings, "BBATON_REDIRECT_URI", None)
-
-    if not token_url or not client_id or not client_secret or not redirect_uri:
-        raise CustomAPIException(ErrorMessages.SERVER_ERROR)
+    token_url, client_id, client_secret, redirect_uri = _get_bbaton_config(
+        "BBATON_TOKEN_URL",
+        "BBATON_CLIENT_ID",
+        "BBATON_CLIENT_SECRET",
+        "BBATON_REDIRECT_URI",
+    )
 
     basic_token = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode("utf-8")
 
@@ -161,9 +168,7 @@ def _request_bbaton_access_token(*, code: str) -> str:
 
 
 def _request_bbaton_user_info(*, access_token: str) -> dict[str, object]:
-    user_info_url = getattr(settings, "BBATON_USER_INFO_URL", None)
-    if not user_info_url:
-        raise CustomAPIException(ErrorMessages.SERVER_ERROR)
+    (user_info_url,) = _get_bbaton_config("BBATON_USER_INFO_URL")
 
     try:
         response = requests.get(
