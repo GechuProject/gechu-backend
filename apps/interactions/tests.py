@@ -879,3 +879,122 @@ class AdminInteractionWeightRuleListAPITestCase(TestCase):
         self.assertEqual(first["cooldown_seconds"], 60)
         self.assertEqual(first["repeat_decay"], "0.800")
         self.assertIn("updated_at", first)
+
+
+class AdminInteractionWeightRuleUpdateAPITestCase(TestCase):
+    client: APIClient
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/admin/interaction-weight-rules/view/"
+
+    def _create_user(self, *, is_staff: bool = False) -> User:
+        return User.objects.create_user(
+            email=f"admin-rule-update-{is_staff}@ex.com",
+            nickname=f"admin-rule-update-{is_staff}",
+            birth_date=date(1991, 1, 1),
+            password="pw",
+            is_staff=is_staff,
+        )
+
+    def test_admin_interaction_weight_rule_update_unauthorized(self) -> None:
+        response = self.client.patch(
+            self.url,
+            {"base_weight": 1.50},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_admin_interaction_weight_rule_update_forbidden_for_non_staff(self) -> None:
+        user = self._create_user(is_staff=False)
+        self.client.force_authenticate(user=user)
+
+        response = self.client.patch(
+            self.url,
+            {"base_weight": 1.50},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "FORBIDDEN")
+
+    def test_admin_interaction_weight_rule_update_not_found(self) -> None:
+        admin = self._create_user(is_staff=True)
+        self.client.force_authenticate(user=admin)
+
+        response = self.client.patch(
+            "/api/v1/admin/interaction-weight-rules/unknown/",
+            {"base_weight": 1.50},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "INTERACTION_TYPE_NOT_FOUND")
+
+    def test_admin_interaction_weight_rule_update_invalid_base_weight(self) -> None:
+        admin = self._create_user(is_staff=True)
+        self.client.force_authenticate(user=admin)
+        InteractionWeightRule.objects.create(
+            interaction_type=InteractionWeightRule.ActionType.VIEW,
+            base_weight=1.00,
+            cooldown_seconds=60,
+            repeat_decay=0.800,
+            is_active=True,
+        )
+
+        response = self.client.patch(
+            self.url,
+            {"base_weight": 0},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "BASE_WEIGHT_INVALID")
+
+    def test_admin_interaction_weight_rule_update_empty_body(self) -> None:
+        admin = self._create_user(is_staff=True)
+        self.client.force_authenticate(user=admin)
+        InteractionWeightRule.objects.create(
+            interaction_type=InteractionWeightRule.ActionType.VIEW,
+            base_weight=1.00,
+            cooldown_seconds=60,
+            repeat_decay=0.800,
+            is_active=True,
+        )
+
+        response = self.client.patch(
+            self.url,
+            {},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "VALIDATION_ERROR")
+
+    def test_admin_interaction_weight_rule_update_success(self) -> None:
+        admin = self._create_user(is_staff=True)
+        self.client.force_authenticate(user=admin)
+        rule = InteractionWeightRule.objects.create(
+            interaction_type=InteractionWeightRule.ActionType.VIEW,
+            base_weight=1.00,
+            cooldown_seconds=60,
+            repeat_decay=0.800,
+            is_active=True,
+        )
+
+        response = self.client.patch(
+            self.url,
+            {"base_weight": 1.50, "cooldown_seconds": 120},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["interaction_type"], "view")
+        self.assertEqual(data["base_weight"], "1.50")
+        self.assertEqual(data["cooldown_seconds"], 120)
+        self.assertEqual(data["repeat_decay"], "0.800")
+        self.assertIn("updated_at", data)
+
+        rule.refresh_from_db()
+        self.assertEqual(float(cast(Any, rule.base_weight)), 1.5)
+        self.assertEqual(rule.cooldown_seconds, 120)
