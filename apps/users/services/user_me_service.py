@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from datetime import date
 
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.users.models.user import User
-from apps.users.services.auth_service import get_active_user_or_deactivated
+from apps.users.services.auth_service import get_active_user_or_deactivated, revoke_all_refresh_tokens
 
 
 def get_user_me(user: User) -> User:
@@ -53,3 +55,20 @@ def verify_user_password(user: User, *, password: str) -> None:
 
     if not user.check_password(password):
         raise CustomAPIException(ErrorMessages.INVALID_PASSWORD)
+
+
+def change_user_password(user: User, *, new_password: str) -> None:
+    user = get_user_me(user)
+    get_active_user_or_deactivated(user)
+
+    if user.social_accounts.exists() and not user.has_usable_password():
+        raise CustomAPIException(ErrorMessages.SOCIAL_USER_ONLY)
+
+    try:
+        validate_password(new_password)
+    except DjangoValidationError as err:
+        raise CustomAPIException(ErrorMessages.VALIDATION_ERROR) from err
+
+    user.set_password(new_password)
+    user.save(update_fields=["password", "updated_at"])
+    revoke_all_refresh_tokens(user)
