@@ -37,12 +37,11 @@ def update_user_me(user: User, *, nickname: str | None = None, birth_date: date 
     return user
 
 
-def delete_user_me(user: User) -> dict[str, object]:
+def delete_user_me(user: User) -> None:
     user = get_user_me(user)
     user.deleted_at = timezone.now()
     user.is_active = False
     user.save(update_fields=["deleted_at", "is_active", "updated_at"])
-    return {"message": "계정이 삭제되었습니다."}
 
 
 def verify_user_password(user: User, *, password: str) -> None:

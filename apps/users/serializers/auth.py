@@ -38,6 +38,11 @@ class LoginRequestSerializer(serializers.Serializer[dict[str, object]]):
     password = serializers.CharField(write_only=True)
 
 
+class AccountRestoreRequestSerializer(serializers.Serializer[dict[str, object]]):
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(write_only=True)
+
+
 class PasswordResetRequestSerializer(serializers.Serializer[dict[str, object]]):
     email = serializers.EmailField()
     code = serializers.CharField(min_length=6, max_length=6)

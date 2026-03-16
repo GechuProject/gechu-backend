@@ -39,6 +39,8 @@ class ErrorMessages(Enum):
     INVALID_STATE = (400, "유효하지 않은 state 파라미터입니다.")
     OAUTH_CALLBACK_ERROR = (400, "카카오 인증에 실패했습니다.")
     ADULT_VERIFICATION_CALLBACK_ERROR = (400, "비바톤 인증에 실패했습니다.")
+    ACCOUNT_NOT_DELETED = (400, "탈퇴한 계정만 복구할 수 있습니다.")
+    ACCOUNT_RESTORE_EXPIRED = (400, "탈퇴 후 7일이 지나 계정을 복구할 수 없습니다.")
 
     # 401 Unauthorized
     UNAUTHORIZED = (401, "인증이 필요합니다.")

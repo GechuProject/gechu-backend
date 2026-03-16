@@ -5,6 +5,7 @@ from .auth_service import (
     logout_user,
     refresh_access_token,
     reset_user_password,
+    restore_user_account,
     send_email_code,
     signup_user,
 )
@@ -20,6 +21,7 @@ __all__ = [
     "logout_user",
     "refresh_access_token",
     "reset_user_password",
+    "restore_user_account",
     "send_email_code",
     "signup_user",
     "update_user_me",
