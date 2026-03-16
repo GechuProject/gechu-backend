@@ -12,7 +12,6 @@ from apps.core.exceptions.exception_message import ErrorMessages
 from apps.games.models import ExternalStore
 from apps.interactions.models import InteractionContextRule, InteractionLog, InteractionWeightRule
 from apps.users.models import User
-from apps.users.services.search_recent_service import save_recent_search_keyword
 
 MAX_EFFECTIVE_REPEAT_COUNT = 10
 WEIGHT_QUANTIZE_UNIT = Decimal("0.0001")
@@ -129,7 +128,6 @@ def record_search_interaction(
             and weight_rule.cooldown_seconds > 0
             and latest_reusable_log.created_at >= timezone.now() - timedelta(seconds=weight_rule.cooldown_seconds)
         ):
-            save_recent_search_keyword(user=user, keyword=search_query)
             return latest_reusable_log, False
 
         repeat_count = InteractionLog.objects.filter(
@@ -151,7 +149,6 @@ def record_search_interaction(
             weight=weight,
             metadata=metadata,
         )
-        save_recent_search_keyword(user=user, keyword=search_query)
         return log, True
 
 

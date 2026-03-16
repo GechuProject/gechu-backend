@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django_redis import get_redis_connection
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -11,7 +12,6 @@ from apps.games.services.game_list import GameService
 
 User = get_user_model()
 
-# Sample IGDB search result items (matches build_game_list_item output shape)
 MOCK_GAME_LIST_ITEM = {
     "id": 1942,
     "slug": "test-game",
@@ -26,7 +26,6 @@ MOCK_GAME_LIST_ITEM = {
     "age_rating_min": 0,
 }
 
-# Mock Top 10 games for genre_name test
 MOCK_TOP10_GAMES = [
     {
         "id": i,
@@ -47,7 +46,6 @@ MOCK_TOP10_GAMES = [
 
 class GameListViewTests(APITestCase):
     def setUp(self) -> None:
-        # 테스트 유저
         self.user = User.objects.create_user(
             email="test@example.com",
             password="password123",
@@ -55,12 +53,18 @@ class GameListViewTests(APITestCase):
             birth_date=date(1997, 1, 1),
             is_adult_verified=True,
         )
-
         self.url = reverse("game-list")
+        self.connection = get_redis_connection("default")
+
+    def _recent_search_key(self, *, user_id: int) -> str:
+        return f"search:recent:{user_id}"
+
+    def _get_recent_keywords(self) -> list[str]:
+        raw_keywords = self.connection.lrange(self._recent_search_key(user_id=self.user.id), 0, -1)
+        return [keyword.decode("utf-8") if isinstance(keyword, bytes) else str(keyword) for keyword in raw_keywords]
 
     @patch("apps.games.services.game_list.igdb_cache.search_games")
     def test_game_list_success(self, mock_search: object) -> None:
-        """정상 요청 - 기본 쿼리"""
         mock_search.return_value = [MOCK_GAME_LIST_ITEM]  # type: ignore[attr-defined]
 
         self.client.force_authenticate(user=self.user)
@@ -73,7 +77,6 @@ class GameListViewTests(APITestCase):
         self.assertEqual(game_data["genres"][0]["name"], "Action")
 
     def test_invalid_ordering(self) -> None:
-        """잘못된 ordering 값"""
         self.client.force_authenticate(user=self.user)
         response = self.client.get(self.url, {"ordering": "invalid_field"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -81,7 +84,6 @@ class GameListViewTests(APITestCase):
         self.assertEqual(response.data["message"], ErrorMessages.INVALID_ORDERING.message)
 
     def test_invalid_genre_ids(self) -> None:
-        """잘못된 genre_ids 값"""
         self.client.force_authenticate(user=self.user)
         response = self.client.get(self.url, {"genre_ids": "abc,123"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -90,12 +92,9 @@ class GameListViewTests(APITestCase):
 
     @patch("apps.games.services.game_list.igdb_cache.search_games")
     def test_search_and_ordering(self, mock_search: MagicMock) -> None:
-        """검색 + 정렬 통합 테스트"""
         self.client.force_authenticate(user=self.user)
 
-        # 검색 결과 있음
         mock_search.return_value = [MOCK_GAME_LIST_ITEM]
-
         response = self.client.get(
             self.url,
             {"search": "Test", "ordering": "-rawg_rating"},
@@ -103,25 +102,33 @@ class GameListViewTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
-
         game_data = response.data["results"][0]
         self.assertEqual(game_data["name"], "Test Game")
 
-        # 검색 결과 없음
         mock_search.return_value = []
-
         response = self.client.get(self.url, {"search": "NoMatch"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 0)
 
     @patch("apps.games.services.game_list.igdb_cache.search_games")
+    def test_search_saves_recent_keyword(self, mock_search: object) -> None:
+        self.client.force_authenticate(user=self.user)
+        self.connection.delete(self._recent_search_key(user_id=self.user.id))
+
+        mock_search.return_value = [MOCK_GAME_LIST_ITEM]  # type: ignore[attr-defined]
+        first_response = self.client.get(self.url, {"search": "Test"})
+        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._get_recent_keywords(), ["Test"])
+
+        mock_search.return_value = []  # type: ignore[attr-defined]
+        second_response = self.client.get(self.url, {"search": "NoMatch"})
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._get_recent_keywords(), ["NoMatch", "Test"])
+
+    @patch("apps.games.services.game_list.igdb_cache.search_games")
     @patch("apps.games.services.game_list.igdb_cache.get_genre_id_by_name")
     def test_top_n_by_genre_service_real(self, mock_get_genre_id: MagicMock, mock_search: MagicMock) -> None:
-        """top_n_by_genre 내부 분기와 검색까지 실제 실행"""
-        # ------------------
-        # 장르 존재
-        # ------------------
         mock_get_genre_id.return_value = 12
         mock_search.return_value = MOCK_TOP10_GAMES
 
@@ -131,9 +138,6 @@ class GameListViewTests(APITestCase):
         self.assertEqual(result[0]["rawg_rating"], 5.5)
         self.assertAlmostEqual(result[-1]["rawg_rating"], 4.6)
 
-        # ------------------
-        # 장르 없음
-        # ------------------
         mock_get_genre_id.return_value = None
 
         result = GameService.top_n_by_genre("NonExistent")
@@ -142,7 +146,6 @@ class GameListViewTests(APITestCase):
 
     @patch("apps.games.services.game_list.GameService.top_n_by_genre")
     def test_top_n_by_genre_api_mocked(self, mock_top_n: MagicMock) -> None:
-        """API 레이어 테스트: top_n_by_genre patch"""
         mock_top_n.return_value = MOCK_TOP10_GAMES
         self.client.force_authenticate(user=self.user)
         resp = self.client.get(self.url, {"genre_name": "Action"})
@@ -151,7 +154,6 @@ class GameListViewTests(APITestCase):
         self.assertIsNone(resp.data["next"])
         self.assertIsNone(resp.data["previous"])
 
-        # 빈 리스트 반환
         mock_top_n.return_value = []
         resp = self.client.get(self.url, {"genre_name": "NonExistent"})
         self.assertEqual(resp.data["results"], [])

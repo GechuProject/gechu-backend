@@ -11,6 +11,7 @@ from apps.games.serializers.game_list import (
     GameListResponseSerializer,
 )
 from apps.games.services.game_list import GameService
+from apps.users.services.search_recent_service import save_recent_search_keyword
 
 
 @extend_schema(
@@ -63,6 +64,8 @@ class GameListView(APIView):
         query_serializer = GameListQuerySerializer(data=request.query_params)
         query_serializer.is_valid(raise_exception=True)
         data = query_serializer.validated_data
+        if self.request.user.is_authenticated and data.get("search"):
+            save_recent_search_keyword(user=self.request.user, keyword=data["search"])
 
         page = data.get("page", 1)
         page_size = data.get("page_size", 20)
