@@ -1,5 +1,10 @@
 from django.urls import path
 
+from apps.users.views.adult_verification import (
+    AdultVerificationCallbackAPIView,
+    AdultVerificationInitiateAPIView,
+    AdultVerificationStatusAPIView,
+)
 from apps.users.views.auth import (
     AuthMeAPIView,
     EmailCodeSendAPIView,
@@ -27,4 +32,19 @@ urlpatterns = [
     path("users/me/verify-password/", UserPasswordVerifyAPIView.as_view(), name="users-me-verify-password"),
     path("auth/kakao/login/", KakaoLoginAPIView.as_view(), name="auth-kakao-login"),
     path("auth/kakao/callback/", KakaoCallbackAPIView.as_view(), name="auth-kakao-callback"),
+    path(
+        "users/me/adult-verifications/initiate/",
+        AdultVerificationInitiateAPIView.as_view(),
+        name="users-me-adult-verifications-initiate",
+    ),
+    path(
+        "users/me/adult-verifications/callback/",
+        AdultVerificationCallbackAPIView.as_view(),
+        name="users-me-adult-verifications-callback",
+    ),
+    path(
+        "users/me/adult-verifications/",
+        AdultVerificationStatusAPIView.as_view(),
+        name="users-me-adult-verifications",
+    ),
 ]

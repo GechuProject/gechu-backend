@@ -38,6 +38,7 @@ class ErrorMessages(Enum):
     PREFERENCE_FIELDS_REQUIRED = (400, "genre_ids, platform_ids, tag_ids는 필수 항목입니다.")
     INVALID_STATE = (400, "유효하지 않은 state 파라미터입니다.")
     OAUTH_CALLBACK_ERROR = (400, "카카오 인증에 실패했습니다.")
+    ADULT_VERIFICATION_CALLBACK_ERROR = (400, "비바톤 인증에 실패했습니다.")
 
     # 401 Unauthorized
     UNAUTHORIZED = (401, "인증이 필요합니다.")
