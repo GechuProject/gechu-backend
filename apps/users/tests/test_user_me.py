@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.test import APIClient
 
+from apps.core.exceptions.exception_message import ErrorMessages
 from apps.users.tasks import purge_soft_deleted_users
 
 
@@ -82,6 +83,62 @@ class UserMeRetrieveAPITest(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.data["nickname"], "onlynickname")
         self.assertEqual(res.data["birth_date"], "1999-01-01")
+
+    def test_patch_me_changes_password_when_new_password_is_provided(self) -> None:
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        res = client.patch(
+            "/api/v1/users/me/",
+            {
+                "new_password": "NewPassw0rd!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("NewPassw0rd!"))
+
+    def test_patch_me_returns_400_for_invalid_new_password(self) -> None:
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        res = client.patch(
+            "/api/v1/users/me/",
+            {
+                "new_password": "123",
+            },
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.json()["code"], ErrorMessages.VALIDATION_ERROR.name)
+
+    def test_patch_me_returns_400_for_social_only_user_with_new_password(self) -> None:
+        from apps.users.models.social_user import SocialUser
+
+        self.user.set_unusable_password()
+        self.user.save(update_fields=["password"])
+        SocialUser.objects.create(
+            user=self.user,
+            provider=SocialUser.Provider.KAKAO,
+            provider_uid="kakao-social-only",
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        res = client.patch(
+            "/api/v1/users/me/",
+            {
+                "new_password": "NewPassw0rd!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.json()["code"], ErrorMessages.SOCIAL_USER_ONLY.name)
 
     def test_patch_me_returns_401_when_not_authenticated(self) -> None:
         res = self.client.patch(
