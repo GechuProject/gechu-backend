@@ -18,7 +18,13 @@ def get_user_me(user: User) -> User:
     return user
 
 
-def update_user_me(user: User, *, nickname: str | None = None, birth_date: date | None = None) -> User:
+def update_user_me(
+    user: User,
+    *,
+    nickname: str | None = None,
+    birth_date: date | None = None,
+    new_password: str | None = None,
+) -> User:
     user = get_user_me(user)
     update_fields: list[str] = []
 
@@ -33,8 +39,24 @@ def update_user_me(user: User, *, nickname: str | None = None, birth_date: date 
         user.birth_date = birth_date
         update_fields.append("birth_date")
 
+    if new_password is not None:
+        get_active_user_or_deactivated(user)
+
+        if user.social_accounts.exists() and not user.has_usable_password():
+            raise CustomAPIException(ErrorMessages.SOCIAL_USER_ONLY)
+
+        try:
+            validate_password(new_password)
+        except DjangoValidationError as err:
+            raise CustomAPIException(ErrorMessages.VALIDATION_ERROR) from err
+
+        user.set_password(new_password)
+        update_fields.append("password")
+
     if update_fields:
         user.save(update_fields=update_fields + ["updated_at"])
+        if new_password is not None:
+            revoke_all_refresh_tokens(user)
 
     return user
 
