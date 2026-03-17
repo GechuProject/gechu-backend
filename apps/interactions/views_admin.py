@@ -105,6 +105,8 @@ class AdminInteractionContextRuleListView(APIView):
     summary="맥락 가중치 수정",
     description=(
         "관리자 권한으로 특정 interaction_source의 multiplier를 수정합니다. "
+        "path에 source(list_page, detail_page, search_result, recommendation, saved_page, onboarding 중 하나)를 넣고, "
+        "body에 수정할 multiplier(0보다 큰 숫자)를 보내면 됩니다. "
         "변경은 이후 발생하는 interaction부터 적용됩니다."
     ),
     parameters=[
@@ -113,7 +115,7 @@ class AdminInteractionContextRuleListView(APIView):
             type=str,
             location=OpenApiParameter.PATH,
             required=True,
-            description="interaction_source (list_page, detail_page, search_result, recommendation, saved_page, onboarding)",
+            description="수정할 맥락 소스. list_page, detail_page, search_result, recommendation, saved_page, onboarding 중 하나",
             enum=["list_page", "detail_page", "search_result", "recommendation", "saved_page", "onboarding"],
         )
     ],
@@ -122,7 +124,7 @@ class AdminInteractionContextRuleListView(APIView):
         200: InteractionContextRuleItemSerializer,
         400: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="multiplier는 0보다 커야 합니다. 또는 요청 body 오류.",
+            description="multiplier는 0보다 커야 합니다. 또는 요청 body에 multiplier가 없거나 형식이 잘못된 경우.",
             examples=[
                 OpenApiExample(
                     "multiplier 범위 오류",
@@ -136,15 +138,15 @@ class AdminInteractionContextRuleListView(APIView):
         ),
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="인증되지 않음.",
+            description="인증되지 않음. Authorization 헤더에 유효한 Bearer 토큰이 필요합니다.",
         ),
         403: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="권한 없음. is_staff=True인 관리자만 호출할 수 있습니다.",
+            description="권한 없음. is_staff=True인 관리자 계정만 호출할 수 있습니다.",
         ),
         404: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="해당 source를 찾을 수 없음.",
+            description="해당 source를 찾을 수 없음. path의 source 값이 DB에 없는 경우입니다.",
             examples=[
                 OpenApiExample(
                     "SOURCE_NOT_FOUND",
@@ -160,7 +162,7 @@ class AdminInteractionContextRuleListView(APIView):
     examples=[
         OpenApiExample("요청 예시", value={"multiplier": 2.0}, request_only=True),
         OpenApiExample(
-            "응답 예시",
+            "성공 시 응답 예시",
             value={
                 "interaction_source": "recommendation",
                 "multiplier": "2.00",
