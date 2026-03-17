@@ -881,6 +881,69 @@ class AdminInteractionWeightRuleListAPITestCase(TestCase):
         self.assertIn("updated_at", first)
 
 
+class AdminInteractionContextRuleListAPITestCase(TestCase):
+    client: APIClient
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/admin/interaction-context-rules/"
+
+    def _create_user(self, *, is_staff: bool = False) -> User:
+        return User.objects.create_user(
+            email=f"admin-context-rule-{is_staff}@ex.com",
+            nickname=f"admin-context-rule-{is_staff}",
+            birth_date=date(1991, 1, 1),
+            password="pw",
+            is_staff=is_staff,
+        )
+
+    def test_admin_interaction_context_rule_list_unauthorized(self) -> None:
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 401)
+
+    def test_admin_interaction_context_rule_list_forbidden_for_non_staff(self) -> None:
+        user = self._create_user(is_staff=False)
+        self.client.force_authenticate(user=user)
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 403)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "FORBIDDEN")
+
+    def test_admin_interaction_context_rule_list_success(self) -> None:
+        admin = self._create_user(is_staff=True)
+        self.client.force_authenticate(user=admin)
+
+        InteractionContextRule.objects.create(
+            interaction_source=InteractionContextRule.InteractionSource.RECOMMENDATION,
+            multiplier=1.40,
+        )
+        InteractionContextRule.objects.create(
+            interaction_source=InteractionContextRule.InteractionSource.LIST_PAGE,
+            multiplier=0.90,
+        )
+        InteractionContextRule.objects.create(
+            interaction_source=InteractionContextRule.InteractionSource.DETAIL_PAGE,
+            multiplier=1.20,
+        )
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+
+        data = cast(dict[str, Any], response.data)
+        self.assertIn("results", data)
+        results = cast(list[dict[str, Any]], data["results"])
+        self.assertEqual(
+            [item["interaction_source"] for item in results],
+            ["list_page", "detail_page", "recommendation"],
+        )
+
+        first = results[0]
+        self.assertEqual(first["interaction_source"], "list_page")
+        self.assertEqual(first["multiplier"], "0.90")
+        self.assertIn("updated_at", first)
+
+
 class AdminInteractionWeightRuleUpdateAPITestCase(TestCase):
     client: APIClient
 
