@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from rest_framework.exceptions import NotFound
 
 from apps.core.exceptions.exception_handler import CustomAPIException, custom_exception_handler
