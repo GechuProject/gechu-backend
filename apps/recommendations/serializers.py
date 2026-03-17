@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 from rest_framework import serializers
 
@@ -38,45 +38,24 @@ class RecommendationQuerySerializer(serializers.Serializer[dict[str, Any]]):
             raise CustomAPIException(ErrorMessages.INVALID_QUERY_PARAM) from None
 
 
-class RecommendationGenreSerializer(serializers.Serializer):  # type: ignore[type-arg]
+class RecommendationGameSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    """추천 응답 내 game 중첩 객체"""
+
     id = serializers.IntegerField()
     name = serializers.CharField()
+    slug = serializers.CharField()
+    thumbnail_img_url = serializers.CharField()
+    rawg_rating = serializers.DecimalField(max_digits=3, decimal_places=2)
+    genres = serializers.ListField(child=serializers.DictField())
 
 
-class RecommendationItemSerializer(serializers.ModelSerializer[UserRecommendation]):
-    game_id = serializers.IntegerField(source="game.id")
-    name = serializers.CharField(source="game.name")
-    thumbnail_img_url = serializers.CharField(source="game.thumbnail_img_url")
-    rawg_rating = serializers.DecimalField(source="game.rawg_rating", max_digits=3, decimal_places=2)
-    tags = serializers.SerializerMethodField()
-    genres = serializers.SerializerMethodField()
+class RecommendationItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    """IGDB에서 hydrate된 추천 항목"""
 
-    class Meta:
-        model = UserRecommendation
-        fields = [
-            "game_id",
-            "name",
-            "reason",
-            "generated_at",
-            "rank",
-            "score",
-            "tags",
-            "thumbnail_img_url",
-            "rawg_rating",
-            "genres",
-        ]
-
-    def get_tags(self, obj: UserRecommendation) -> list[str]:
-        return [gt.tag.name for gt in obj.game.game_tags.all()]
-
-    def get_genres(self, obj: UserRecommendation) -> list[dict[str, Any]]:
-        return cast(
-            list[dict[str, Any]],
-            RecommendationGenreSerializer(
-                [{"id": gg.genre.id, "name": gg.genre.name} for gg in obj.game.game_genres.all()],
-                many=True,
-            ).data,
-        )
+    rank = serializers.IntegerField()
+    score = serializers.DecimalField(max_digits=5, decimal_places=4)
+    reason = serializers.CharField()
+    game = RecommendationGameSerializer()
 
 
 class RecommendationListResponseSerializer(serializers.Serializer):  # type: ignore[type-arg]

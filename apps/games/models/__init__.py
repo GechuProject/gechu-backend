@@ -1,15 +1,8 @@
-from .catalog import Game, GameGenre, GameMedia, GamePlatform, GameTag
 from .metadata import Genre, Platform, Tag
-from .store import ExternalStore, GameStore
+from .store import ExternalStore
 
 __all__ = [
     "ExternalStore",
-    "Game",
-    "GameGenre",
-    "GameMedia",
-    "GamePlatform",
-    "GameStore",
-    "GameTag",
     "Genre",
     "Platform",
     "Tag",

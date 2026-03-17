@@ -14,10 +14,10 @@ class UserRecommendation(models.Model):
         related_name="recommendations",
     )
 
-    game = models.ForeignKey(
-        "games.Game",
-        on_delete=models.CASCADE,
-        related_name="recommended_to_users",
+    igdb_game_id = models.BigIntegerField(
+        default=0,
+        db_index=True,
+        help_text="IGDB 게임 ID",
     )
 
     generation_version = models.IntegerField(
@@ -44,8 +44,13 @@ class UserRecommendation(models.Model):
 
     class Meta:
         db_table = "user_recommendations"
-        constraints = [models.UniqueConstraint(fields=["user", "game"], name="unique_user_game_recommendation")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "igdb_game_id"],
+                name="unique_user_game_recommendation",
+            )
+        ]
         ordering = ["rank"]
 
     def __str__(self) -> str:
-        return f"{self.user_id} - {self.game_id} (rank {self.rank})"
+        return f"{self.user_id} - {self.igdb_game_id} (rank {self.rank})"

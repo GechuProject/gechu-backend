@@ -43,12 +43,10 @@ class SimilarGamesListResponseSerializer(serializers.Serializer[dict[str, Any]])
 )
 class SimilarGameListView(APIView):
     def get(self, request: Request, game_id: int) -> Response:
-        # 쿼리 파라미터 검증
         query_serializer = SimilarGameQueryParamsSerializer(data=request.query_params)
         query_serializer.is_valid(raise_exception=True)
         limit = query_serializer.validated_data["limit"]
 
-        # Service 호출
         similar_games = SimilarGameService.similar_game(game_id=game_id, limit=limit)
 
         return Response({"results": similar_games})

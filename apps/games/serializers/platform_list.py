@@ -2,18 +2,12 @@ from typing import Any
 
 from rest_framework import serializers
 
-from apps.games.models import Platform
 
-
-class PlatformResponseSerializer(serializers.ModelSerializer[Platform]):
-    class Meta:
-        model = Platform
-        fields = [
-            "id",
-            "name",
-            "slug",
-            "icon_url",
-        ]
+class PlatformResponseSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    slug = serializers.CharField()
+    icon_url = serializers.CharField(allow_null=True)
 
 
 class PlatformListResponseSerializer(serializers.Serializer[Any]):

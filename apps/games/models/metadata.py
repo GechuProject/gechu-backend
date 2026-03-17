@@ -1,50 +1,57 @@
 from django.db import models
 
 
-# 장르
 class Genre(models.Model):
+    class IgdbType(models.TextChoices):
+        GENRE = "genre"
+        THEME = "theme"
+
     id = models.BigAutoField(primary_key=True)
-    rawg_id = models.BigIntegerField(unique=True)
+    igdb_id = models.IntegerField(default=0)
+    igdb_type = models.CharField(max_length=10, choices=IgdbType.choices, default=IgdbType.GENRE)
     name = models.CharField(max_length=50)
     slug = models.CharField(max_length=50, unique=True)
 
     class Meta:
         db_table = "genres"
-        verbose_name = "장르"
-        verbose_name_plural = "장르들"
+        constraints = [
+            models.UniqueConstraint(fields=["igdb_id", "igdb_type"], name="unique_genre_igdb"),
+        ]
 
     def __str__(self) -> str:
         return self.name
 
 
-# 플랫폼
 class Platform(models.Model):
     id = models.BigAutoField(primary_key=True)
-    rawg_id = models.BigIntegerField(unique=True)
+    igdb_id = models.IntegerField(default=0, unique=True)
     name = models.CharField(max_length=50)
     slug = models.CharField(max_length=50, unique=True)
-    icon_url = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
         db_table = "platforms"
-        verbose_name = "플랫폼"
-        verbose_name_plural = "플랫폼들"
 
     def __str__(self) -> str:
         return self.name
 
 
-# 태그
 class Tag(models.Model):
+    class IgdbType(models.TextChoices):
+        THEME = "theme"
+        KEYWORD = "keyword"
+        GAME_MODE = "game_mode"
+
     id = models.BigAutoField(primary_key=True)
-    rawg_id = models.BigIntegerField(unique=True)
+    igdb_id = models.IntegerField(default=0)
+    igdb_type = models.CharField(max_length=10, choices=IgdbType.choices, default=IgdbType.THEME)
     name = models.CharField(max_length=100)
     slug = models.CharField(max_length=100, unique=True)
 
     class Meta:
         db_table = "tags"
-        verbose_name = "태그"
-        verbose_name_plural = "태그들"
+        constraints = [
+            models.UniqueConstraint(fields=["igdb_id", "igdb_type"], name="unique_tag_igdb"),
+        ]
 
     def __str__(self) -> str:
         return self.name

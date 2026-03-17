@@ -1,24 +1,27 @@
-from typing import Any, cast
+from typing import Any
 
-from apps.core.exceptions.exception_handler import CustomAPIException
-from apps.core.exceptions.exception_message import ErrorMessages
-from apps.games.models import Game
-from apps.games.serializers import SimilarGameResponseSerializer
+from apps.games.igdb import cache as igdb_cache
+from apps.games.igdb.response_builder import build_similar_game_item
 from apps.recommendations.models import GameSimilarity
 
 
 class SimilarGameService:
     @staticmethod
     def similar_game(game_id: int, limit: int = 10) -> list[dict[str, Any]]:
-
-        # 유사 게임 조회 (score 내림차순, limit 적용)
-        similar_qs = (
-            GameSimilarity.objects.filter(game_id=game_id).select_related("similar_game").order_by("-score")[:limit]
+        # CF 기반 유사 게임 조회 (score 내림차순)
+        similarities = (
+            GameSimilarity.objects.filter(igdb_game_id=game_id)
+            .order_by("-score")
+            .values_list("igdb_similar_game_id", "score")[:limit]
         )
 
-        if not similar_qs and not Game.objects.filter(id=game_id).exists():
-            raise CustomAPIException(ErrorMessages.GAME_NOT_FOUND)
+        if not similarities:
+            return []
 
-        serializer = SimilarGameResponseSerializer(similar_qs, many=True)
+        similar_ids = [s[0] for s in similarities]
+        score_map = {s[0]: float(s[1]) for s in similarities}
 
-        return cast(list[dict[str, Any]], serializer.data)
+        # IGDB에서 게임 정보 hydrate
+        games = igdb_cache.get_games_by_ids(similar_ids)
+
+        return [build_similar_game_item(g, score_map.get(g["id"], 0.0)) for g in games]

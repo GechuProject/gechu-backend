@@ -86,7 +86,7 @@ class PreferenceGameReactionUpdateSerializer(serializers.Serializer[None]):
 
 
 class PreferenceGameReactionResponseSerializer(serializers.Serializer[UserGameAffinity]):
-    game_id = serializers.IntegerField(source="game.id")
+    game_id = serializers.IntegerField(source="igdb_game_id")
     is_saved = serializers.BooleanField()
     reaction = serializers.SerializerMethodField()
     updated_at = serializers.DateTimeField(source="last_interacted_at")
@@ -97,17 +97,21 @@ class PreferenceGameReactionResponseSerializer(serializers.Serializer[UserGameAf
 
 
 class SavedGameSerializer(serializers.Serializer[Any]):
-    id = serializers.IntegerField(source="game.id")
-    name = serializers.CharField(source="game.name")
-    slug = serializers.CharField(source="game.slug")
-    thumbnail_img_url = serializers.CharField(source="game.thumbnail_img_url")
-    rawg_rating = serializers.FloatField(source="game.rawg_rating")
-    saved_at = serializers.DateTimeField(source="last_interacted_at")
+    """찜한 게임 — IGDB에서 hydrate된 dict를 시리얼라이즈"""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    slug = serializers.CharField()
+    thumbnail_img_url = serializers.CharField()
+    rawg_rating = serializers.FloatField()
+    saved_at = serializers.DateTimeField()
 
 
 class GameAffinitySerializer(serializers.Serializer[Any]):
-    id = serializers.IntegerField(source="game.id")
-    name = serializers.CharField(source="game.name")
+    """게임 취향 상태 — IGDB에서 hydrate된 dict를 시리얼라이즈"""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
     is_saved = serializers.BooleanField()
     like_state = serializers.IntegerField()
     preference_score = serializers.FloatField()

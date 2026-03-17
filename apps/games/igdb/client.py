@@ -263,6 +263,99 @@ class IgdbClient:
             raise IgdbNotFoundError(f"Game not found: igdb_id={igdb_id}")
         return results[0]
 
+    def search_games(
+        self,
+        *,
+        query: str | None = None,
+        genre_ids: list[int] | None = None,
+        platform_ids: list[int] | None = None,
+        tag_ids: list[int] | None = None,
+        theme_ids: list[int] | None = None,
+        game_mode_ids: list[int] | None = None,
+        sort: str = "rating desc",
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        fields = (
+            "id,name,slug,summary,"
+            "first_release_date,"
+            "rating,rating_count,"
+            "cover.image_id,"
+            "genres.id,genres.name,"
+            "platforms.id,platforms.name,"
+            "keywords.id,keywords.name,"
+            "themes.id,themes.name,"
+            "game_modes.id,game_modes.name,"
+            "age_ratings.category,age_ratings.rating,"
+            "follows"
+        )
+
+        where_parts: list[str] = []
+
+        if genre_ids:
+            ids_str = ",".join(str(i) for i in genre_ids)
+            where_parts.append(f"genres = ({ids_str})")
+
+        if platform_ids:
+            ids_str = ",".join(str(i) for i in platform_ids)
+            where_parts.append(f"platforms = ({ids_str})")
+
+        if tag_ids:
+            ids_str = ",".join(str(i) for i in tag_ids)
+            where_parts.append(f"keywords = ({ids_str})")
+
+        if theme_ids:
+            ids_str = ",".join(str(i) for i in theme_ids)
+            where_parts.append(f"themes = ({ids_str})")
+
+        if game_mode_ids:
+            ids_str = ",".join(str(i) for i in game_mode_ids)
+            where_parts.append(f"game_modes = ({ids_str})")
+
+        where_clause = " & ".join(where_parts)
+        where_str = f"where {where_clause};" if where_clause else ""
+
+        if query:
+            q = f'search "{query}";fields {fields};{where_str}limit {limit};offset {offset};'
+        else:
+            q = f"fields {fields};{where_str}sort {sort};limit {limit};offset {offset};"
+
+        return self._post_with_auth_retry("games", q)
+
+    def get_games_by_ids(self, igdb_ids: list[int]) -> list[dict[str, Any]]:
+        """
+        여러 게임을 ID 리스트로 벌크 조회
+
+        IGDB는 한 번에 최대 500개까지 조회 가능.
+        500개 초과 시 청크로 나눠서 호출.
+        """
+        if not igdb_ids:
+            return []
+
+        fields = (
+            "id,name,slug,summary,"
+            "first_release_date,"
+            "rating,rating_count,"
+            "cover.image_id,"
+            "genres.id,genres.name,"
+            "platforms.id,platforms.name,"
+            "keywords.id,keywords.name,"
+            "age_ratings.category,age_ratings.rating,"
+            "follows"
+        )
+
+        all_results: list[dict[str, Any]] = []
+        for i in range(0, len(igdb_ids), _PAGE_SIZE):
+            chunk = igdb_ids[i : i + _PAGE_SIZE]
+            ids_str = ",".join(str(x) for x in chunk)
+            query = f"fields {fields};where id = ({ids_str});limit {len(chunk)};"
+            results = self._post_with_auth_retry("games", query)
+            all_results.extend(results)
+            if i + _PAGE_SIZE < len(igdb_ids):
+                time.sleep(_REQUEST_INTERVAL)
+
+        return all_results
+
     def iter_genres(self) -> Generator[list[dict[str, Any]]]:
         """GET /genres 페이지 순회"""
         yield from self._paginate("genres", "id,name,slug")
@@ -274,3 +367,16 @@ class IgdbClient:
     def iter_keywords(self) -> Generator[list[dict[str, Any]]]:
         """GET /keywords 페이지 순회 (태그 대용)"""
         yield from self._paginate("keywords", "id,name,slug")
+
+
+# 싱글턴 팩토리 ----------------------------------------------------------
+
+_client_instance: IgdbClient | None = None
+
+
+def get_igdb_client() -> IgdbClient:
+    """프로세스당 하나의 IgdbClient 인스턴스 반환 (토큰 재사용)"""
+    global _client_instance
+    if _client_instance is None:
+        _client_instance = IgdbClient()
+    return _client_instance

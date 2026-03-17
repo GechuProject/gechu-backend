@@ -7,9 +7,19 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.games.models import ExternalStore, Game, GameStore
+from apps.games.models import ExternalStore
 from apps.interactions.models import InteractionContextRule, InteractionLog, InteractionWeightRule
 from apps.users.models import User
+
+# After migration from DB-stored Game model to IGDB API:
+# - game_id in requests is now an IGDB game ID (just an integer)
+# - InteractionLog stores igdb_game_id instead of a FK to Game
+# - No game existence validation is done (no DB lookup, no IGDB call)
+# - GameStore model was deleted; store_click no longer checks game-store linkage
+
+IGDB_GAME_ID = 6001
+IGDB_GAME_ID_2 = 7001
+IGDB_GAME_ID_STORE = 8001
 
 
 class InteractionViewLogCreateAPITestCase(TestCase):
@@ -27,19 +37,6 @@ class InteractionViewLogCreateAPITestCase(TestCase):
             birth_date=date(1990, 1, 1),
             password="pw",
         )
-
-    def _create_game(self, **kwargs: Any) -> Game:
-        defaults = {
-            "rawg_id": 6001,
-            "slug": "test-game",
-            "name": "Test Game",
-            "thumbnail_img_url": "https://example.com/thumb.jpg",
-            "website": "https://example.com",
-            "rawg_rating": 4.50,
-            "is_visible": True,
-        }
-        defaults.update(kwargs)
-        return Game.objects.create(**defaults)
 
     def _create_view_rules(self) -> None:
         InteractionWeightRule.objects.create(
@@ -87,40 +84,25 @@ class InteractionViewLogCreateAPITestCase(TestCase):
 
     def test_interaction_view_invalid_source_returns_400(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
 
         response = self.client.post(
             self.url,
-            {"game_id": game.id, "source": "wrong_source"},
+            {"game_id": IGDB_GAME_ID, "source": "wrong_source"},
             format="json",
         )
         self.assertEqual(response.status_code, 400)
         data = cast(dict[str, Any], response.data)
         self.assertEqual(data.get("code"), "INVALID_SOURCE")
 
-    def test_interaction_view_game_not_found_returns_404(self) -> None:
-        user = self._create_user()
-        self.client.force_authenticate(user=user)
-
-        response = self.client.post(
-            self.url,
-            {"game_id": 999999, "source": "detail_page"},
-            format="json",
-        )
-        self.assertEqual(response.status_code, 404)
-        data = cast(dict[str, Any], response.data)
-        self.assertEqual(data.get("code"), "GAME_NOT_FOUND")
-
     def test_interaction_view_success(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
 
         response = self.client.post(
             self.url,
             {
-                "game_id": game.id,
+                "game_id": IGDB_GAME_ID,
                 "source": "recommendation",
                 "metadata": {"page": 1},
             },
@@ -135,7 +117,7 @@ class InteractionViewLogCreateAPITestCase(TestCase):
 
         log = InteractionLog.objects.get(id=data["id"])
         self.assertEqual(log.user_id, user.id)
-        self.assertEqual(log.game_id, game.id)
+        self.assertEqual(log.igdb_game_id, IGDB_GAME_ID)
         self.assertEqual(log.type, InteractionLog.ActionType.VIEW)
         self.assertEqual(log.source, InteractionLog.SourceType.RECOMMENDATION)
         self.assertIsNotNone(log.weight)
@@ -143,12 +125,11 @@ class InteractionViewLogCreateAPITestCase(TestCase):
 
     def test_interaction_view_cooldown_ignored_returns_200(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
 
         first = self.client.post(
             self.url,
-            {"game_id": game.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(first.status_code, 201)
@@ -156,7 +137,7 @@ class InteractionViewLogCreateAPITestCase(TestCase):
 
         second = self.client.post(
             self.url,
-            {"game_id": game.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(second.status_code, 200)
@@ -167,19 +148,18 @@ class InteractionViewLogCreateAPITestCase(TestCase):
 
     def test_interaction_view_different_source_is_logged_even_in_cooldown(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
 
         first = self.client.post(
             self.url,
-            {"game_id": game.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(first.status_code, 201)
 
         second = self.client.post(
             self.url,
-            {"game_id": game.id, "source": "search_result"},
+            {"game_id": IGDB_GAME_ID, "source": "search_result"},
             format="json",
         )
         self.assertEqual(second.status_code, 201)
@@ -187,11 +167,10 @@ class InteractionViewLogCreateAPITestCase(TestCase):
 
     def test_interaction_view_recent_null_weight_log_is_not_reused_for_cooldown(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
         old_log = InteractionLog.objects.create(
             user=user,
-            game=game,
+            igdb_game_id=IGDB_GAME_ID,
             type=InteractionLog.ActionType.VIEW,
             source=InteractionLog.SourceType.DETAIL_PAGE,
             weight=None,
@@ -200,7 +179,7 @@ class InteractionViewLogCreateAPITestCase(TestCase):
 
         response = self.client.post(
             self.url,
-            {"game_id": game.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(response.status_code, 201)
@@ -208,13 +187,12 @@ class InteractionViewLogCreateAPITestCase(TestCase):
 
     def test_interaction_view_missing_weight_rule_returns_404(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
         InteractionWeightRule.objects.filter(interaction_type=InteractionWeightRule.ActionType.VIEW).delete()
 
         response = self.client.post(
             self.url,
-            {"game_id": game.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(response.status_code, 404)
@@ -223,7 +201,6 @@ class InteractionViewLogCreateAPITestCase(TestCase):
 
     def test_interaction_view_missing_source_rule_returns_404(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
         InteractionContextRule.objects.filter(
             interaction_source=InteractionContextRule.InteractionSource.DETAIL_PAGE
@@ -231,7 +208,7 @@ class InteractionViewLogCreateAPITestCase(TestCase):
 
         response = self.client.post(
             self.url,
-            {"game_id": game.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(response.status_code, 404)
@@ -240,7 +217,6 @@ class InteractionViewLogCreateAPITestCase(TestCase):
 
     def test_interaction_view_repeat_decay_applied(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
         InteractionWeightRule.objects.filter(interaction_type=InteractionWeightRule.ActionType.VIEW).update(
             cooldown_seconds=0,
@@ -249,7 +225,7 @@ class InteractionViewLogCreateAPITestCase(TestCase):
 
         first = self.client.post(
             self.url,
-            {"game_id": game.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(first.status_code, 201)
@@ -260,7 +236,7 @@ class InteractionViewLogCreateAPITestCase(TestCase):
 
         second = self.client.post(
             self.url,
-            {"game_id": game.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(second.status_code, 201)
@@ -286,19 +262,6 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
             password="pw",
         )
 
-    def _create_game(self, **kwargs: Any) -> Game:
-        defaults = {
-            "rawg_id": 7001,
-            "slug": "search-game",
-            "name": "Search Game",
-            "thumbnail_img_url": "https://example.com/search-thumb.jpg",
-            "website": "https://example.com/search",
-            "rawg_rating": 4.20,
-            "is_visible": True,
-        }
-        defaults.update(kwargs)
-        return Game.objects.create(**defaults)
-
     def _create_search_rules(self) -> None:
         InteractionWeightRule.objects.create(
             interaction_type=InteractionWeightRule.ActionType.SEARCH,
@@ -322,12 +285,11 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
 
     def test_interaction_search_missing_search_query_returns_400(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
 
         response = self.client.post(
             self.url,
-            {"game_id": game.id, "source": "search_result"},
+            {"game_id": IGDB_GAME_ID_2, "source": "search_result"},
             format="json",
         )
         self.assertEqual(response.status_code, 400)
@@ -349,40 +311,25 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
 
     def test_interaction_search_invalid_source_returns_400(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
 
         response = self.client.post(
             self.url,
-            {"game_id": game.id, "search_query": "elden ring", "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID_2, "search_query": "elden ring", "source": "detail_page"},
             format="json",
         )
         self.assertEqual(response.status_code, 400)
         data = cast(dict[str, Any], response.data)
         self.assertEqual(data.get("code"), "INVALID_SOURCE")
 
-    def test_interaction_search_game_not_found_returns_404(self) -> None:
-        user = self._create_user()
-        self.client.force_authenticate(user=user)
-
-        response = self.client.post(
-            self.url,
-            {"game_id": 999999, "search_query": "elden ring", "source": "search_result"},
-            format="json",
-        )
-        self.assertEqual(response.status_code, 404)
-        data = cast(dict[str, Any], response.data)
-        self.assertEqual(data.get("code"), "GAME_NOT_FOUND")
-
     def test_interaction_search_success(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
 
         response = self.client.post(
             self.url,
             {
-                "game_id": game.id,
+                "game_id": IGDB_GAME_ID_2,
                 "search_query": "elden ring",
                 "source": "search_result",
                 "metadata": {"result_rank": 3},
@@ -398,7 +345,7 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
 
         log = InteractionLog.objects.get(id=data["id"])
         self.assertEqual(log.user_id, user.id)
-        self.assertEqual(log.game_id, game.id)
+        self.assertEqual(log.igdb_game_id, IGDB_GAME_ID_2)
         self.assertEqual(log.type, InteractionLog.ActionType.SEARCH)
         self.assertEqual(log.source, InteractionLog.SourceType.SEARCH_RESULT)
         self.assertEqual(log.search_query, "elden ring")
@@ -407,12 +354,11 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
 
     def test_interaction_search_cooldown_ignored_returns_200(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
 
         first = self.client.post(
             self.url,
-            {"game_id": game.id, "search_query": "elden ring", "source": "search_result"},
+            {"game_id": IGDB_GAME_ID_2, "search_query": "elden ring", "source": "search_result"},
             format="json",
         )
         self.assertEqual(first.status_code, 201)
@@ -420,7 +366,7 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
 
         second = self.client.post(
             self.url,
-            {"game_id": game.id, "search_query": "elden ring", "source": "search_result"},
+            {"game_id": IGDB_GAME_ID_2, "search_query": "elden ring", "source": "search_result"},
             format="json",
         )
         self.assertEqual(second.status_code, 200)
@@ -428,19 +374,18 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
 
     def test_interaction_search_different_query_is_logged_even_in_cooldown(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
 
         first = self.client.post(
             self.url,
-            {"game_id": game.id, "search_query": "elden ring", "source": "search_result"},
+            {"game_id": IGDB_GAME_ID_2, "search_query": "elden ring", "source": "search_result"},
             format="json",
         )
         self.assertEqual(first.status_code, 201)
 
         second = self.client.post(
             self.url,
-            {"game_id": game.id, "search_query": "stardew valley", "source": "search_result"},
+            {"game_id": IGDB_GAME_ID_2, "search_query": "stardew valley", "source": "search_result"},
             format="json",
         )
         self.assertEqual(second.status_code, 201)
@@ -448,13 +393,12 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
 
     def test_interaction_search_missing_weight_rule_returns_404(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
         InteractionWeightRule.objects.filter(interaction_type=InteractionWeightRule.ActionType.SEARCH).delete()
 
         response = self.client.post(
             self.url,
-            {"game_id": game.id, "search_query": "elden ring", "source": "search_result"},
+            {"game_id": IGDB_GAME_ID_2, "search_query": "elden ring", "source": "search_result"},
             format="json",
         )
         self.assertEqual(response.status_code, 404)
@@ -463,7 +407,6 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
 
     def test_interaction_search_missing_source_rule_returns_404(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
         InteractionContextRule.objects.filter(
             interaction_source=InteractionContextRule.InteractionSource.SEARCH_RESULT
@@ -471,7 +414,7 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
 
         response = self.client.post(
             self.url,
-            {"game_id": game.id, "search_query": "elden ring", "source": "search_result"},
+            {"game_id": IGDB_GAME_ID_2, "search_query": "elden ring", "source": "search_result"},
             format="json",
         )
         self.assertEqual(response.status_code, 404)
@@ -480,7 +423,6 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
 
     def test_interaction_search_repeat_decay_applied(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
         InteractionWeightRule.objects.filter(interaction_type=InteractionWeightRule.ActionType.SEARCH).update(
             cooldown_seconds=0,
@@ -489,7 +431,7 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
 
         first = self.client.post(
             self.url,
-            {"game_id": game.id, "search_query": "elden ring", "source": "search_result"},
+            {"game_id": IGDB_GAME_ID_2, "search_query": "elden ring", "source": "search_result"},
             format="json",
         )
         self.assertEqual(first.status_code, 201)
@@ -500,7 +442,7 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
 
         second = self.client.post(
             self.url,
-            {"game_id": game.id, "search_query": "elden ring", "source": "search_result"},
+            {"game_id": IGDB_GAME_ID_2, "search_query": "elden ring", "source": "search_result"},
             format="json",
         )
         self.assertEqual(second.status_code, 201)
@@ -526,21 +468,8 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
             password="pw",
         )
 
-    def _create_game(self, **kwargs: Any) -> Game:
-        defaults = {
-            "rawg_id": 8001,
-            "slug": "store-click-game",
-            "name": "Store Click Game",
-            "thumbnail_img_url": "https://example.com/store-thumb.jpg",
-            "website": "https://example.com/store-game",
-            "rawg_rating": 4.10,
-            "is_visible": True,
-        }
-        defaults.update(kwargs)
-        return Game.objects.create(**defaults)
-
     def _create_store(self, **kwargs: Any) -> ExternalStore:
-        defaults = {
+        defaults: dict[str, Any] = {
             "rawg_id": 1001,
             "name": "Steam",
             "slug": "steam",
@@ -549,11 +478,6 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
         }
         defaults.update(kwargs)
         return ExternalStore.objects.create(**defaults)
-
-    def _create_game_store(self, game: Game, store: ExternalStore, **kwargs: Any) -> GameStore:
-        defaults = {"url": "https://store.steampowered.com/app/123"}
-        defaults.update(kwargs)
-        return GameStore.objects.create(game=game, store=store, **defaults)
 
     def _create_store_click_rules(self) -> None:
         InteractionWeightRule.objects.create(
@@ -604,57 +528,25 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
 
     def test_interaction_store_click_invalid_source_returns_400(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         store = self._create_store()
-        self._create_game_store(game=game, store=store)
         self.client.force_authenticate(user=user)
 
         response = self.client.post(
             self.url,
-            {"game_id": game.id, "store_id": store.id, "source": "search_result"},
+            {"game_id": IGDB_GAME_ID_STORE, "store_id": store.id, "source": "search_result"},
             format="json",
         )
         self.assertEqual(response.status_code, 400)
         data = cast(dict[str, Any], response.data)
         self.assertEqual(data.get("code"), "INVALID_SOURCE")
 
-    def test_interaction_store_click_game_not_found_returns_404(self) -> None:
-        user = self._create_user()
-        store = self._create_store()
-        self.client.force_authenticate(user=user)
-
-        response = self.client.post(
-            self.url,
-            {"game_id": 999999, "store_id": store.id, "source": "detail_page"},
-            format="json",
-        )
-        self.assertEqual(response.status_code, 404)
-        data = cast(dict[str, Any], response.data)
-        self.assertEqual(data.get("code"), "GAME_NOT_FOUND")
-
     def test_interaction_store_click_store_not_found_returns_404(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         self.client.force_authenticate(user=user)
 
         response = self.client.post(
             self.url,
-            {"game_id": game.id, "store_id": 999999, "source": "detail_page"},
-            format="json",
-        )
-        self.assertEqual(response.status_code, 404)
-        data = cast(dict[str, Any], response.data)
-        self.assertEqual(data.get("code"), "STORE_NOT_FOUND")
-
-    def test_interaction_store_click_unlinked_store_returns_404(self) -> None:
-        user = self._create_user()
-        game = self._create_game()
-        store = self._create_store()
-        self.client.force_authenticate(user=user)
-
-        response = self.client.post(
-            self.url,
-            {"game_id": game.id, "store_id": store.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID_STORE, "store_id": 999999, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(response.status_code, 404)
@@ -663,15 +555,13 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
 
     def test_interaction_store_click_success(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         store = self._create_store()
-        self._create_game_store(game=game, store=store)
         self.client.force_authenticate(user=user)
 
         response = self.client.post(
             self.url,
             {
-                "game_id": game.id,
+                "game_id": IGDB_GAME_ID_STORE,
                 "store_id": store.id,
                 "source": "detail_page",
                 "metadata": {"button_position": "hero"},
@@ -687,7 +577,7 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
 
         log = InteractionLog.objects.get(id=data["id"])
         self.assertEqual(log.user_id, user.id)
-        self.assertEqual(log.game_id, game.id)
+        self.assertEqual(log.igdb_game_id, IGDB_GAME_ID_STORE)
         self.assertEqual(log.store_id, store.id)
         self.assertEqual(log.type, InteractionLog.ActionType.STORE_CLICK)
         self.assertEqual(log.source, InteractionLog.SourceType.DETAIL_PAGE)
@@ -696,14 +586,12 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
 
     def test_interaction_store_click_cooldown_ignored_returns_200(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         store = self._create_store()
-        self._create_game_store(game=game, store=store)
         self.client.force_authenticate(user=user)
 
         first = self.client.post(
             self.url,
-            {"game_id": game.id, "store_id": store.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID_STORE, "store_id": store.id, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(first.status_code, 201)
@@ -711,7 +599,7 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
 
         second = self.client.post(
             self.url,
-            {"game_id": game.id, "store_id": store.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID_STORE, "store_id": store.id, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(second.status_code, 200)
@@ -719,23 +607,20 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
 
     def test_interaction_store_click_different_store_is_logged_even_in_cooldown(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         store_a = self._create_store(rawg_id=1001, slug="steam", name="Steam")
         store_b = self._create_store(rawg_id=1002, slug="gog", name="GOG", domain="gog.com")
-        self._create_game_store(game=game, store=store_a)
-        self._create_game_store(game=game, store=store_b, url="https://gog.com/game/123")
         self.client.force_authenticate(user=user)
 
         first = self.client.post(
             self.url,
-            {"game_id": game.id, "store_id": store_a.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID_STORE, "store_id": store_a.id, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(first.status_code, 201)
 
         second = self.client.post(
             self.url,
-            {"game_id": game.id, "store_id": store_b.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID_STORE, "store_id": store_b.id, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(second.status_code, 201)
@@ -743,15 +628,13 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
 
     def test_interaction_store_click_missing_weight_rule_returns_404(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         store = self._create_store()
-        self._create_game_store(game=game, store=store)
         self.client.force_authenticate(user=user)
         InteractionWeightRule.objects.filter(interaction_type=InteractionWeightRule.ActionType.STORE_CLICK).delete()
 
         response = self.client.post(
             self.url,
-            {"game_id": game.id, "store_id": store.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID_STORE, "store_id": store.id, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(response.status_code, 404)
@@ -760,9 +643,7 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
 
     def test_interaction_store_click_missing_source_rule_returns_404(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         store = self._create_store()
-        self._create_game_store(game=game, store=store)
         self.client.force_authenticate(user=user)
         InteractionContextRule.objects.filter(
             interaction_source=InteractionContextRule.InteractionSource.DETAIL_PAGE
@@ -770,7 +651,7 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
 
         response = self.client.post(
             self.url,
-            {"game_id": game.id, "store_id": store.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID_STORE, "store_id": store.id, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(response.status_code, 404)
@@ -779,9 +660,7 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
 
     def test_interaction_store_click_repeat_decay_applied_per_store(self) -> None:
         user = self._create_user()
-        game = self._create_game()
         store = self._create_store()
-        self._create_game_store(game=game, store=store)
         self.client.force_authenticate(user=user)
         InteractionWeightRule.objects.filter(interaction_type=InteractionWeightRule.ActionType.STORE_CLICK).update(
             cooldown_seconds=0,
@@ -790,7 +669,7 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
 
         first = self.client.post(
             self.url,
-            {"game_id": game.id, "store_id": store.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID_STORE, "store_id": store.id, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(first.status_code, 201)
@@ -801,7 +680,7 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
 
         second = self.client.post(
             self.url,
-            {"game_id": game.id, "store_id": store.id, "source": "detail_page"},
+            {"game_id": IGDB_GAME_ID_STORE, "store_id": store.id, "source": "detail_page"},
             format="json",
         )
         self.assertEqual(second.status_code, 201)

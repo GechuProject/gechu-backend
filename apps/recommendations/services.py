@@ -68,40 +68,20 @@ class RecommendationService:
         }:
             return False
 
-        has_visible_recommendation = UserRecommendation.objects.filter(user=user, game__is_visible=True).exists()
-        return has_visible_recommendation
+        return UserRecommendation.objects.filter(user=user).exists()
 
     @staticmethod
     def list_recommendations(
         *,
         user: User,
         rec_type: str | None = None,
-        genre_ids: list[int] | None = None,
-        tag_ids: list[int] | None = None,
-        is_adult: bool | None = None,
-        is_free: bool | None = None,
     ) -> QuerySet[UserRecommendation]:
-        qs = (
-            UserRecommendation.objects.filter(user=user, game__is_visible=True)
-            .select_related("game")
-            .prefetch_related("game__game_genres__genre", "game__game_tags__tag")
-        )
+        qs = UserRecommendation.objects.filter(user=user)
 
         if rec_type:
             qs = qs.filter(reason=rec_type)
-        if genre_ids:
-            qs = qs.filter(game__game_genres__genre_id__in=genre_ids)
-        if tag_ids:
-            qs = qs.filter(game__game_tags__tag_id__in=tag_ids)
-        if is_adult is True:
-            qs = qs.filter(game__age_rating_min__gte=18)
-        elif is_adult is False:
-            qs = qs.filter(game__age_rating_min__lt=18)
 
-        if is_free is not None:
-            pass
-
-        return qs.distinct().order_by("rank")
+        return qs.order_by("rank")
 
     @staticmethod
     def enqueue_user_refresh_job_if_needed(*, user: User) -> RecommendationJob:
