@@ -27,12 +27,17 @@ from apps.users.models import User
 @extend_schema(
     tags=["admin"],
     summary="맥락 가중치 목록 조회",
-    description="관리자 권한으로 맥락(발생 위치)별 가중치 규칙 목록을 조회합니다.",
+    description=(
+        "관리자 권한으로 맥락(발생 위치)별 가중치 규칙 목록을 조회합니다. "
+        "list_page, detail_page, search_result, recommendation, saved_page, onboarding 등 "
+        "interaction_source별 multiplier와 updated_at이 반환됩니다. "
+        "쿼리 파라미터 없이 GET 요청만 보내면 됩니다."
+    ),
     responses={
         200: InteractionContextRuleListResponseSerializer,
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Unauthorized",
+            description="인증되지 않음. Authorization 헤더에 유효한 Bearer 토큰이 필요합니다.",
             examples=[
                 OpenApiExample(
                     "인증 필요",
@@ -46,7 +51,7 @@ from apps.users.models import User
         ),
         403: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Forbidden",
+            description="권한 없음. is_staff=True인 관리자 계정만 호출할 수 있습니다.",
             examples=[
                 OpenApiExample(
                     "관리자 권한 필요",
@@ -61,14 +66,19 @@ from apps.users.models import User
     },
     examples=[
         OpenApiExample(
-            "응답 예시",
+            "성공 시 응답 예시",
             value={
                 "results": [
+                    {
+                        "interaction_source": "list_page",
+                        "multiplier": "0.90",
+                        "updated_at": "2025-05-01T00:00:00Z",
+                    },
                     {
                         "interaction_source": "recommendation",
                         "multiplier": "1.40",
                         "updated_at": "2025-05-01T00:00:00Z",
-                    }
+                    },
                 ]
             },
             response_only=True,
