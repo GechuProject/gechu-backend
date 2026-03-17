@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.utils.pagination import PAGINATION_PARAMS, Pagination
+from apps.games.igdb import cache as igdb_cache
 from apps.preferences.models import (
     UserPreference,
 )
@@ -194,10 +195,30 @@ class SavedGamesView(APIView):
         qs = get_saved_games(user=cast(User, request.user))
         paginator = Pagination()
         page = paginator.paginate_queryset(qs, request)
-        if page is None:
-            return Response(SavedGameSerializer(qs, many=True).data)
-        serializer = SavedGameSerializer(page, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        affinities = page if page is not None else list(qs)
+
+        # IGDB에서 게임 정보 hydrate
+        igdb_ids = [a.igdb_game_id for a in affinities]
+        games_by_id = {g["id"]: g for g in igdb_cache.get_games_by_ids(igdb_ids)}
+
+        results = []
+        for a in affinities:
+            game = games_by_id.get(a.igdb_game_id, {})
+            results.append(
+                {
+                    "id": a.igdb_game_id,
+                    "name": game.get("name", ""),
+                    "slug": game.get("slug", ""),
+                    "thumbnail_img_url": game.get("thumbnail_img_url", ""),
+                    "rawg_rating": game.get("rawg_rating", 0),
+                    "saved_at": a.last_interacted_at,
+                }
+            )
+
+        serializer = SavedGameSerializer(results, many=True)
+        if page is not None:
+            return paginator.get_paginated_response(serializer.data)
+        return Response(serializer.data)
 
 
 class GameAffinitiesView(APIView):
@@ -229,7 +250,27 @@ class GameAffinitiesView(APIView):
         qs = get_game_affinities(user=cast(User, request.user))
         paginator = Pagination()
         page = paginator.paginate_queryset(qs, request)
-        if page is None:
-            return Response(SavedGameSerializer(qs, many=True).data)
-        serializer = GameAffinitySerializer(page, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        affinities = page if page is not None else list(qs)
+
+        # IGDB에서 게임 정보 hydrate
+        igdb_ids = [a.igdb_game_id for a in affinities]
+        games_by_id = {g["id"]: g for g in igdb_cache.get_games_by_ids(igdb_ids)}
+
+        results = []
+        for a in affinities:
+            game = games_by_id.get(a.igdb_game_id, {})
+            results.append(
+                {
+                    "id": a.igdb_game_id,
+                    "name": game.get("name", ""),
+                    "is_saved": a.is_saved,
+                    "like_state": a.like_state,
+                    "preference_score": float(a.preference_score),
+                    "last_interacted_at": a.last_interacted_at,
+                }
+            )
+
+        serializer = GameAffinitySerializer(results, many=True)
+        if page is not None:
+            return paginator.get_paginated_response(serializer.data)
+        return Response(serializer.data)

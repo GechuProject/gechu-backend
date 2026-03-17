@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
-from apps.games.models import ExternalStore, Game, GameStore
+from apps.games.models import ExternalStore
 from apps.interactions.models import InteractionContextRule, InteractionLog, InteractionWeightRule
 from apps.users.models import User
 
@@ -30,10 +30,6 @@ def record_view_interaction(
         except (TypeError, ValueError):
             raise CustomAPIException(ErrorMessages.VALIDATION_ERROR) from None
 
-    game = Game.objects.filter(id=game_id, is_visible=True).first()
-    if game is None:
-        raise CustomAPIException(ErrorMessages.GAME_NOT_FOUND) from None
-
     weight_rule = InteractionWeightRule.objects.filter(
         interaction_type=InteractionLog.ActionType.VIEW,
         is_active=True,
@@ -46,13 +42,12 @@ def record_view_interaction(
         raise CustomAPIException(ErrorMessages.SOURCE_NOT_FOUND) from None
 
     with transaction.atomic():
-        # 동일 사용자 요청을 직렬화해 cooldown 체크-생성 사이 경쟁 조건을 줄인다.
         User.objects.select_for_update().get(pk=user.pk)
 
         latest_reusable_log = (
             InteractionLog.objects.filter(
                 user=user,
-                game=game,
+                igdb_game_id=game_id,
                 type=InteractionLog.ActionType.VIEW,
                 source=source,
                 weight__isnull=False,
@@ -69,7 +64,7 @@ def record_view_interaction(
 
         repeat_count = InteractionLog.objects.filter(
             user=user,
-            game=game,
+            igdb_game_id=game_id,
             type=InteractionLog.ActionType.VIEW,
         ).count()
         effective_repeat_count = min(repeat_count, MAX_EFFECTIVE_REPEAT_COUNT)
@@ -79,7 +74,7 @@ def record_view_interaction(
 
         log = InteractionLog.objects.create(
             user=user,
-            game=game,
+            igdb_game_id=game_id,
             type=InteractionLog.ActionType.VIEW,
             source=source,
             weight=weight,
@@ -102,10 +97,6 @@ def record_search_interaction(
         except (TypeError, ValueError):
             raise CustomAPIException(ErrorMessages.VALIDATION_ERROR) from None
 
-    game = Game.objects.filter(id=game_id, is_visible=True).first()
-    if game is None:
-        raise CustomAPIException(ErrorMessages.GAME_NOT_FOUND) from None
-
     weight_rule = InteractionWeightRule.objects.filter(
         interaction_type=InteractionLog.ActionType.SEARCH,
         is_active=True,
@@ -118,13 +109,12 @@ def record_search_interaction(
         raise CustomAPIException(ErrorMessages.SOURCE_NOT_FOUND) from None
 
     with transaction.atomic():
-        # 동일 사용자 요청을 직렬화해 cooldown 체크-생성 사이 경쟁 조건을 줄인다.
         User.objects.select_for_update().get(pk=user.pk)
 
         latest_reusable_log = (
             InteractionLog.objects.filter(
                 user=user,
-                game=game,
+                igdb_game_id=game_id,
                 type=InteractionLog.ActionType.SEARCH,
                 source=source,
                 search_query=search_query,
@@ -142,7 +132,7 @@ def record_search_interaction(
 
         repeat_count = InteractionLog.objects.filter(
             user=user,
-            game=game,
+            igdb_game_id=game_id,
             type=InteractionLog.ActionType.SEARCH,
         ).count()
         effective_repeat_count = min(repeat_count, MAX_EFFECTIVE_REPEAT_COUNT)
@@ -152,7 +142,7 @@ def record_search_interaction(
 
         log = InteractionLog.objects.create(
             user=user,
-            game=game,
+            igdb_game_id=game_id,
             type=InteractionLog.ActionType.SEARCH,
             source=source,
             search_query=search_query,
@@ -176,14 +166,8 @@ def record_store_click_interaction(
         except (TypeError, ValueError):
             raise CustomAPIException(ErrorMessages.VALIDATION_ERROR) from None
 
-    game = Game.objects.filter(id=game_id, is_visible=True).first()
-    if game is None:
-        raise CustomAPIException(ErrorMessages.GAME_NOT_FOUND) from None
-
     store = ExternalStore.objects.filter(id=store_id).first()
     if store is None:
-        raise CustomAPIException(ErrorMessages.STORE_NOT_FOUND) from None
-    if not GameStore.objects.filter(game=game, store=store).exists():
         raise CustomAPIException(ErrorMessages.STORE_NOT_FOUND) from None
 
     weight_rule = InteractionWeightRule.objects.filter(
@@ -198,13 +182,12 @@ def record_store_click_interaction(
         raise CustomAPIException(ErrorMessages.SOURCE_NOT_FOUND) from None
 
     with transaction.atomic():
-        # 동일 사용자 요청을 직렬화해 cooldown 체크-생성 사이 경쟁 조건을 줄인다.
         User.objects.select_for_update().get(pk=user.pk)
 
         latest_reusable_log = (
             InteractionLog.objects.filter(
                 user=user,
-                game=game,
+                igdb_game_id=game_id,
                 store=store,
                 type=InteractionLog.ActionType.STORE_CLICK,
                 source=source,
@@ -222,7 +205,7 @@ def record_store_click_interaction(
 
         repeat_count = InteractionLog.objects.filter(
             user=user,
-            game=game,
+            igdb_game_id=game_id,
             store=store,
             type=InteractionLog.ActionType.STORE_CLICK,
         ).count()
@@ -233,7 +216,7 @@ def record_store_click_interaction(
 
         log = InteractionLog.objects.create(
             user=user,
-            game=game,
+            igdb_game_id=game_id,
             store=store,
             type=InteractionLog.ActionType.STORE_CLICK,
             source=source,

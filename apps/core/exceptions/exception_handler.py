@@ -43,6 +43,25 @@ def custom_exception_handler(
             status=getattr(exc, "status_code", status.HTTP_400_BAD_REQUEST),
         )
 
+    # IGDB 예외 처리
+    from apps.games.igdb.exceptions import IgdbNotFoundError, IgdbRateLimitError, IgdbServerError
+
+    if isinstance(exc, IgdbNotFoundError):
+        return Response(
+            data={"status_code": 404, "code": "GAME_NOT_FOUND", "message": "게임을 찾을 수 없습니다."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    if isinstance(exc, IgdbRateLimitError):
+        return Response(
+            data={"status_code": 503, "code": "SERVICE_UNAVAILABLE", "message": "잠시 후 다시 시도해주세요."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    if isinstance(exc, IgdbServerError):
+        return Response(
+            data={"status_code": 502, "code": "BAD_GATEWAY", "message": "외부 API 오류가 발생했습니다."},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
     # 그 외 예외는 500으로 처리
     error_message = "서버 오류가 발생했습니다."
 
