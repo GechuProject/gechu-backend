@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 from django.test import TestCase, override_settings
@@ -12,18 +13,18 @@ from apps.games.igdb.exceptions import (
 
 
 class GetImageUrlTests(TestCase):
-    def test_default_size(self):
+    def test_default_size(self) -> None:
         url = get_image_url("co1234")
         self.assertEqual(url, "https://images.igdb.com/igdb/image/upload/t_cover_big/co1234.jpg")
 
-    def test_custom_size(self):
+    def test_custom_size(self) -> None:
         url = get_image_url("sc_abc", "screenshot_big")
         self.assertEqual(url, "https://images.igdb.com/igdb/image/upload/t_screenshot_big/sc_abc.jpg")
 
 
 @override_settings(IGDB_CLIENT_ID="test_id", IGDB_CLIENT_SECRET="test_secret")
 class IgdbClientTests(TestCase):
-    def _make_client(self, mock_session):
+    def _make_client(self, mock_session: Any) -> tuple[IgdbClient, MagicMock]:
         """Create an IgdbClient with mocked session and token fetch."""
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -39,7 +40,7 @@ class IgdbClientTests(TestCase):
         return client, session
 
     @patch("apps.games.igdb.client._build_session")
-    def test_init_fetches_token(self, mock_build):
+    def test_init_fetches_token(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -50,7 +51,7 @@ class IgdbClientTests(TestCase):
         self.assertEqual(client._access_token, "tok123")
 
     @patch("apps.games.igdb.client._build_session")
-    def test_post_success(self, mock_build):
+    def test_post_success(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         # First call: token fetch
         token_resp = MagicMock()
@@ -68,7 +69,7 @@ class IgdbClientTests(TestCase):
         self.assertEqual(result, [{"id": 1}])
 
     @patch("apps.games.igdb.client._build_session")
-    def test_post_401_raises_auth_error(self, mock_build):
+    def test_post_401_raises_auth_error(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -82,7 +83,7 @@ class IgdbClientTests(TestCase):
             client._post("games", "fields id;")
 
     @patch("apps.games.igdb.client._build_session")
-    def test_post_429_raises_rate_limit(self, mock_build):
+    def test_post_429_raises_rate_limit(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -98,7 +99,7 @@ class IgdbClientTests(TestCase):
         self.assertEqual(ctx.exception.retry_after, 5)
 
     @patch("apps.games.igdb.client._build_session")
-    def test_post_404_raises_not_found(self, mock_build):
+    def test_post_404_raises_not_found(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -112,7 +113,7 @@ class IgdbClientTests(TestCase):
             client._post("games", "fields id;")
 
     @patch("apps.games.igdb.client._build_session")
-    def test_post_500_raises_server_error(self, mock_build):
+    def test_post_500_raises_server_error(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -126,7 +127,7 @@ class IgdbClientTests(TestCase):
             client._post("games", "fields id;")
 
     @patch("apps.games.igdb.client._build_session")
-    def test_post_with_auth_retry(self, mock_build):
+    def test_post_with_auth_retry(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -148,7 +149,7 @@ class IgdbClientTests(TestCase):
         self.assertEqual(result, [{"id": 1}])
 
     @patch("apps.games.igdb.client._build_session")
-    def test_get_game_success(self, mock_build):
+    def test_get_game_success(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -164,7 +165,7 @@ class IgdbClientTests(TestCase):
         self.assertEqual(result["id"], 42)
 
     @patch("apps.games.igdb.client._build_session")
-    def test_get_game_not_found(self, mock_build):
+    def test_get_game_not_found(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -180,7 +181,7 @@ class IgdbClientTests(TestCase):
             client.get_game(9999)
 
     @patch("apps.games.igdb.client._build_session")
-    def test_search_games_with_query(self, mock_build):
+    def test_search_games_with_query(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -196,7 +197,7 @@ class IgdbClientTests(TestCase):
         self.assertEqual(result, [{"id": 1}])
 
     @patch("apps.games.igdb.client._build_session")
-    def test_search_games_with_filters(self, mock_build):
+    def test_search_games_with_filters(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -223,7 +224,7 @@ class IgdbClientTests(TestCase):
         self.assertIn("platforms", query_data)
 
     @patch("apps.games.igdb.client._build_session")
-    def test_get_games_by_ids_empty(self, mock_build):
+    def test_get_games_by_ids_empty(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -233,7 +234,7 @@ class IgdbClientTests(TestCase):
         self.assertEqual(client.get_games_by_ids([]), [])
 
     @patch("apps.games.igdb.client._build_session")
-    def test_get_games_by_ids_success(self, mock_build):
+    def test_get_games_by_ids_success(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -249,7 +250,7 @@ class IgdbClientTests(TestCase):
         self.assertEqual(len(result), 2)
 
     @patch("apps.games.igdb.client._build_session")
-    def test_iter_genres(self, mock_build):
+    def test_iter_genres(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -266,7 +267,7 @@ class IgdbClientTests(TestCase):
         self.assertEqual(pages[0][0]["name"], "Action")
 
     @patch("apps.games.igdb.client._build_session")
-    def test_iter_platforms(self, mock_build):
+    def test_iter_platforms(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -282,7 +283,7 @@ class IgdbClientTests(TestCase):
         self.assertEqual(len(pages), 1)
 
     @patch("apps.games.igdb.client._build_session")
-    def test_iter_keywords(self, mock_build):
+    def test_iter_keywords(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -299,7 +300,7 @@ class IgdbClientTests(TestCase):
 
     @patch("apps.games.igdb.client.time.sleep")
     @patch("apps.games.igdb.client._build_session")
-    def test_paginate_multiple_pages(self, mock_build, mock_sleep):
+    def test_paginate_multiple_pages(self, mock_build: MagicMock, mock_sleep: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -326,7 +327,7 @@ class IgdbClientTests(TestCase):
 
     @patch("apps.games.igdb.client.time.sleep")
     @patch("apps.games.igdb.client._build_session")
-    def test_paginate_rate_limit_retry(self, mock_build, mock_sleep):
+    def test_paginate_rate_limit_retry(self, mock_build: MagicMock, mock_sleep: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None
@@ -353,7 +354,7 @@ class IgdbClientTests(TestCase):
 @override_settings(IGDB_CLIENT_ID="test_id", IGDB_CLIENT_SECRET="test_secret")
 class GetIgdbClientTests(TestCase):
     @patch("apps.games.igdb.client._build_session")
-    def test_singleton(self, mock_build):
+    def test_singleton(self, mock_build: MagicMock) -> None:
         session = MagicMock()
         token_resp = MagicMock()
         token_resp.raise_for_status.return_value = None

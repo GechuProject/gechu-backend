@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Any
 
 from django.test import TestCase
 
@@ -10,8 +11,8 @@ from apps.games.igdb.response_builder import (
 
 
 class BuildGameListItemTests(TestCase):
-    def _make_raw(self, **overrides):
-        base = {
+    def _make_raw(self, **overrides: Any) -> dict[str, Any]:
+        base: dict[str, Any] = {
             "id": 1942,
             "slug": "the-witcher-3",
             "name": "The Witcher 3",
@@ -26,7 +27,7 @@ class BuildGameListItemTests(TestCase):
         base.update(overrides)
         return base
 
-    def test_basic_fields(self):
+    def test_basic_fields(self) -> None:
         result = build_game_list_item(self._make_raw())
         self.assertEqual(result["id"], 1942)
         self.assertEqual(result["slug"], "the-witcher-3")
@@ -37,46 +38,46 @@ class BuildGameListItemTests(TestCase):
         self.assertEqual(result["esrb_rating"], "mature")
         self.assertEqual(result["age_rating_min"], 17)
 
-    def test_genres(self):
+    def test_genres(self) -> None:
         result = build_game_list_item(self._make_raw())
         self.assertEqual(len(result["genres"]), 1)
         self.assertEqual(result["genres"][0]["id"], 1)
         self.assertEqual(result["genres"][0]["name"], "RPG")
 
-    def test_platforms(self):
+    def test_platforms(self) -> None:
         result = build_game_list_item(self._make_raw())
         self.assertEqual(len(result["platforms"]), 1)
         self.assertEqual(result["platforms"][0]["id"], 48)
 
-    def test_no_genres(self):
+    def test_no_genres(self) -> None:
         result = build_game_list_item(self._make_raw(genres=None))
         self.assertEqual(result["genres"], [])
 
-    def test_no_platforms(self):
+    def test_no_platforms(self) -> None:
         result = build_game_list_item(self._make_raw(platforms=None))
         self.assertEqual(result["platforms"], [])
 
-    def test_non_dict_genre_skipped(self):
+    def test_non_dict_genre_skipped(self) -> None:
         raw = self._make_raw(genres=["bad", {"id": 1, "name": "RPG"}])
         result = build_game_list_item(raw)
         self.assertEqual(len(result["genres"]), 1)
 
-    def test_no_age_ratings(self):
+    def test_no_age_ratings(self) -> None:
         result = build_game_list_item(self._make_raw(age_ratings=None))
         self.assertEqual(result["esrb_rating"], "unknown")
 
-    def test_no_rating(self):
+    def test_no_rating(self) -> None:
         result = build_game_list_item(self._make_raw(rating=None))
         self.assertEqual(result["rawg_rating"], Decimal("0.00"))
 
-    def test_no_rating_count(self):
+    def test_no_rating_count(self) -> None:
         result = build_game_list_item(self._make_raw(rating_count=None))
         self.assertEqual(result["rawg_ratings_count"], 0)
 
 
 class BuildGameDetailTests(TestCase):
-    def _make_raw(self, **overrides):
-        base = {
+    def _make_raw(self, **overrides: Any) -> dict[str, Any]:
+        base: dict[str, Any] = {
             "id": 1942,
             "slug": "the-witcher-3",
             "name": "The Witcher 3",
@@ -97,7 +98,7 @@ class BuildGameDetailTests(TestCase):
         base.update(overrides)
         return base
 
-    def test_basic_fields(self):
+    def test_basic_fields(self) -> None:
         result = build_game_detail(self._make_raw())
         self.assertEqual(result["id"], 1942)
         self.assertEqual(result["name"], "The Witcher 3")
@@ -106,27 +107,27 @@ class BuildGameDetailTests(TestCase):
         self.assertEqual(result["rawg_added"], 500)
         self.assertEqual(result["esrb_rating"], "mature")
 
-    def test_genres_include_slug(self):
+    def test_genres_include_slug(self) -> None:
         result = build_game_detail(self._make_raw())
         self.assertEqual(result["genres"][0]["slug"], "rpg")
 
-    def test_tags(self):
+    def test_tags(self) -> None:
         result = build_game_detail(self._make_raw())
         self.assertEqual(len(result["tags"]), 1)
         self.assertEqual(result["tags"][0]["id"], 10)
 
-    def test_no_keywords(self):
+    def test_no_keywords(self) -> None:
         result = build_game_detail(self._make_raw(keywords=None))
         self.assertEqual(result["tags"], [])
 
-    def test_screenshots_in_media(self):
+    def test_screenshots_in_media(self) -> None:
         result = build_game_detail(self._make_raw())
         screenshots = [m for m in result["media"] if m["type"] == "screenshot"]
         self.assertEqual(len(screenshots), 1)
         self.assertIn("sc_abc", screenshots[0]["media_url"])
         self.assertIsNone(screenshots[0]["video_url_480"])
 
-    def test_trailers_in_media(self):
+    def test_trailers_in_media(self) -> None:
         result = build_game_detail(self._make_raw())
         trailers = [m for m in result["media"] if m["type"] == "trailer"]
         self.assertEqual(len(trailers), 1)
@@ -134,21 +135,21 @@ class BuildGameDetailTests(TestCase):
         self.assertIn("yt123", trailers[0]["video_url_480"])
         self.assertIn("yt123", trailers[0]["video_url_max"])
 
-    def test_no_screenshots_no_videos(self):
+    def test_no_screenshots_no_videos(self) -> None:
         result = build_game_detail(self._make_raw(screenshots=None, videos=None))
         self.assertEqual(result["media"], [])
 
-    def test_screenshot_without_image_id_skipped(self):
+    def test_screenshot_without_image_id_skipped(self) -> None:
         result = build_game_detail(self._make_raw(screenshots=[{"no_image_id": True}]))
         screenshots = [m for m in result["media"] if m["type"] == "screenshot"]
         self.assertEqual(len(screenshots), 0)
 
-    def test_video_without_video_id_skipped(self):
+    def test_video_without_video_id_skipped(self) -> None:
         result = build_game_detail(self._make_raw(videos=[{"name": "x"}]))
         trailers = [m for m in result["media"] if m["type"] == "trailer"]
         self.assertEqual(len(trailers), 0)
 
-    def test_stores(self):
+    def test_stores(self) -> None:
         raw = self._make_raw(
             websites=[
                 {"category": 1, "url": "https://thewitcher.com"},
@@ -159,30 +160,30 @@ class BuildGameDetailTests(TestCase):
         self.assertEqual(len(result["stores"]), 1)
         self.assertEqual(result["stores"][0]["name"], "steam")
 
-    def test_tba_status_7(self):
+    def test_tba_status_7(self) -> None:
         result = build_game_detail(self._make_raw(status=7))
         self.assertTrue(result["tba"])
 
-    def test_tba_status_8(self):
+    def test_tba_status_8(self) -> None:
         result = build_game_detail(self._make_raw(status=8))
         self.assertTrue(result["tba"])
 
-    def test_not_tba_status_0(self):
+    def test_not_tba_status_0(self) -> None:
         result = build_game_detail(self._make_raw(status=0))
         self.assertFalse(result["tba"])
 
-    def test_storyline_fallback(self):
+    def test_storyline_fallback(self) -> None:
         result = build_game_detail(self._make_raw(summary=None, storyline="A storyline"))
         self.assertEqual(result["description"], "A storyline")
 
-    def test_no_description(self):
+    def test_no_description(self) -> None:
         result = build_game_detail(self._make_raw(summary=None))
         self.assertEqual(result["description"], "")
 
 
 class BuildSimilarGameItemTests(TestCase):
-    def _make_raw(self, **overrides):
-        base = {
+    def _make_raw(self, **overrides: Any) -> dict[str, Any]:
+        base: dict[str, Any] = {
             "id": 100,
             "name": "Similar Game",
             "slug": "similar-game",
@@ -192,7 +193,7 @@ class BuildSimilarGameItemTests(TestCase):
         base.update(overrides)
         return base
 
-    def test_basic(self):
+    def test_basic(self) -> None:
         result = build_similar_game_item(self._make_raw(), 0.85)
         self.assertEqual(result["id"], 100)
         self.assertEqual(result["name"], "Similar Game")
@@ -200,10 +201,10 @@ class BuildSimilarGameItemTests(TestCase):
         self.assertIn("co999", result["thumbnail_img_url"])
         self.assertEqual(result["similarity_score"], 0.85)
 
-    def test_no_cover(self):
+    def test_no_cover(self) -> None:
         result = build_similar_game_item(self._make_raw(cover=None), 0.5)
         self.assertEqual(result["thumbnail_img_url"], "")
 
-    def test_no_rating(self):
+    def test_no_rating(self) -> None:
         result = build_similar_game_item(self._make_raw(rating=None), 0.5)
         self.assertEqual(result["rawg_rating"], Decimal("0.00"))

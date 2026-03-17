@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
@@ -17,47 +18,47 @@ from apps.games.models import Genre, Platform, Tag
 
 
 class CacheKeyTests(TestCase):
-    def test_game_key(self):
+    def test_game_key(self) -> None:
         self.assertEqual(_cache_key_game(42), "igdb:game:42")
 
-    def test_search_key_deterministic(self):
-        params = {"query": "test", "limit": 20}
+    def test_search_key_deterministic(self) -> None:
+        params: dict[str, Any] = {"query": "test", "limit": 20}
         key1 = _cache_key_search(params)
         key2 = _cache_key_search(params)
         self.assertEqual(key1, key2)
         self.assertTrue(key1.startswith("igdb:search:"))
 
-    def test_search_key_different_params(self):
+    def test_search_key_different_params(self) -> None:
         key1 = _cache_key_search({"query": "a"})
         key2 = _cache_key_search({"query": "b"})
         self.assertNotEqual(key1, key2)
 
 
 class ResolveFiltersTests(TestCase):
-    def test_resolve_genre_filters_empty(self):
+    def test_resolve_genre_filters_empty(self) -> None:
         self.assertEqual(_resolve_genre_filters([]), {})
 
-    def test_resolve_genre_filters(self):
+    def test_resolve_genre_filters(self) -> None:
         g1 = Genre.objects.create(igdb_id=99910, igdb_type="genre", name="Action-igdb-test", slug="action-igdb-test")
         g2 = Genre.objects.create(igdb_id=99920, igdb_type="theme", name="Fantasy-igdb-test", slug="fantasy-igdb-test")
         result = _resolve_genre_filters([g1.pk, g2.pk])
         self.assertEqual(result["genre"], [99910])
         self.assertEqual(result["theme"], [99920])
 
-    def test_resolve_tag_filters_empty(self):
+    def test_resolve_tag_filters_empty(self) -> None:
         self.assertEqual(_resolve_tag_filters([]), {})
 
-    def test_resolve_tag_filters(self):
+    def test_resolve_tag_filters(self) -> None:
         t1 = Tag.objects.create(igdb_id=99930, igdb_type="keyword", name="Stealth-igdb-test", slug="stealth-igdb-test")
         t2 = Tag.objects.create(igdb_id=99940, igdb_type="theme", name="Horror-igdb-test", slug="horror-igdb-test")
         result = _resolve_tag_filters([t1.pk, t2.pk])
         self.assertEqual(result["keyword"], [99930])
         self.assertEqual(result["theme"], [99940])
 
-    def test_resolve_platform_filters_empty(self):
+    def test_resolve_platform_filters_empty(self) -> None:
         self.assertEqual(_resolve_platform_filters([]), [])
 
-    def test_resolve_platform_filters(self):
+    def test_resolve_platform_filters(self) -> None:
         p1 = Platform.objects.create(igdb_id=9948, name="PS4-igdb-test", slug="ps4-igdb-test")
         p2 = Platform.objects.create(igdb_id=9949, name="Xbox-igdb-test", slug="xbox-one-igdb-test")
         result = _resolve_platform_filters([p1.pk, p2.pk])
@@ -68,7 +69,7 @@ class ResolveFiltersTests(TestCase):
 class GetGameDetailTests(TestCase):
     @patch("apps.games.igdb.cache.get_igdb_client")
     @patch("apps.games.igdb.cache.cache")
-    def test_returns_cached(self, mock_cache, mock_get_client):
+    def test_returns_cached(self, mock_cache: MagicMock, mock_get_client: MagicMock) -> None:
         cached_data = {"id": 1, "name": "Cached"}
         mock_cache.get.return_value = cached_data
         result = get_game_detail(1)
@@ -77,7 +78,7 @@ class GetGameDetailTests(TestCase):
 
     @patch("apps.games.igdb.cache.get_igdb_client")
     @patch("apps.games.igdb.cache.cache")
-    def test_fetches_and_caches(self, mock_cache, mock_get_client):
+    def test_fetches_and_caches(self, mock_cache: MagicMock, mock_get_client: MagicMock) -> None:
         mock_cache.get.return_value = None
         mock_client = MagicMock()
         mock_client.get_game.return_value = {
@@ -97,7 +98,7 @@ class GetGameDetailTests(TestCase):
 class SearchGamesTests(TestCase):
     @patch("apps.games.igdb.cache.get_igdb_client")
     @patch("apps.games.igdb.cache.cache")
-    def test_returns_cached(self, mock_cache, mock_get_client):
+    def test_returns_cached(self, mock_cache: MagicMock, mock_get_client: MagicMock) -> None:
         cached_data = [{"id": 1}]
         mock_cache.get.return_value = cached_data
         result = search_games(query="test")
@@ -109,7 +110,14 @@ class SearchGamesTests(TestCase):
     @patch("apps.games.igdb.cache._resolve_platform_filters", return_value=[])
     @patch("apps.games.igdb.cache.get_igdb_client")
     @patch("apps.games.igdb.cache.cache")
-    def test_fetches_and_caches(self, mock_cache, mock_get_client, _rp, _rt, _rg):
+    def test_fetches_and_caches(
+        self,
+        mock_cache: MagicMock,
+        mock_get_client: MagicMock,
+        _rp: MagicMock,
+        _rt: MagicMock,
+        _rg: MagicMock,
+    ) -> None:
         mock_cache.get.return_value = None
         mock_client = MagicMock()
         mock_client.search_games.return_value = [
@@ -133,7 +141,14 @@ class SearchGamesTests(TestCase):
     @patch("apps.games.igdb.cache._resolve_platform_filters", return_value=[])
     @patch("apps.games.igdb.cache.get_igdb_client")
     @patch("apps.games.igdb.cache.cache")
-    def test_rate_limit_reraises_when_no_stale(self, mock_cache, mock_get_client, _rp, _rt, _rg):
+    def test_rate_limit_reraises_when_no_stale(
+        self,
+        mock_cache: MagicMock,
+        mock_get_client: MagicMock,
+        _rp: MagicMock,
+        _rt: MagicMock,
+        _rg: MagicMock,
+    ) -> None:
         mock_cache.get.return_value = None
         mock_client = MagicMock()
         mock_client.search_games.side_effect = IgdbRateLimitError()
@@ -146,7 +161,14 @@ class SearchGamesTests(TestCase):
     @patch("apps.games.igdb.cache._resolve_platform_filters", return_value=[])
     @patch("apps.games.igdb.cache.get_igdb_client")
     @patch("apps.games.igdb.cache.cache")
-    def test_server_error_reraises_when_no_stale(self, mock_cache, mock_get_client, _rp, _rt, _rg):
+    def test_server_error_reraises_when_no_stale(
+        self,
+        mock_cache: MagicMock,
+        mock_get_client: MagicMock,
+        _rp: MagicMock,
+        _rt: MagicMock,
+        _rg: MagicMock,
+    ) -> None:
         mock_cache.get.return_value = None
         mock_client = MagicMock()
         mock_client.search_games.side_effect = IgdbServerError()
@@ -156,12 +178,12 @@ class SearchGamesTests(TestCase):
 
 
 class GetGamesByIdsTests(TestCase):
-    def test_empty_ids(self):
+    def test_empty_ids(self) -> None:
         self.assertEqual(get_games_by_ids([]), [])
 
     @patch("apps.games.igdb.cache.get_igdb_client")
     @patch("apps.games.igdb.cache.cache")
-    def test_all_cached(self, mock_cache, mock_get_client):
+    def test_all_cached(self, mock_cache: MagicMock, mock_get_client: MagicMock) -> None:
         mock_cache.get.side_effect = lambda key: {"id": 1, "name": "C"} if "1" in key else None
         result = get_games_by_ids([1])
         self.assertEqual(len(result), 1)
@@ -169,8 +191,8 @@ class GetGamesByIdsTests(TestCase):
 
     @patch("apps.games.igdb.cache.get_igdb_client")
     @patch("apps.games.igdb.cache.cache")
-    def test_mixed_cached_and_missing(self, mock_cache, mock_get_client):
-        def cache_get(key):
+    def test_mixed_cached_and_missing(self, mock_cache: MagicMock, mock_get_client: MagicMock) -> None:
+        def cache_get(key: str) -> dict[str, Any] | None:
             if "1" in key and "10" not in key:
                 return {"id": 1, "name": "Cached"}
             return None
