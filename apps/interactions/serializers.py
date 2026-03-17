@@ -95,6 +95,15 @@ class InteractionContextRuleListResponseSerializer(serializers.Serializer):  # t
     results = InteractionContextRuleItemSerializer(many=True)
 
 
+class InteractionContextRuleUpdateRequestSerializer(serializers.Serializer[dict[str, Any]]):
+    multiplier = serializers.DecimalField(max_digits=4, decimal_places=2)
+
+    def validate_multiplier(self, value: Any) -> Any:
+        if value <= 0:
+            raise CustomAPIException(ErrorMessages.MULTIPLIER_INVALID)
+        return value
+
+
 class InteractionWeightRuleItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
     interaction_type = serializers.CharField()
     base_weight = serializers.DecimalField(max_digits=4, decimal_places=2)
