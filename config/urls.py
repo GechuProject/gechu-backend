@@ -13,6 +13,7 @@ urlpatterns = [
     path("api/v1/admin/interaction-context-rules/", include("apps.interactions.urls_admin_context")),
     path("api/v1/recommendations/", include("apps.recommendations.urls")),
     path("api/v1/admin/recommendation-jobs/", include("apps.recommendations.urls_admin")),
+    path("api/v1/admin/users/", include("apps.users.urls_admin")),
     path("admin/", admin.site.urls),
     path("api/v1/", include("apps.users.urls")),
     path("api/v1/games/", include("apps.games.urls.games")),
