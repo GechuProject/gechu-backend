@@ -16,10 +16,15 @@ from apps.users.serializers.me import (
     UserMeUpdateResponseSerializer,
     UserPasswordChangeRequestSerializer,
     UserPasswordVerifyRequestSerializer,
+    UserProfileImageResponseSerializer,
+    UserProfileImageUploadRequestSerializer,
+    UserProfileImageUploadResponseSerializer,
 )
 from apps.users.services import (
     change_user_password,
+    create_user_profile_image_upload_url,
     delete_user_me,
+    delete_user_profile_image,
     get_user_me,
     update_user_me,
     verify_user_password,
@@ -112,3 +117,35 @@ class UserPasswordChangeAPIView(APIView):
             new_password=cast(str, serializer.validated_data["new_password"]),
         )
         return Response(MessageResponseSerializer({"message": "비밀번호가 변경되었습니다."}).data)
+
+
+@extend_schema(
+    summary="프로필 이미지 업로드 URL 발급",
+    request=UserProfileImageUploadRequestSerializer,
+    responses={200: UserProfileImageUploadResponseSerializer},
+    tags=["Users"],
+)
+class UserProfileImageAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request: Request) -> Response:
+        serializer = UserProfileImageUploadRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = create_user_profile_image_upload_url(
+            cast(User, request.user),
+            file_name=cast(str, serializer.validated_data["file_name"]),
+            content_type=cast(str, serializer.validated_data["content_type"]),
+            file_size=cast(int, serializer.validated_data["file_size"]),
+        )
+        return Response(UserProfileImageUploadResponseSerializer(result).data)
+
+    @extend_schema(
+        summary="프로필 이미지 삭제",
+        request=None,
+        responses={200: UserProfileImageResponseSerializer},
+        tags=["Users"],
+    )
+    def delete(self, request: Request) -> Response:
+        result = delete_user_profile_image(cast(User, request.user))
+        return Response(UserProfileImageResponseSerializer(result).data)

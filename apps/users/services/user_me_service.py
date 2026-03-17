@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import uuid
 from datetime import date
+from typing import Any
 
+from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
@@ -10,6 +13,11 @@ from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.users.models.user import User
 from apps.users.services.auth_service import get_active_user_or_deactivated, revoke_all_refresh_tokens
+
+PROFILE_IMAGE_MAX_SIZE_BYTES = 5 * 1024 * 1024
+PROFILE_IMAGE_UPLOAD_DIR = "profile-images"
+ALLOWED_PROFILE_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
+ALLOWED_PROFILE_IMAGE_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 def get_user_me(user: User) -> User:
@@ -72,3 +80,104 @@ def change_user_password(user: User, *, new_password: str) -> None:
     user.set_password(new_password)
     user.save(update_fields=["password", "updated_at"])
     revoke_all_refresh_tokens(user)
+
+
+def _get_s3_client() -> Any:
+    s3_client = getattr(settings, "S3_CLIENT", None)
+    if s3_client is not None:
+        return s3_client
+
+    try:
+        import boto3
+    except ImportError as err:
+        raise CustomAPIException(ErrorMessages.SERVER_ERROR) from err
+
+    return boto3.client(
+        "s3",
+        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        region_name=settings.AWS_S3_REGION_NAME,
+    )
+
+
+def _ensure_profile_image_storage_config() -> None:
+    required_settings = (
+        settings.AWS_STORAGE_BUCKET_NAME,
+        settings.AWS_S3_PUBLIC_BASE_URL,
+        settings.AWS_S3_REGION_NAME,
+    )
+    if not all(required_settings):
+        raise CustomAPIException(ErrorMessages.SERVER_ERROR)
+
+
+def _build_profile_image_url(object_key: str) -> str:
+    public_base_url = settings.AWS_S3_PUBLIC_BASE_URL
+    if public_base_url is None:
+        raise CustomAPIException(ErrorMessages.SERVER_ERROR)
+    return f"{public_base_url.rstrip('/')}/{object_key}"
+
+
+def _get_profile_image_object_key(profile_img_url: str | None) -> str | None:
+    if not profile_img_url or not settings.AWS_S3_PUBLIC_BASE_URL:
+        return None
+
+    prefix = f"{settings.AWS_S3_PUBLIC_BASE_URL.rstrip('/')}/"
+    if profile_img_url.startswith(prefix):
+        return profile_img_url.removeprefix(prefix)
+    return None
+
+
+def create_user_profile_image_upload_url(
+    user: User,
+    *,
+    file_name: str,
+    content_type: str,
+    file_size: int,
+) -> dict[str, object]:
+    user = get_user_me(user)
+    _ensure_profile_image_storage_config()
+
+    extension = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else ""
+    if extension not in ALLOWED_PROFILE_IMAGE_EXTENSIONS or content_type not in ALLOWED_PROFILE_IMAGE_CONTENT_TYPES:
+        raise CustomAPIException(ErrorMessages.INVALID_FILE_TYPE)
+
+    if file_size > PROFILE_IMAGE_MAX_SIZE_BYTES:
+        raise CustomAPIException(ErrorMessages.FILE_TOO_LARGE)
+
+    object_key = f"{PROFILE_IMAGE_UPLOAD_DIR}/{user.id}/{uuid.uuid4().hex}.{extension}"
+    upload_url = _get_s3_client().generate_presigned_url(
+        ClientMethod="put_object",
+        Params={
+            "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
+            "Key": object_key,
+            "ContentType": content_type,
+        },
+        ExpiresIn=settings.AWS_S3_PRESIGNED_URL_EXPIRES_IN,
+    )
+    profile_img_url = _build_profile_image_url(object_key)
+
+    user.profile_img_url = profile_img_url
+    user.save(update_fields=["profile_img_url", "updated_at"])
+
+    return {
+        "upload_url": upload_url,
+        "profile_img_url": profile_img_url,
+        "expires_in": settings.AWS_S3_PRESIGNED_URL_EXPIRES_IN,
+    }
+
+
+def delete_user_profile_image(user: User) -> dict[str, object]:
+    user = get_user_me(user)
+    _ensure_profile_image_storage_config()
+
+    object_key = _get_profile_image_object_key(user.profile_img_url)
+    if object_key is not None:
+        _get_s3_client().delete_object(
+            Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+            Key=object_key,
+        )
+
+    user.profile_img_url = None
+    user.save(update_fields=["profile_img_url", "updated_at"])
+
+    return {"profile_img_url": None}
