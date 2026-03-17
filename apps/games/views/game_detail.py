@@ -13,7 +13,7 @@ from apps.games.services.game_detail import GameDetailService
 @extend_schema(
     tags=["games"],
     summary="게임 상세 정보 조회",
-    description="게임 상세 정보를 조회합니다.",
+    description="게임 상세 정보를 조회합니다. (IGDB API 기반)",
     responses={
         200: GameDetailSerializer,
         403: OpenApiResponse(

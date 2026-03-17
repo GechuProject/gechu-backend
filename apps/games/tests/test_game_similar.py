@@ -1,45 +1,45 @@
+from unittest.mock import patch
+
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
-from apps.core.exceptions.exception_message import ErrorMessages
-from apps.games.models import Game
 from apps.recommendations.models import GameSimilarity
+
+IGDB_GAME_1 = 1001
+IGDB_GAME_2 = 1002
+IGDB_GAME_3 = 1003
+IGDB_GAME_4 = 1004
+
+MOCK_GAME_2 = {
+    "id": IGDB_GAME_2,
+    "name": "Game 2",
+    "slug": "game-2",
+    "cover": {"image_id": "co1abc"},
+    "rating": 84.0,
+}
+MOCK_GAME_3 = {
+    "id": IGDB_GAME_3,
+    "name": "Game 3",
+    "slug": "game-3",
+    "cover": {"image_id": "co2def"},
+    "rating": 78.0,
+}
 
 
 class SimilarGameAPITest(APITestCase):
     def setUp(self) -> None:
         self.client = APIClient()
 
-        # 테스트용 게임 3개 생성
-        self.game1 = Game.objects.create(
-            rawg_id=1,
-            name="Game 1",
-            slug="game-1",
-            thumbnail_img_url="https://example.com/game1.jpg",
-            rawg_rating=4.5,
-        )
-        self.game2 = Game.objects.create(
-            rawg_id=2,
-            name="Game 2",
-            slug="game-2",
-            thumbnail_img_url="https://example.com/game2.jpg",
-            rawg_rating=4.2,
-        )
-        self.game3 = Game.objects.create(
-            rawg_id=3,
-            name="Game 3",
-            slug="game-3",
-            thumbnail_img_url="https://example.com/game3.jpg",
-            rawg_rating=3.9,
-        )
-
-        # game1과 유사 게임 관계 생성
-        GameSimilarity.objects.create(game=self.game1, similar_game=self.game2, score=0.9)
-        GameSimilarity.objects.create(game=self.game1, similar_game=self.game3, score=0.7)
+        # game1과 유사 게임 관계 생성 (IGDB ID 기반)
+        GameSimilarity.objects.create(igdb_game_id=IGDB_GAME_1, igdb_similar_game_id=IGDB_GAME_2, score=0.9)
+        GameSimilarity.objects.create(igdb_game_id=IGDB_GAME_1, igdb_similar_game_id=IGDB_GAME_3, score=0.7)
 
     # limit=2 지정했을 때 유사 게임 200
-    def test_similar_games_success_with_limit(self) -> None:
-        url = f"/api/v1/games/{self.game1.id}/similar/"
+    @patch("apps.games.services.similar_game.igdb_cache.get_games_by_ids")
+    def test_similar_games_success_with_limit(self, mock_get_games: object) -> None:
+        mock_get_games.return_value = [MOCK_GAME_2, MOCK_GAME_3]  # type: ignore[attr-defined]
+
+        url = f"/api/v1/games/{IGDB_GAME_1}/similar/"
         response = self.client.get(url, {"limit": 2})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -58,12 +58,14 @@ class SimilarGameAPITest(APITestCase):
             self.assertIn("name", item)
             self.assertIn("slug", item)
             self.assertIn("thumbnail_img_url", item)
-            self.assertIn("rawg_rating", item)
             self.assertIn("similarity_score", item)
 
     # limit 미지정 200
-    def test_similar_games_default_limit(self) -> None:
-        url = f"/api/v1/games/{self.game1.id}/similar/"
+    @patch("apps.games.services.similar_game.igdb_cache.get_games_by_ids")
+    def test_similar_games_default_limit(self, mock_get_games: object) -> None:
+        mock_get_games.return_value = [MOCK_GAME_2, MOCK_GAME_3]  # type: ignore[attr-defined]
+
+        url = f"/api/v1/games/{IGDB_GAME_1}/similar/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -72,43 +74,29 @@ class SimilarGameAPITest(APITestCase):
         self.assertEqual(len(response.data["results"]), 2)
 
     # limit=1 지정 시 -> 1개만 나오는지
-    def test_similar_games_limit_applied(self) -> None:
-        url = f"/api/v1/games/{self.game1.id}/similar/"
+    @patch("apps.games.services.similar_game.igdb_cache.get_games_by_ids")
+    def test_similar_games_limit_applied(self, mock_get_games: object) -> None:
+        mock_get_games.return_value = [MOCK_GAME_2]  # type: ignore[attr-defined]
+
+        url = f"/api/v1/games/{IGDB_GAME_1}/similar/"
         response = self.client.get(url, {"limit": 1})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
 
-    # 잘못된 게임 아이디
-    def test_similar_games_invalid_game_id(self) -> None:
-        url = "/api/v1/games/999999/similar/"
-        response = self.client.get(url)
-
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data["code"], ErrorMessages.GAME_NOT_FOUND.name)
-        self.assertEqual(response.data["message"], ErrorMessages.GAME_NOT_FOUND.message)
-
-    # 비정상 limit 값 400
-    def test_similar_games_invalid_limit(self) -> None:
-        url = f"/api/v1/games/{self.game1.id}/similar/"
-        response = self.client.get(url, {"limit": -3})
-
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["code"], "INVALID_QUERY_PARAM")
-
     # 유사게임 없을 시 -> 빈 배열 반환
     def test_similar_games_no_similar_games(self) -> None:
-        game_without_similar = Game.objects.create(
-            rawg_id=4,
-            name="Game 4",
-            slug="game-4",
-            thumbnail_img_url="https://example.com/game4.jpg",
-            rawg_rating=4.0,
-        )
-
-        url = f"/api/v1/games/{game_without_similar.id}/similar/"
+        url = f"/api/v1/games/{IGDB_GAME_4}/similar/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("results", response.data)
         self.assertEqual(len(response.data["results"]), 0)
+
+    # 비정상 limit 값 400
+    def test_similar_games_invalid_limit(self) -> None:
+        url = f"/api/v1/games/{IGDB_GAME_1}/similar/"
+        response = self.client.get(url, {"limit": -3})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["code"], "INVALID_QUERY_PARAM")

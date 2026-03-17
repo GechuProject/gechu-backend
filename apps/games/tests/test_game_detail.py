@@ -1,74 +1,59 @@
 from datetime import date
+from unittest.mock import patch
 
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.games.models import (
-    ExternalStore,
-    Game,
-    GameGenre,
-    GameMedia,
-    GamePlatform,
-    GameStore,
-    GameTag,
-    Genre,
-    Platform,
-    Tag,
-)
+from apps.games.igdb.exceptions import IgdbNotFoundError
 from apps.users.models import User
+
+# Sample IGDB game detail response (matches build_game_detail output shape)
+MOCK_GAME_DETAIL = {
+    "id": 1942,
+    "slug": "the-witcher-3",
+    "name": "The Witcher 3",
+    "description": "An epic RPG",
+    "released": "2015-05-19",
+    "tba": False,
+    "thumbnail_img_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co1wyy.jpg",
+    "website": "https://thewitcher.com",
+    "rawg_rating": 4.66,
+    "rawg_ratings_count": 6000,
+    "rawg_added": 120000,
+    "esrb_rating": "mature",
+    "age_rating_min": 17,
+    "genres": [{"id": 12, "name": "RPG", "slug": "rpg"}],
+    "platforms": [{"id": 6, "name": "PC"}],
+    "tags": [{"id": 321, "name": "Open World"}],
+    "media": [],
+    "stores": [],
+}
+
+MOCK_ADULT_GAME_DETAIL = {
+    **MOCK_GAME_DETAIL,
+    "id": 9999,
+    "esrb_rating": "adults-only",
+    "age_rating_min": 18,
+}
 
 
 class GameDetailAPITest(TestCase):
     def setUp(self) -> None:
         self.client: APIClient = APIClient()
 
-        # 테스트용 게임 생성
-        self.game = Game.objects.create(
-            rawg_id=1,
-            slug="the-witcher-3",
-            name="The Witcher 3",
-            description="An epic RPG",
-            thumbnail_img_url="https://cdn.example.com/img/w3.jpg",
-            website="https://thewitcher.com",
-            rawg_rating=4.66,
-            rawg_ratings_count=6000,
-            metacritic=92,
-            rawg_added=120000,
-            playtime=46,
-            esrb_rating="mature",
-            age_rating_min=17,
-            is_visible=True,
-        )
-
-        genre = Genre.objects.create(rawg_id=1, name="RPG", slug="rpg")
-        GameGenre.objects.create(game=self.game, genre=genre)
-
-        platform = Platform.objects.create(rawg_id=1, name="PC", slug="pc")
-        GamePlatform.objects.create(
-            game=self.game, platform=platform, requirements_minimum="min", requirements_recommended="rec"
-        )
-
-        tag = Tag.objects.create(rawg_id=1, name="Open World", slug="open-world")
-        GameTag.objects.create(game=self.game, tag=tag)
-
-        GameMedia.objects.create(game=self.game, rawg_id=1, type="screenshot", media_url="img.jpg")
-
-        store = ExternalStore.objects.create(rawg_id=1, name="Steam", slug="steam", domain="store.steampowered.com")
-
-        GameStore.objects.create(game=self.game, store=store, url="https://store.steampowered.com/app/1")
-
-    def test_game_detail_success(self) -> None:
+    @patch("apps.games.services.game_detail.igdb_cache.get_game_detail")
+    def test_game_detail_success(self, mock_get_detail: object) -> None:
         """게임 상세 조회 성공"""
+        mock_get_detail.return_value = MOCK_GAME_DETAIL  # type: ignore[attr-defined]
 
-        url = f"/api/v1/games/{self.game.id}/"
-
+        url = "/api/v1/games/1942/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 200)
 
         data = response.json()
 
-        self.assertEqual(data["id"], self.game.id)
+        self.assertEqual(data["id"], 1942)
         self.assertEqual(data["name"], "The Witcher 3")
         self.assertEqual(data["slug"], "the-witcher-3")
         self.assertEqual(len(data["genres"]), 1)
@@ -78,11 +63,12 @@ class GameDetailAPITest(TestCase):
         self.assertEqual(len(data["tags"]), 1)
         self.assertEqual(data["tags"][0]["name"], "Open World")
 
-    def test_game_detail_not_found(self) -> None:
+    @patch("apps.games.services.game_detail.igdb_cache.get_game_detail")
+    def test_game_detail_not_found(self, mock_get_detail: object) -> None:
         """존재하지 않는 게임"""
+        mock_get_detail.side_effect = IgdbNotFoundError("Game not found: igdb_id=9999")  # type: ignore[attr-defined]
 
         url = "/api/v1/games/9999/"
-
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 404)
@@ -91,26 +77,12 @@ class GameDetailAPITest(TestCase):
 
         self.assertEqual(data["code"], "GAME_NOT_FOUND")
 
-    def test_game_not_visible(self) -> None:
-        """is_visible=False 게임"""
-
-        self.game.is_visible = False
-        self.game.save()
-
-        url = f"/api/v1/games/{self.game.id}/"
-
-        response = self.client.get(url)
-
-        self.assertEqual(response.status_code, 404)
-
-    def test_adult_game_requires_verification(self) -> None:
+    @patch("apps.games.services.game_detail.igdb_cache.get_game_detail")
+    def test_adult_game_requires_verification(self, mock_get_detail: object) -> None:
         """성인 게임 + 인증 안된 유저"""
+        mock_get_detail.return_value = MOCK_ADULT_GAME_DETAIL  # type: ignore[attr-defined]
 
-        self.game.esrb_rating = Game.EsrbRating.ADULTS_ONLY
-        self.game.save()
-
-        url = f"/api/v1/games/{self.game.id}/"
-
+        url = "/api/v1/games/9999/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 403)
@@ -119,8 +91,10 @@ class GameDetailAPITest(TestCase):
 
         self.assertEqual(data["code"], "ADULT_VERIFICATION_REQUIRED")
 
-    def test_adult_game_verified_user(self) -> None:
+    @patch("apps.games.services.game_detail.igdb_cache.get_game_detail")
+    def test_adult_game_verified_user(self, mock_get_detail: object) -> None:
         """성인 인증 유저 접근"""
+        mock_get_detail.return_value = MOCK_ADULT_GAME_DETAIL  # type: ignore[attr-defined]
 
         user = User.objects.create_user(
             email="adult@test.com",
@@ -132,11 +106,7 @@ class GameDetailAPITest(TestCase):
 
         self.client.force_authenticate(user=user)
 
-        self.game.esrb_rating = Game.EsrbRating.ADULTS_ONLY
-        self.game.save()
-
-        url = f"/api/v1/games/{self.game.id}/"
-
+        url = "/api/v1/games/9999/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 200)

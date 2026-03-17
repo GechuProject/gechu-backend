@@ -10,11 +10,9 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
-from apps.games.models import Game, GameGenre, GameTag, Genre, Tag
 from apps.interactions.models import InteractionLog
-from apps.recommendations.models import RecommendationJob, UserRecommendation
+from apps.recommendations.models import GameSimilarity, RecommendationJob, UserRecommendation
 from apps.recommendations.tasks import (
-    _build_fallback_candidates,
     _build_similarity_candidates,
     _collect_seed_game_ids,
     _upsert_recommendations,
@@ -22,6 +20,12 @@ from apps.recommendations.tasks import (
     run_user_refresh_job,
 )
 from apps.users.models import User
+
+# IGDB game IDs (no DB Game model)
+IGDB_GAME_CP2077 = 7001
+IGDB_GAME_ACTION = 7002
+IGDB_GAME_PUZZLE = 7003
+IGDB_GAME_DUMMY = 7004
 
 
 class RecommendationListAPITestCase(TestCase):
@@ -39,31 +43,11 @@ class RecommendationListAPITestCase(TestCase):
             password="pw",
         )
 
-    def _create_game(
-        self,
-        *,
-        rawg_id: int,
-        slug: str,
-        name: str,
-        is_visible: bool = True,
-        esrb_rating: str = Game.EsrbRating.TEEN,
-    ) -> Game:
-        return Game.objects.create(
-            rawg_id=rawg_id,
-            slug=slug,
-            name=name,
-            thumbnail_img_url="https://example.com/thumb.jpg",
-            website="https://example.com",
-            rawg_rating=Decimal("4.70"),
-            esrb_rating=esrb_rating,
-            is_visible=is_visible,
-        )
-
     def _create_recommendation(
         self,
         *,
         user: User,
-        game: Game,
+        igdb_game_id: int,
         rank: int,
         reason: str | None,
         score: Decimal = Decimal("0.8612"),
@@ -71,7 +55,7 @@ class RecommendationListAPITestCase(TestCase):
         now = timezone.now()
         return UserRecommendation.objects.create(
             user=user,
-            game=game,
+            igdb_game_id=igdb_game_id,
             generation_version=1,
             score=score,
             rank=rank,
@@ -120,15 +104,24 @@ class RecommendationListAPITestCase(TestCase):
         self.assertIsNotNone(queued_job)
         self.assertEqual(cast(RecommendationJob, queued_job).status, RecommendationJob.Status.PENDING)
 
-    def test_recommendation_list_success(self) -> None:
+    @patch("apps.recommendations.views.igdb_cache.get_games_by_ids")
+    def test_recommendation_list_success(self, mock_get_games: object) -> None:
         user = self._create_user()
         self.client.force_authenticate(user=user)
-        game = self._create_game(rawg_id=7001, slug="cp2077", name="Cyberpunk 2077")
-        genre = Genre.objects.create(rawg_id=1, name="Action", slug="action")
-        tag = Tag.objects.create(rawg_id=10, name="RPG", slug="rpg")
-        GameGenre.objects.create(game=game, genre=genre)
-        GameTag.objects.create(game=game, tag=tag)
-        self._create_recommendation(user=user, game=game, rank=1, reason=UserRecommendation.ReasonType.HYBRID)
+        self._create_recommendation(
+            user=user, igdb_game_id=IGDB_GAME_CP2077, rank=1, reason=UserRecommendation.ReasonType.HYBRID
+        )
+
+        mock_get_games.return_value = [  # type: ignore[attr-defined]
+            {
+                "id": IGDB_GAME_CP2077,
+                "name": "Cyberpunk 2077",
+                "slug": "cp2077",
+                "thumbnail_img_url": "https://example.com/thumb.jpg",
+                "rawg_rating": Decimal("4.70"),
+                "genres": [{"id": 1, "name": "Action", "slug": "action"}],
+            }
+        ]
 
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
@@ -136,55 +129,18 @@ class RecommendationListAPITestCase(TestCase):
         self.assertIn("results", payload)
         self.assertEqual(len(payload["results"]), 1)
         item = payload["results"][0]
-        self.assertEqual(item["game_id"], game.id)
-        self.assertEqual(item["name"], "Cyberpunk 2077")
+        self.assertEqual(item["game"]["id"], IGDB_GAME_CP2077)
+        self.assertEqual(item["game"]["name"], "Cyberpunk 2077")
         self.assertEqual(item["reason"], "hybrid")
         self.assertEqual(item["rank"], 1)
-        self.assertEqual(item["tags"], ["RPG"])
-        self.assertEqual(item["genres"][0]["name"], "Action")
-
-    def test_recommendation_list_filters_type_genre_tag_and_is_adult(self) -> None:
-        user = self._create_user()
-        self.client.force_authenticate(user=user)
-
-        game_action = self._create_game(
-            rawg_id=7002, slug="action-game", name="Action Game", esrb_rating=Game.EsrbRating.ADULTS_ONLY
-        )
-        game_puzzle = self._create_game(
-            rawg_id=7003, slug="puzzle-game", name="Puzzle Game", esrb_rating=Game.EsrbRating.TEEN
-        )
-
-        genre_action = Genre.objects.create(rawg_id=2, name="Action", slug="action-2")
-        genre_puzzle = Genre.objects.create(rawg_id=3, name="Puzzle", slug="puzzle")
-        tag_rpg = Tag.objects.create(rawg_id=11, name="RPG", slug="rpg-2")
-        tag_cozy = Tag.objects.create(rawg_id=12, name="Cozy", slug="cozy")
-
-        GameGenre.objects.create(game=game_action, genre=genre_action)
-        GameGenre.objects.create(game=game_puzzle, genre=genre_puzzle)
-        GameTag.objects.create(game=game_action, tag=tag_rpg)
-        GameTag.objects.create(game=game_puzzle, tag=tag_cozy)
-
-        self._create_recommendation(
-            user=user, game=game_action, rank=1, reason=UserRecommendation.ReasonType.SIMILARITY
-        )
-        self._create_recommendation(
-            user=user, game=game_puzzle, rank=2, reason=UserRecommendation.ReasonType.PREFERENCE
-        )
-
-        response = self.client.get(
-            self.url,
-            {"type": "similarity", "genre": str(genre_action.id), "tag": str(tag_rpg.id), "is_adult": "true"},
-        )
-        self.assertEqual(response.status_code, 200)
-        payload = cast(dict[str, Any], response.data)
-        self.assertEqual(len(payload["results"]), 1)
-        self.assertEqual(payload["results"][0]["name"], "Action Game")
+        self.assertEqual(item["game"]["genres"][0]["name"], "Action")
 
     def test_recommendation_list_invalid_query_param_returns_400(self) -> None:
         user = self._create_user()
         self.client.force_authenticate(user=user)
-        game = self._create_game(rawg_id=7004, slug="dummy", name="Dummy")
-        self._create_recommendation(user=user, game=game, rank=1, reason=UserRecommendation.ReasonType.HYBRID)
+        self._create_recommendation(
+            user=user, igdb_game_id=IGDB_GAME_DUMMY, rank=1, reason=UserRecommendation.ReasonType.HYBRID
+        )
 
         response = self.client.get(self.url, {"type": "wrong"})
         self.assertEqual(response.status_code, 400)
@@ -214,23 +170,12 @@ class RecommendationStatusAPITestCase(TestCase):
             password="pw",
         )
 
-    def _create_game(self, *, rawg_id: int, slug: str, name: str) -> Game:
-        return Game.objects.create(
-            rawg_id=rawg_id,
-            slug=slug,
-            name=name,
-            thumbnail_img_url="https://example.com/thumb.jpg",
-            website="https://example.com",
-            rawg_rating=Decimal("4.10"),
-            is_visible=True,
-        )
-
     def _create_recommendation(self, *, generation: int) -> UserRecommendation:
-        game = self._create_game(rawg_id=9000 + generation, slug=f"status-{generation}", name=f"Status {generation}")
+        igdb_game_id = 9000 + generation
         now = timezone.now()
         return UserRecommendation.objects.create(
             user=self.user,
-            game=game,
+            igdb_game_id=igdb_game_id,
             generation_version=generation,
             score=Decimal("0.9000"),
             rank=1,
@@ -327,45 +272,36 @@ class RecommendationTaskTestCase(TestCase):
             password="pw",
         )
 
-    def _create_game(
-        self,
-        *,
-        rawg_id: int,
-        slug: str,
-        name: str,
-        rawg_rating: Decimal = Decimal("4.20"),
-        esrb_rating: str = Game.EsrbRating.TEEN,
-        is_visible: bool = True,
-    ) -> Game:
-        return Game.objects.create(
-            rawg_id=rawg_id,
-            slug=slug,
-            name=name,
-            thumbnail_img_url="https://example.com/thumb.jpg",
-            website="https://example.com",
-            rawg_rating=rawg_rating,
-            esrb_rating=esrb_rating,
-            is_visible=is_visible,
-        )
-
     def test_collect_seed_game_ids_returns_latest_unique_ids(self) -> None:
         user = self._create_user()
-        g1 = self._create_game(rawg_id=8001, slug="g1", name="Game 1")
-        g2 = self._create_game(rawg_id=8002, slug="g2", name="Game 2")
-        g3 = self._create_game(rawg_id=8003, slug="g3", name="Game 3")
+        igdb_g1 = 8001
+        igdb_g2 = 8002
+        igdb_g3 = 8003
 
         now = timezone.now()
         l1 = InteractionLog.objects.create(
-            user=user, game=g1, type=InteractionLog.ActionType.VIEW, source=InteractionLog.SourceType.DETAIL_PAGE
+            user=user,
+            igdb_game_id=igdb_g1,
+            type=InteractionLog.ActionType.VIEW,
+            source=InteractionLog.SourceType.DETAIL_PAGE,
         )
         l2 = InteractionLog.objects.create(
-            user=user, game=g2, type=InteractionLog.ActionType.VIEW, source=InteractionLog.SourceType.DETAIL_PAGE
+            user=user,
+            igdb_game_id=igdb_g2,
+            type=InteractionLog.ActionType.VIEW,
+            source=InteractionLog.SourceType.DETAIL_PAGE,
         )
         l3 = InteractionLog.objects.create(
-            user=user, game=g1, type=InteractionLog.ActionType.VIEW, source=InteractionLog.SourceType.DETAIL_PAGE
+            user=user,
+            igdb_game_id=igdb_g1,
+            type=InteractionLog.ActionType.VIEW,
+            source=InteractionLog.SourceType.DETAIL_PAGE,
         )
         l4 = InteractionLog.objects.create(
-            user=user, game=g3, type=InteractionLog.ActionType.VIEW, source=InteractionLog.SourceType.DETAIL_PAGE
+            user=user,
+            igdb_game_id=igdb_g3,
+            type=InteractionLog.ActionType.VIEW,
+            source=InteractionLog.SourceType.DETAIL_PAGE,
         )
         InteractionLog.objects.filter(id=l1.id).update(created_at=now - timedelta(minutes=4))
         InteractionLog.objects.filter(id=l2.id).update(created_at=now - timedelta(minutes=3))
@@ -373,53 +309,29 @@ class RecommendationTaskTestCase(TestCase):
         InteractionLog.objects.filter(id=l4.id).update(created_at=now - timedelta(minutes=1))
 
         seed_ids = _collect_seed_game_ids(user_id=user.id)
-        self.assertEqual(seed_ids, [g3.id, g1.id, g2.id])
+        self.assertEqual(seed_ids, [igdb_g3, igdb_g1, igdb_g2])
 
-    def test_build_similarity_candidates_filters_adult_for_non_verified_user(self) -> None:
-        seed = self._create_game(rawg_id=8010, slug="seed", name="Seed")
-        teen = self._create_game(rawg_id=8011, slug="teen", name="Teen", esrb_rating=Game.EsrbRating.TEEN)
-        adult = self._create_game(rawg_id=8012, slug="adult", name="Adult", esrb_rating=Game.EsrbRating.ADULTS_ONLY)
+    def test_build_similarity_candidates(self) -> None:
+        igdb_seed = 8010
+        igdb_teen = 8011
+        igdb_adult = 8012
 
-        from apps.recommendations.models import GameSimilarity
+        GameSimilarity.objects.create(igdb_game_id=igdb_seed, igdb_similar_game_id=igdb_teen, score=Decimal("0.7000"))
+        GameSimilarity.objects.create(igdb_game_id=igdb_seed, igdb_similar_game_id=igdb_adult, score=Decimal("0.9000"))
 
-        GameSimilarity.objects.create(game=seed, similar_game=teen, score=Decimal("0.7000"))
-        GameSimilarity.objects.create(game=seed, similar_game=adult, score=Decimal("0.9000"))
-
-        non_adult_candidates = _build_similarity_candidates(seed_game_ids=[seed.id], is_adult_verified=False)
-        self.assertEqual(non_adult_candidates, [(teen.id, Decimal("0.7000"))])
-
-        adult_candidates = _build_similarity_candidates(seed_game_ids=[seed.id], is_adult_verified=True)
-        self.assertEqual(adult_candidates, [(adult.id, Decimal("0.9000")), (teen.id, Decimal("0.7000"))])
-
-    def test_build_fallback_candidates_applies_visibility_and_adult_filter(self) -> None:
-        teen = self._create_game(rawg_id=8021, slug="f-teen", name="Fallback Teen", rawg_rating=Decimal("4.80"))
-        self._create_game(
-            rawg_id=8022,
-            slug="f-adult",
-            name="Fallback Adult",
-            rawg_rating=Decimal("4.90"),
-            esrb_rating=Game.EsrbRating.ADULTS_ONLY,
-        )
-        self._create_game(
-            rawg_id=8023,
-            slug="f-hidden",
-            name="Fallback Hidden",
-            rawg_rating=Decimal("5.00"),
-            is_visible=False,
-        )
-
-        non_adult = _build_fallback_candidates(is_adult_verified=False)
-        self.assertEqual(non_adult, [(teen.id, Decimal("0.9600"))])
+        candidates = _build_similarity_candidates(seed_game_ids=[igdb_seed])
+        # Both candidates returned, ordered by score desc
+        self.assertEqual(candidates, [(igdb_adult, Decimal("0.9000")), (igdb_teen, Decimal("0.7000"))])
 
     def test_upsert_recommendations_replaces_old_generation(self) -> None:
         user = self._create_user()
-        old_game = self._create_game(rawg_id=8031, slug="old-game", name="Old")
-        g1 = self._create_game(rawg_id=8032, slug="new-g1", name="New 1")
-        g2 = self._create_game(rawg_id=8033, slug="new-g2", name="New 2")
+        igdb_old = 8031
+        igdb_g1 = 8032
+        igdb_g2 = 8033
         now = timezone.now()
         UserRecommendation.objects.create(
             user=user,
-            game=old_game,
+            igdb_game_id=igdb_old,
             generation_version=1,
             score=Decimal("0.1000"),
             rank=1,
@@ -431,28 +343,28 @@ class RecommendationTaskTestCase(TestCase):
         _upsert_recommendations(
             user_id=user.id,
             generation_version=2,
-            candidates=[(g1.id, Decimal("0.9000")), (g2.id, Decimal("0.8000"))],
+            candidates=[(igdb_g1, Decimal("0.9000")), (igdb_g2, Decimal("0.8000"))],
         )
 
         recs = UserRecommendation.objects.filter(user=user).order_by("rank")
         self.assertEqual(recs.count(), 2)
-        self.assertEqual([recs[0].game_id, recs[1].game_id], [g1.id, g2.id])
+        self.assertEqual([recs[0].igdb_game_id, recs[1].igdb_game_id], [igdb_g1, igdb_g2])
         self.assertTrue(all(rec.generation_version == 2 for rec in recs))
 
     def test_run_user_refresh_job_success(self) -> None:
         user = self._create_user()
-        seed = self._create_game(rawg_id=8041, slug="seed-job", name="Seed Job")
-        similar = self._create_game(rawg_id=8042, slug="sim-job", name="Similar Job")
+        igdb_seed = 8041
+        igdb_similar = 8042
         InteractionLog.objects.create(
             user=user,
-            game=seed,
+            igdb_game_id=igdb_seed,
             type=InteractionLog.ActionType.VIEW,
             source=InteractionLog.SourceType.DETAIL_PAGE,
         )
 
-        from apps.recommendations.models import GameSimilarity
-
-        GameSimilarity.objects.create(game=seed, similar_game=similar, score=Decimal("0.8800"))
+        GameSimilarity.objects.create(
+            igdb_game_id=igdb_seed, igdb_similar_game_id=igdb_similar, score=Decimal("0.8800")
+        )
         job = RecommendationJob.objects.create(
             job_type=RecommendationJob.JobType.USER_REFRESH,
             target_user=user,
@@ -464,7 +376,7 @@ class RecommendationTaskTestCase(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, RecommendationJob.Status.SUCCESS)
         self.assertIsNotNone(job.finished_at)
-        self.assertTrue(UserRecommendation.objects.filter(user=user, game=similar).exists())
+        self.assertTrue(UserRecommendation.objects.filter(user=user, igdb_game_id=igdb_similar).exists())
 
     def test_run_user_refresh_job_failure_marks_failed(self) -> None:
         user = self._create_user()

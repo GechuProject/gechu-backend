@@ -31,12 +31,11 @@ class InteractionLog(models.Model):
         db_column="user_id",
     )
 
-    game = models.ForeignKey(
-        "games.Game",
-        on_delete=models.CASCADE,
-        db_column="game_id",
+    igdb_game_id = models.BigIntegerField(
         null=True,
         blank=True,
+        db_index=True,
+        help_text="IGDB 게임 ID (외부 API 기준)",
     )
 
     store = models.ForeignKey(
@@ -82,7 +81,7 @@ class InteractionLog(models.Model):
         db_table = "interaction_logs"
         indexes = [
             models.Index(fields=["user"]),
-            models.Index(fields=["game"]),
+            models.Index(fields=["igdb_game_id"]),
             models.Index(fields=["store"]),
             models.Index(fields=["type"]),
             models.Index(fields=["created_at"]),

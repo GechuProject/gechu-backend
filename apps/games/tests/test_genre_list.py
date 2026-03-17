@@ -1,6 +1,5 @@
 from typing import Any
 
-from django.core.cache import cache
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
@@ -12,12 +11,13 @@ class GenreListAPITest(APITestCase):
     def setUp(self) -> None:
         self.client: APIClient = APIClient()
 
-        # 테스트마다 매번 캐시 초기화
-        cache.clear()
+        # 기존 데이터 정리 후 테스트 데이터 생성
+        Genre.objects.all().delete()
 
-        # 테스트용 장르 데이터 생성
-        self.genre1 = Genre.objects.create(id=1, rawg_id=1, name="Action", slug="action")
-        self.genre2 = Genre.objects.create(id=2, rawg_id=2, name="RPG", slug="role-playing-games-rpg")
+        self.genre1 = Genre.objects.create(igdb_id=101, igdb_type=Genre.IgdbType.GENRE, name="Action", slug="action")
+        self.genre2 = Genre.objects.create(
+            igdb_id=102, igdb_type=Genre.IgdbType.GENRE, name="RPG", slug="role-playing-games-rpg"
+        )
 
     # 전체 장르 조회 정상
     def test_get_all_genres_success(self) -> None:
@@ -37,10 +37,10 @@ class GenreListAPITest(APITestCase):
             self.assertIn("slug", item)
 
         # 데이터 순서 및 값 확인
-        self.assertEqual(results[0]["id"], 1)
+        self.assertEqual(results[0]["id"], self.genre1.id)
         self.assertEqual(results[0]["name"], "Action")
         self.assertEqual(results[0]["slug"], "action")
-        self.assertEqual(results[1]["id"], 2)
+        self.assertEqual(results[1]["id"], self.genre2.id)
         self.assertEqual(results[1]["name"], "RPG")
         self.assertEqual(results[1]["slug"], "role-playing-games-rpg")
 
@@ -56,16 +56,10 @@ class GenreListAPITest(APITestCase):
         self.assertIn("results", response.data)
         self.assertEqual(response.data["results"], [])
 
-    # 캐시에 값 있을 때 -> db 조회 x, 캐시 바로 반환
-    def test_get_all_genres_cache_hit(self) -> None:
-        # self.client.get(url)보다 먼저 실행되어 setup의 db데이터는 캐시 저장 x
-        cache.set(
-            "genres:all",
-            [{"id": 3, "name": "Indie", "slug": "indie"}],
-        )
-
+    # 서비스가 항상 DB에서 조회하는지 확인
+    def test_get_all_genres_returns_db_data(self) -> None:
         url = reverse("genre-list")
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(len(response.data["results"]), 2)

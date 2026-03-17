@@ -2,7 +2,6 @@ from .game_detail import GameDetailView
 from .game_list import GameListView
 from .genre_list import GenreListAPIView
 from .platform_list import PlatformListAPIView
-from .rawg_sync import RawgSyncView
 from .similar_game import SimilarGameListView
 
 __all__ = [
@@ -11,5 +10,4 @@ __all__ = [
     "GenreListAPIView",
     "PlatformListAPIView",
     "SimilarGameListView",
-    "RawgSyncView",
 ]

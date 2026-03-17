@@ -1,11 +1,11 @@
-from django.db.models import QuerySet
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema
-from rest_framework.generics import ListAPIView
+from rest_framework import status
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.core.serializers.error_serializer import ErrorResponseSerializer
-from apps.core.utils.pagination import Pagination
-from apps.games.models.catalog import Game
 from apps.games.serializers.game_list import (
     GameListQuerySerializer,
     GameListResponseSerializer,
@@ -16,19 +16,12 @@ from apps.games.services.game_list import GameService
 @extend_schema(
     tags=["games"],
     summary="게임 목록 조회",
-    description="게임 목록 조회 (검색/필터/정렬)",
+    description="게임 목록 조회 (검색/필터/정렬) - IGDB API 기반",
     parameters=[
         OpenApiParameter("search", type=str, required=False, description="게임 이름 검색"),
         OpenApiParameter("genre_ids", type=str, required=False, description="장르 ID 리스트(콤마 구분)"),
         OpenApiParameter("platform_ids", type=str, required=False, description="플랫폼 ID 리스트(콤마 구분)"),
         OpenApiParameter("tag_ids", type=str, required=False, description="태그 ID 리스트(콤마 구분)"),
-        OpenApiParameter(
-            "esrb_rating",
-            type=str,
-            required=False,
-            description="ESRB 등급 필터링",
-            enum=["everyone", "everyone_10_plus", "teen", "mature", "adults_only", "rating_pending", "unknown"],
-        ),
         OpenApiParameter(
             "ordering",
             type=str,
@@ -65,24 +58,38 @@ from apps.games.services.game_list import GameService
         ),
     },
 )
-class GameListView(ListAPIView):  # type: ignore[type-arg]
-    serializer_class = GameListResponseSerializer
-    pagination_class = Pagination
-
-    def get_queryset(self) -> QuerySet[Game]:
-        # 쿼리 파라미터 검증
-        query_serializer = GameListQuerySerializer(data=self.request.query_params)
+class GameListView(APIView):
+    def get(self, request: Request) -> Response:
+        query_serializer = GameListQuerySerializer(data=request.query_params)
         query_serializer.is_valid(raise_exception=True)
-
         data = query_serializer.validated_data
 
-        # 서비스 호출
-        return GameService.list_games(
-            user=self.request.user,
+        page = data.get("page", 1)
+        page_size = data.get("page_size", 20)
+
+        results = GameService.list_games(
             search=data.get("search"),
             genre_ids=data.get("genre_ids"),
             platform_ids=data.get("platform_ids"),
             tag_ids=data.get("tag_ids"),
-            esrb_rating=data.get("esrb_rating"),
             ordering=data.get("ordering"),
+            page=page,
+            page_size=page_size,
         )
+
+        # has_next 판단: page_size+1 개를 요청했으므로
+        has_next = len(results) > page_size
+        items = results[:page_size]
+
+        # next/previous URL 생성
+        path = request.build_absolute_uri(request.path)
+        next_url = f"{path}?page={page + 1}&page_size={page_size}" if has_next else None
+        previous_url = f"{path}?page={page - 1}&page_size={page_size}" if page > 1 else None
+
+        response_data = {
+            "next": next_url,
+            "previous": previous_url,
+            "results": items,
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)

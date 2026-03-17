@@ -8,7 +8,6 @@ from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
 
-from apps.games.models import Game
 from apps.interactions.models import InteractionLog
 from apps.recommendations.models import GameSimilarity, RecommendationJob, UserRecommendation
 from apps.users.models import User
@@ -21,37 +20,28 @@ RECOMMENDATION_EXPIRE_DAYS = 7
 
 def _collect_seed_game_ids(*, user_id: int) -> list[int]:
     recent_game_ids = list(
-        InteractionLog.objects.filter(user_id=user_id, game_id__isnull=False)
+        InteractionLog.objects.filter(user_id=user_id, igdb_game_id__isnull=False)
         .order_by("-created_at")
-        .values_list("game_id", flat=True)[:MAX_RECENT_LOG_SCAN]
+        .values_list("igdb_game_id", flat=True)[:MAX_RECENT_LOG_SCAN]
     )
-    unique_seed_game_ids = list(dict.fromkeys(recent_game_ids))
+    unique_seed_game_ids: list[int] = [gid for gid in dict.fromkeys(recent_game_ids) if gid is not None]
     return unique_seed_game_ids[:MAX_SEED_GAMES]
 
 
-def _build_similarity_candidates(*, seed_game_ids: list[int], is_adult_verified: bool) -> list[tuple[int, Decimal]]:
+def _build_similarity_candidates(*, seed_game_ids: list[int]) -> list[tuple[int, Decimal]]:
     if not seed_game_ids:
         return []
 
-    similarity_qs = GameSimilarity.objects.filter(
-        game_id__in=seed_game_ids,
-        similar_game__is_visible=True,
-    ).exclude(similar_game_id__in=seed_game_ids)
+    similarity_qs = GameSimilarity.objects.filter(igdb_game_id__in=seed_game_ids).exclude(
+        igdb_similar_game_id__in=seed_game_ids
+    )
 
-    if not is_adult_verified:
-        similarity_qs = similarity_qs.filter(similar_game__age_rating_min__lt=18)
-
-    rows = similarity_qs.values("similar_game_id").annotate(score=Max("score")).order_by("-score")[:MAX_RECOMMENDATIONS]
-    return [(row["similar_game_id"], row["score"]) for row in rows]
-
-
-def _build_fallback_candidates(*, is_adult_verified: bool) -> list[tuple[int, Decimal]]:
-    fallback_qs = Game.objects.filter(is_visible=True)
-    if not is_adult_verified:
-        fallback_qs = fallback_qs.filter(age_rating_min__lt=18)
-
-    rows = fallback_qs.order_by("-rawg_rating")[:MAX_RECOMMENDATIONS].values("id", "rawg_rating")
-    return [(row["id"], (row["rawg_rating"] / Decimal("5")).quantize(Decimal("0.0001"))) for row in rows]
+    rows = (
+        similarity_qs.values("igdb_similar_game_id")
+        .annotate(score=Max("score"))
+        .order_by("-score")[:MAX_RECOMMENDATIONS]
+    )
+    return [(row["igdb_similar_game_id"], row["score"]) for row in rows]
 
 
 def _upsert_recommendations(
@@ -63,10 +53,10 @@ def _upsert_recommendations(
     now = timezone.now()
     expires_at = now + timedelta(days=RECOMMENDATION_EXPIRE_DAYS)
 
-    for rank, (game_id, score) in enumerate(candidates, start=1):
+    for rank, (igdb_game_id, score) in enumerate(candidates, start=1):
         UserRecommendation.objects.update_or_create(
             user_id=user_id,
-            game_id=game_id,
+            igdb_game_id=igdb_game_id,
             defaults={
                 "generation_version": generation_version,
                 "score": score,
@@ -99,9 +89,6 @@ def run_user_refresh_job(job_id: int) -> None:
         )
         if job is None or job.target_user_id is None:
             return
-        # Allow exactly one worker execution:
-        # - PENDING: legacy/manual path
-        # - RUNNING with started_at=None: pre-claimed by scheduler, not started yet
         if job.status == RecommendationJob.Status.PENDING:
             pass
         elif job.status == RecommendationJob.Status.RUNNING and job.started_at is None:
@@ -121,9 +108,7 @@ def run_user_refresh_job(job_id: int) -> None:
             return
         user = User.objects.get(id=target_user_id)
         seed_game_ids = _collect_seed_game_ids(user_id=user.id)
-        candidates = _build_similarity_candidates(seed_game_ids=seed_game_ids, is_adult_verified=user.is_adult_verified)
-        if not candidates:
-            candidates = _build_fallback_candidates(is_adult_verified=user.is_adult_verified)
+        candidates = _build_similarity_candidates(seed_game_ids=seed_game_ids)
 
         latest_generation = (
             UserRecommendation.objects.filter(user_id=user.id).aggregate(max_generation=Max("generation_version"))[

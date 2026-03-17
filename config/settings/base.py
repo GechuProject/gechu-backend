@@ -260,17 +260,9 @@ from celery.schedules import crontab  # noqa: E402
 ACCOUNT_DELETION_RETENTION_DAYS = int(os.getenv("ACCOUNT_DELETION_RETENTION_DAYS", "7"))
 
 CELERY_BEAT_SCHEDULE = {
-    "rawg-incremental-sync": {
-        "task": "apps.games.tasks.incremental_sync",
-        "schedule": crontab(hour=3, minute=0),
-    },
     "users-purge-soft-deleted": {
         "task": "apps.users.tasks.purge_soft_deleted_users",
         "schedule": crontab(hour=4, minute=0),
-    },
-    "igdb-incremental-sync": {
-        "task": "apps.games.igdb.tasks.incremental_sync",
-        "schedule": crontab(hour=2, minute=0),  # rawg와 1시간 간격
     },
     "recommendation-process-pending-jobs": {
         "task": "apps.recommendations.tasks.process_pending_recommendation_jobs",
