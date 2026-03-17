@@ -30,6 +30,24 @@ def _cache_key_search(params: dict[str, Any]) -> str:
     return f"igdb:search:{h}"
 
 
+def fetch_all_igdb_genres() -> dict[str, int]:
+    """IGDB에서 장르 목록을 가져와서 {장르이름: 장르ID} 매핑 반환"""
+    client = get_igdb_client()
+    raw_genres = client._post("genres", "fields id,name;limit 50;")
+    return {genre["name"]: genre["id"] for genre in raw_genres}
+
+
+def get_genre_id_by_name(name: str) -> int | None:
+    """
+    캐시에서 장르 이름 → IGDB 장르 ID 조회
+    캐시에 없으면 fetch_all_igdb_genres() 호출 후 캐시 저장
+    """
+    genre_map = cache.get("igdb:genre_map") or fetch_all_igdb_genres()
+    cache.set("igdb:genre_map", genre_map, 14 * 24 * 3600)
+    genre_id = genre_map.get(name)
+    return int(genre_id) if genre_id is not None else None
+
+
 def _resolve_genre_filters(genre_ids: list[int]) -> dict[str, list[int]]:
     """DB Genre PK 리스트 → IGDB 타입별 ID 분류"""
     from apps.games.models import Genre
