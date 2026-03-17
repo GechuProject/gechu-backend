@@ -12,10 +12,10 @@ def list_admin_users() -> QuerySet[User]:
 
 
 def get_admin_user(*, user_id: int) -> User:
-    user = User.objects.filter(id=user_id).first()
-    if user is None:
-        raise CustomAPIException(ErrorMessages.USER_NOT_FOUND)
-    return user
+    try:
+        return User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        raise CustomAPIException(ErrorMessages.USER_NOT_FOUND) from None
 
 
 def update_admin_user_status(*, user_id: int, is_active: bool) -> User:
