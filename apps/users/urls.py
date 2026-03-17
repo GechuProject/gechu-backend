@@ -21,6 +21,8 @@ from apps.users.views.search_recent import (
     RecentSearchKeywordDeleteAPIView,
 )
 from apps.users.views.social_auth import (
+    DiscordCallbackAPIView,
+    DiscordLoginAPIView,
     KakaoCallbackAPIView,
     KakaoLoginAPIView,
 )
@@ -45,6 +47,8 @@ urlpatterns = [
     path("users/me/password/", UserPasswordChangeAPIView.as_view(), name="users-me-password-change"),
     path("auth/kakao/login/", KakaoLoginAPIView.as_view(), name="auth-kakao-login"),
     path("auth/kakao/callback/", KakaoCallbackAPIView.as_view(), name="auth-kakao-callback"),
+    path("auth/discord/login/", DiscordLoginAPIView.as_view(), name="auth-discord-login"),
+    path("auth/discord/callback/", DiscordCallbackAPIView.as_view(), name="auth-discord-callback"),
     path(
         "users/me/adult-verifications/initiate/",
         AdultVerificationInitiateAPIView.as_view(),

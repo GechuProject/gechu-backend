@@ -15,7 +15,12 @@ from .search_recent_service import (
     get_recent_searches,
     save_recent_search_keyword,
 )
-from .social_auth_service import build_kakao_login_url, handle_kakao_callback
+from .social_auth_service import (
+    build_discord_login_url,
+    build_kakao_login_url,
+    handle_discord_callback,
+    handle_kakao_callback,
+)
 from .user_me_service import change_user_password, delete_user_me, get_user_me, update_user_me, verify_user_password
 
 __all__ = [
@@ -37,6 +42,8 @@ __all__ = [
     "signup_user",
     "update_user_me",
     "verify_user_password",
+    "build_discord_login_url",
     "build_kakao_login_url",
+    "handle_discord_callback",
     "handle_kakao_callback",
 ]
