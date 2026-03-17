@@ -10,6 +10,7 @@ urlpatterns = [
     path("api/v1/preferences/", include("apps.preferences.urls")),
     path("api/v1/interactions/", include("apps.interactions.urls")),
     path("api/v1/admin/interaction-weight-rules/", include("apps.interactions.urls_admin")),
+    path("api/v1/admin/interaction-context-rules/", include("apps.interactions.urls_admin_context")),
     path("api/v1/recommendations/", include("apps.recommendations.urls")),
     path("api/v1/admin/recommendation-jobs/", include("apps.recommendations.urls_admin")),
     path("admin/", admin.site.urls),

@@ -14,12 +14,79 @@ from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.core.serializers.error_serializer import ErrorResponseSerializer
 from apps.interactions.serializers import (
+    InteractionContextRuleItemSerializer,
+    InteractionContextRuleListResponseSerializer,
     InteractionWeightRuleItemSerializer,
     InteractionWeightRuleListResponseSerializer,
     InteractionWeightRuleUpdateRequestSerializer,
 )
-from apps.interactions.services import InteractionAdminRuleService
+from apps.interactions.services import InteractionAdminContextRuleService, InteractionAdminRuleService
 from apps.users.models import User
+
+
+@extend_schema(
+    tags=["admin"],
+    summary="맥락 가중치 목록 조회",
+    description="관리자 권한으로 맥락(발생 위치)별 가중치 규칙 목록을 조회합니다.",
+    responses={
+        200: InteractionContextRuleListResponseSerializer,
+        401: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Unauthorized",
+            examples=[
+                OpenApiExample(
+                    "인증 필요",
+                    value={
+                        "status_code": ErrorMessages.UNAUTHORIZED.status_code,
+                        "code": ErrorMessages.UNAUTHORIZED.name,
+                        "message": ErrorMessages.UNAUTHORIZED.message,
+                    },
+                )
+            ],
+        ),
+        403: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="Forbidden",
+            examples=[
+                OpenApiExample(
+                    "관리자 권한 필요",
+                    value={
+                        "status_code": ErrorMessages.FORBIDDEN.status_code,
+                        "code": ErrorMessages.FORBIDDEN.name,
+                        "message": ErrorMessages.FORBIDDEN.message,
+                    },
+                )
+            ],
+        ),
+    },
+    examples=[
+        OpenApiExample(
+            "응답 예시",
+            value={
+                "results": [
+                    {
+                        "interaction_source": "recommendation",
+                        "multiplier": "1.40",
+                        "updated_at": "2025-05-01T00:00:00Z",
+                    }
+                ]
+            },
+            response_only=True,
+            status_codes=["200"],
+        )
+    ],
+)
+class AdminInteractionContextRuleListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        user = cast(User, request.user)
+        if not user.is_staff:
+            raise CustomAPIException(ErrorMessages.FORBIDDEN)
+
+        rules = InteractionAdminContextRuleService.list_context_rules()
+        serializer = InteractionContextRuleItemSerializer(rules, many=True)
+        return Response({"results": serializer.data}, status=status.HTTP_200_OK)
 
 
 @extend_schema(

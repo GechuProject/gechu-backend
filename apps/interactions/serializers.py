@@ -85,6 +85,16 @@ class InteractionStoreClickLogResponseSerializer(serializers.Serializer):  # typ
     logged_at = serializers.DateTimeField(source="created_at")
 
 
+class InteractionContextRuleItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    interaction_source = serializers.CharField()
+    multiplier = serializers.DecimalField(max_digits=4, decimal_places=2)
+    updated_at = serializers.DateTimeField()
+
+
+class InteractionContextRuleListResponseSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    results = InteractionContextRuleItemSerializer(many=True)
+
+
 class InteractionWeightRuleItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
     interaction_type = serializers.CharField()
     base_weight = serializers.DecimalField(max_digits=4, decimal_places=2)
