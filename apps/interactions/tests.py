@@ -944,6 +944,91 @@ class AdminInteractionContextRuleListAPITestCase(TestCase):
         self.assertIn("updated_at", first)
 
 
+class AdminInteractionContextRuleUpdateAPITestCase(TestCase):
+    client: APIClient
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/admin/interaction-context-rules/recommendation/"
+
+    def _create_user(self, *, is_staff: bool = False) -> User:
+        return User.objects.create_user(
+            email=f"admin-context-update-{is_staff}@ex.com",
+            nickname=f"admin-context-update-{is_staff}",
+            birth_date=date(1991, 1, 1),
+            password="pw",
+            is_staff=is_staff,
+        )
+
+    def test_admin_interaction_context_rule_update_unauthorized(self) -> None:
+        response = self.client.patch(self.url, {"multiplier": 2.0}, format="json")
+        self.assertEqual(response.status_code, 401)
+
+    def test_admin_interaction_context_rule_update_forbidden_for_non_staff(self) -> None:
+        user = self._create_user(is_staff=False)
+        self.client.force_authenticate(user=user)
+
+        response = self.client.patch(self.url, {"multiplier": 2.0}, format="json")
+        self.assertEqual(response.status_code, 403)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "FORBIDDEN")
+
+    def test_admin_interaction_context_rule_update_not_found(self) -> None:
+        admin = self._create_user(is_staff=True)
+        self.client.force_authenticate(user=admin)
+
+        response = self.client.patch(
+            "/api/v1/admin/interaction-context-rules/unknown_source/",
+            {"multiplier": 2.0},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "SOURCE_NOT_FOUND")
+
+    def test_admin_interaction_context_rule_update_invalid_multiplier(self) -> None:
+        admin = self._create_user(is_staff=True)
+        self.client.force_authenticate(user=admin)
+        InteractionContextRule.objects.create(
+            interaction_source=InteractionContextRule.InteractionSource.RECOMMENDATION,
+            multiplier=1.40,
+        )
+
+        response = self.client.patch(self.url, {"multiplier": 0}, format="json")
+        self.assertEqual(response.status_code, 400)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), "MULTIPLIER_INVALID")
+
+    def test_admin_interaction_context_rule_update_empty_body(self) -> None:
+        admin = self._create_user(is_staff=True)
+        self.client.force_authenticate(user=admin)
+        InteractionContextRule.objects.create(
+            interaction_source=InteractionContextRule.InteractionSource.RECOMMENDATION,
+            multiplier=1.40,
+        )
+
+        response = self.client.patch(self.url, {}, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_admin_interaction_context_rule_update_success(self) -> None:
+        admin = self._create_user(is_staff=True)
+        self.client.force_authenticate(user=admin)
+        rule = InteractionContextRule.objects.create(
+            interaction_source=InteractionContextRule.InteractionSource.RECOMMENDATION,
+            multiplier=1.40,
+        )
+
+        response = self.client.patch(self.url, {"multiplier": 2.0}, format="json")
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["interaction_source"], "recommendation")
+        self.assertEqual(data["multiplier"], "2.00")
+        self.assertIn("updated_at", data)
+
+        rule.refresh_from_db()
+        self.assertEqual(float(cast(Any, rule.multiplier)), 2.0)
+
+
 class AdminInteractionWeightRuleUpdateAPITestCase(TestCase):
     client: APIClient
 

@@ -16,6 +16,7 @@ from apps.core.serializers.error_serializer import ErrorResponseSerializer
 from apps.interactions.serializers import (
     InteractionContextRuleItemSerializer,
     InteractionContextRuleListResponseSerializer,
+    InteractionContextRuleUpdateRequestSerializer,
     InteractionWeightRuleItemSerializer,
     InteractionWeightRuleListResponseSerializer,
     InteractionWeightRuleUpdateRequestSerializer,
@@ -97,6 +98,100 @@ class AdminInteractionContextRuleListView(APIView):
         rules = InteractionAdminContextRuleService.list_context_rules()
         serializer = InteractionContextRuleItemSerializer(rules, many=True)
         return Response({"results": serializer.data}, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["admin"],
+    summary="맥락 가중치 수정",
+    description=(
+        "관리자 권한으로 특정 interaction_source의 multiplier를 수정합니다. "
+        "변경은 이후 발생하는 interaction부터 적용됩니다."
+    ),
+    parameters=[
+        OpenApiParameter(
+            name="source",
+            type=str,
+            location=OpenApiParameter.PATH,
+            required=True,
+            description="interaction_source (list_page, detail_page, search_result, recommendation, saved_page, onboarding)",
+            enum=["list_page", "detail_page", "search_result", "recommendation", "saved_page", "onboarding"],
+        )
+    ],
+    request=InteractionContextRuleUpdateRequestSerializer,
+    responses={
+        200: InteractionContextRuleItemSerializer,
+        400: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="multiplier는 0보다 커야 합니다. 또는 요청 body 오류.",
+            examples=[
+                OpenApiExample(
+                    "multiplier 범위 오류",
+                    value={
+                        "status_code": ErrorMessages.MULTIPLIER_INVALID.status_code,
+                        "code": ErrorMessages.MULTIPLIER_INVALID.name,
+                        "message": ErrorMessages.MULTIPLIER_INVALID.message,
+                    },
+                ),
+            ],
+        ),
+        401: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="인증되지 않음.",
+        ),
+        403: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="권한 없음. is_staff=True인 관리자만 호출할 수 있습니다.",
+        ),
+        404: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="해당 source를 찾을 수 없음.",
+            examples=[
+                OpenApiExample(
+                    "SOURCE_NOT_FOUND",
+                    value={
+                        "status_code": ErrorMessages.SOURCE_NOT_FOUND.status_code,
+                        "code": ErrorMessages.SOURCE_NOT_FOUND.name,
+                        "message": ErrorMessages.SOURCE_NOT_FOUND.message,
+                    },
+                ),
+            ],
+        ),
+    },
+    examples=[
+        OpenApiExample("요청 예시", value={"multiplier": 2.0}, request_only=True),
+        OpenApiExample(
+            "응답 예시",
+            value={
+                "interaction_source": "recommendation",
+                "multiplier": "2.00",
+                "updated_at": "2025-06-01T16:00:00Z",
+            },
+            response_only=True,
+            status_codes=["200"],
+        ),
+    ],
+)
+class AdminInteractionContextRuleUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request: Request, source: str) -> Response:
+        user = cast(User, request.user)
+        if not user.is_staff:
+            raise CustomAPIException(ErrorMessages.FORBIDDEN)
+
+        req_serializer = InteractionContextRuleUpdateRequestSerializer(data=request.data)
+        req_serializer.is_valid(raise_exception=True)
+        data = req_serializer.validated_data
+
+        rule = InteractionAdminContextRuleService.update_context_rule(
+            source=source,
+            multiplier=cast(Decimal, data["multiplier"]),
+        )
+        if rule is None:
+            raise CustomAPIException(ErrorMessages.SOURCE_NOT_FOUND)
+
+        serializer = InteractionContextRuleItemSerializer(rule)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @extend_schema(
