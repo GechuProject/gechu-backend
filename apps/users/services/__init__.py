@@ -22,14 +22,24 @@ from .social_auth_service import (
     handle_discord_callback,
     handle_kakao_callback,
 )
-from .user_me_service import change_user_password, delete_user_me, get_user_me, update_user_me, verify_user_password
+from .user_me_service import (
+    change_user_password,
+    create_user_profile_image_upload_url,
+    delete_user_me,
+    delete_user_profile_image,
+    get_user_me,
+    update_user_me,
+    verify_user_password,
+)
 
 __all__ = [
     "authenticate_user",
     "change_user_password",
     "clear_recent_searches",
+    "create_user_profile_image_upload_url",
     "delete_recent_search_keyword",
     "delete_user_me",
+    "delete_user_profile_image",
     "get_admin_dashboard_summary",
     "get_admin_user",
     "get_active_user_or_deactivated",

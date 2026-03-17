@@ -23,6 +23,13 @@ DISCORD_AUTHORIZE_URL = "https://discord.com/oauth2/authorize"
 DISCORD_TOKEN_URL = "https://discord.com/api/v10/oauth2/token"
 DISCORD_USER_INFO_URL = "https://discord.com/api/v10/users/@me"
 FRONTEND_DOMAIN = os.getenv("FRONTEND_DOMAIN")
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL")
+SOCIAL_LOGIN_SUCCESS_URL = os.getenv("SOCIAL_LOGIN_SUCCESS_URL")
+SOCIAL_LOGIN_ONBOARDING_URL = os.getenv("SOCIAL_LOGIN_ONBOARDING_URL")
+AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
+AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_PUBLIC_BASE_URL = os.getenv("AWS_S3_PUBLIC_BASE_URL")
+AWS_S3_PRESIGNED_URL_EXPIRES_IN = int(os.getenv("AWS_S3_PRESIGNED_URL_EXPIRES_IN", "3600"))
 BBATON_AUTHORIZE_URL = os.getenv("BBATON_AUTHORIZE_URL")
 BBATON_TOKEN_URL = os.getenv("BBATON_TOKEN_URL")
 BBATON_USER_INFO_URL = os.getenv("BBATON_USER_INFO_URL")
@@ -236,9 +243,17 @@ from celery.schedules import crontab  # noqa: E402
 ACCOUNT_DELETION_RETENTION_DAYS = int(os.getenv("ACCOUNT_DELETION_RETENTION_DAYS", "7"))
 
 CELERY_BEAT_SCHEDULE = {
+    "rawg-incremental-sync": {
+        "task": "apps.games.tasks.incremental_sync",
+        "schedule": crontab(hour=3, minute=0),
+    },
     "users-purge-soft-deleted": {
         "task": "apps.users.tasks.purge_soft_deleted_users",
         "schedule": crontab(hour=4, minute=0),
+    },
+    "igdb-incremental-sync": {
+        "task": "apps.games.igdb.tasks.incremental_sync",
+        "schedule": crontab(hour=2, minute=0),
     },
     "recommendation-process-pending-jobs": {
         "task": "apps.recommendations.tasks.process_pending_recommendation_jobs",

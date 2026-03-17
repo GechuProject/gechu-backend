@@ -45,5 +45,21 @@ class UserPasswordChangeRequestSerializer(serializers.Serializer[dict[str, objec
     new_password = serializers.CharField(write_only=True)
 
 
+class UserProfileImageUploadRequestSerializer(serializers.Serializer[dict[str, object]]):
+    file_name = serializers.CharField()
+    content_type = serializers.CharField()
+    file_size = serializers.IntegerField(min_value=1)
+
+
+class UserProfileImageUploadResponseSerializer(serializers.Serializer[dict[str, object]]):
+    upload_url = serializers.URLField()
+    profile_img_url = serializers.URLField(allow_null=True)
+    expires_in = serializers.IntegerField()
+
+
+class UserProfileImageResponseSerializer(serializers.Serializer[dict[str, object]]):
+    profile_img_url = serializers.URLField(allow_null=True)
+
+
 class UserMeDeleteResponseSerializer(serializers.Serializer[dict[str, object]]):
     message = serializers.CharField()
