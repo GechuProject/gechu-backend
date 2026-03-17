@@ -15,6 +15,11 @@ from .similar_game import (
     SimilarGameQueryParamsSerializer,
     SimilarGameResponseSerializer,
 )
+from .tag_list import (
+    TagListQuerySerializer,
+    TagListResponseSerializer,
+    TagResponseSerializer,
+)
 
 __all__ = [
     "GameDetailSerializer",
@@ -26,4 +31,7 @@ __all__ = [
     "GenreListResponseSerializer",
     "PlatformResponseSerializer",
     "PlatformListResponseSerializer",
+    "TagResponseSerializer",
+    "TagListResponseSerializer",
+    "TagListQuerySerializer",
 ]
