@@ -9,6 +9,7 @@ from rest_framework.test import APIClient
 
 
 @override_settings(
+    DISCORD_AUTHORIZE_URL="https://discord.example.com/oauth2/authorize",
     DISCORD_CLIENT_ID="discord-client-id",
     DISCORD_REDIRECT_URI="https://example.com/auth/discord/callback/",
 )
@@ -26,7 +27,7 @@ class DiscordLoginAPITestCase(TestCase):
         state = query_params["state"][0]
 
         self.assertEqual(parsed_url.scheme, "https")
-        self.assertEqual(parsed_url.netloc, "discord.com")
+        self.assertEqual(parsed_url.netloc, "discord.example.com")
         self.assertEqual(parsed_url.path, "/oauth2/authorize")
         self.assertEqual(query_params["client_id"][0], "discord-client-id")
         self.assertEqual(query_params["redirect_uri"][0], "https://example.com/auth/discord/callback/")

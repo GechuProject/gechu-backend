@@ -39,6 +39,32 @@ class KakaoLoginAPIView(APIView):
         return redirect(login_url)
 
 
+class SocialCallbackAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def handle_callback(self, *, code: str, state: str) -> dict[str, object]:
+        raise NotImplementedError
+
+    def get(self, request: Request) -> Response:
+        serializer = SocialCallbackRequestSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+
+        result = self.handle_callback(**serializer.validated_data)
+
+        refresh_token = cast(str, result.pop("refresh_token"))
+        is_new_user = result["is_new_user"]
+        status_code = status.HTTP_201_CREATED if is_new_user else status.HTTP_200_OK
+
+        response = Response(SocialLoginResponseSerializer(result).data, status=status_code)
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            samesite="Lax",
+        )
+        return response
+
+
 @extend_schema(
     summary="카카오 로그인 콜백 처리",
     request=None,
@@ -68,27 +94,9 @@ class KakaoLoginAPIView(APIView):
     },
     tags=["auth"],
 )
-class KakaoCallbackAPIView(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request: Request) -> Response:
-        serializer = SocialCallbackRequestSerializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
-
-        result = handle_kakao_callback(**serializer.validated_data)
-
-        refresh_token = cast(str, result.pop("refresh_token"))
-        is_new_user = result["is_new_user"]
-        status_code = status.HTTP_201_CREATED if is_new_user else status.HTTP_200_OK
-
-        response = Response(SocialLoginResponseSerializer(result).data, status=status_code)
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token,
-            httponly=True,
-            samesite="Lax",
-        )
-        return response
+class KakaoCallbackAPIView(SocialCallbackAPIView):
+    def handle_callback(self, *, code: str, state: str) -> dict[str, object]:
+        return handle_kakao_callback(code=code, state=state)
 
 
 @extend_schema(
@@ -137,24 +145,6 @@ class DiscordLoginAPIView(APIView):
     },
     tags=["auth"],
 )
-class DiscordCallbackAPIView(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request: Request) -> Response:
-        serializer = SocialCallbackRequestSerializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
-
-        result = handle_discord_callback(**serializer.validated_data)
-
-        refresh_token = cast(str, result.pop("refresh_token"))
-        is_new_user = result["is_new_user"]
-        status_code = status.HTTP_201_CREATED if is_new_user else status.HTTP_200_OK
-
-        response = Response(SocialLoginResponseSerializer(result).data, status=status_code)
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token,
-            httponly=True,
-            samesite="Lax",
-        )
-        return response
+class DiscordCallbackAPIView(SocialCallbackAPIView):
+    def handle_callback(self, *, code: str, state: str) -> dict[str, object]:
+        return handle_discord_callback(code=code, state=state)

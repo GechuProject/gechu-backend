@@ -24,6 +24,8 @@ User = get_user_model()
     DISCORD_CLIENT_ID="discord-client-id",
     DISCORD_CLIENT_SECRET="discord-client-secret",
     DISCORD_REDIRECT_URI="https://example.com/auth/discord/callback/",
+    DISCORD_TOKEN_URL="https://discord.example.com/api/oauth2/token",
+    DISCORD_USER_INFO_URL="https://discord.example.com/api/users/@me",
 )
 class DiscordSocialAuthServiceTestCase(TestCase):
     def test_request_discord_access_token_returns_access_token(self) -> None:
@@ -35,6 +37,17 @@ class DiscordSocialAuthServiceTestCase(TestCase):
             access_token = request_discord_access_token(code="test-code")
 
         self.assertEqual(access_token, "discord-access-token")
+        mock_post.assert_called_once_with(
+            "https://discord.example.com/api/oauth2/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": "discord-client-id",
+                "client_secret": "discord-client-secret",
+                "redirect_uri": "https://example.com/auth/discord/callback/",
+                "code": "test-code",
+            },
+            timeout=5,
+        )
 
     def test_request_discord_access_token_raises_for_request_error(self) -> None:
         with patch(
@@ -60,6 +73,13 @@ class DiscordSocialAuthServiceTestCase(TestCase):
 
         self.assertEqual(user_info["id"], "discord-user-id")
         self.assertEqual(user_info["email"], "discord@example.com")
+        mock_get.assert_called_once_with(
+            "https://discord.example.com/api/users/@me",
+            headers={
+                "Authorization": "Bearer discord-access-token",
+            },
+            timeout=5,
+        )
 
     def test_request_discord_user_info_raises_for_invalid_payload(self) -> None:
         with patch("apps.users.services.social_auth_service.requests.get") as mock_get:

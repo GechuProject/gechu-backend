@@ -46,7 +46,7 @@ def build_discord_login_url() -> str:
     }
 
     query_string = urlencode(params)
-    return f"https://discord.com/oauth2/authorize?{query_string}"
+    return f"{settings.DISCORD_AUTHORIZE_URL}?{query_string}"
 
 
 def handle_kakao_callback(*, code: str, state: str) -> dict[str, object]:
@@ -127,7 +127,7 @@ def request_kakao_access_token(*, code: str) -> str:
 def request_discord_access_token(*, code: str) -> str:
     try:
         response = requests.post(
-            "https://discord.com/api/v10/oauth2/token",
+            settings.DISCORD_TOKEN_URL,
             data={
                 "grant_type": "authorization_code",
                 "client_id": settings.DISCORD_CLIENT_ID,
@@ -172,7 +172,7 @@ def request_kakao_user_info(*, access_token: str) -> dict[str, object]:
 def request_discord_user_info(*, access_token: str) -> dict[str, object]:
     try:
         response = requests.get(
-            "https://discord.com/api/v10/users/@me",
+            settings.DISCORD_USER_INFO_URL,
             headers={
                 "Authorization": f"Bearer {access_token}",
             },
