@@ -1,25 +1,30 @@
 from typing import cast
+from urllib.parse import urljoin
 
+from django.conf import settings
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
-from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.serializers.error_serializer import ErrorResponseSerializer
-from apps.users.serializers.social_auth import (
-    SocialCallbackRequestSerializer,
-    SocialLoginResponseSerializer,
-)
+from apps.users.serializers.social_auth import SocialCallbackRequestSerializer, SocialLoginResponseSerializer
 from apps.users.services import (
     build_discord_login_url,
     build_kakao_login_url,
     handle_discord_callback,
     handle_kakao_callback,
 )
+
+
+def _resolve_social_redirect_url(request: Request, *, is_new_user: bool) -> str:
+    base_url = settings.FRONTEND_BASE_URL or request.build_absolute_uri("/")
+    success_url = settings.SOCIAL_LOGIN_SUCCESS_URL or base_url
+    onboarding_url = settings.SOCIAL_LOGIN_ONBOARDING_URL or urljoin(base_url.rstrip("/") + "/", "onboarding/")
+    return onboarding_url if is_new_user else success_url
 
 
 @extend_schema(
@@ -45,15 +50,15 @@ class SocialCallbackAPIView(APIView):
     def handle_callback(self, *, code: str, state: str) -> dict[str, object]:
         raise NotImplementedError
 
-    def get(self, request: Request) -> Response:
-        serializer = SocialCallbackRequestSerializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
-
-        result = self.handle_callback(**serializer.validated_data)
-
+    def build_success_response(
+        self,
+        request: Request,
+        *,
+        result: dict[str, object],
+    ) -> Response | HttpResponseRedirect:
         refresh_token = cast(str, result.pop("refresh_token"))
-        is_new_user = result["is_new_user"]
-        status_code = status.HTTP_201_CREATED if is_new_user else status.HTTP_200_OK
+        is_new_user = cast(bool, result["is_new_user"])
+        status_code = 201 if is_new_user else 200
 
         response = Response(SocialLoginResponseSerializer(result).data, status=status_code)
         response.set_cookie(
@@ -63,6 +68,13 @@ class SocialCallbackAPIView(APIView):
             samesite="Lax",
         )
         return response
+
+    def get(self, request: Request) -> Response | HttpResponseRedirect:
+        serializer = SocialCallbackRequestSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+
+        result = self.handle_callback(**serializer.validated_data)
+        return self.build_success_response(request, result=result)
 
 
 @extend_schema(
@@ -97,6 +109,24 @@ class SocialCallbackAPIView(APIView):
 class KakaoCallbackAPIView(SocialCallbackAPIView):
     def handle_callback(self, *, code: str, state: str) -> dict[str, object]:
         return handle_kakao_callback(code=code, state=state)
+
+    def build_success_response(
+        self,
+        request: Request,
+        *,
+        result: dict[str, object],
+    ) -> HttpResponseRedirect:
+        refresh_token = cast(str, result.pop("refresh_token"))
+        is_new_user = cast(bool, result["is_new_user"])
+        redirect_url = _resolve_social_redirect_url(request, is_new_user=is_new_user)
+        response = redirect(redirect_url)
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            samesite="Lax",
+        )
+        return response
 
 
 @extend_schema(
@@ -148,3 +178,21 @@ class DiscordLoginAPIView(APIView):
 class DiscordCallbackAPIView(SocialCallbackAPIView):
     def handle_callback(self, *, code: str, state: str) -> dict[str, object]:
         return handle_discord_callback(code=code, state=state)
+
+    def build_success_response(
+        self,
+        request: Request,
+        *,
+        result: dict[str, object],
+    ) -> HttpResponseRedirect:
+        refresh_token = cast(str, result.pop("refresh_token"))
+        is_new_user = cast(bool, result["is_new_user"])
+        redirect_url = _resolve_social_redirect_url(request, is_new_user=is_new_user)
+        response = redirect(redirect_url)
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            samesite="Lax",
+        )
+        return response

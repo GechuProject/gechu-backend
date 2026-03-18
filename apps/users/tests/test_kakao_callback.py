@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
@@ -36,17 +36,32 @@ class KakaoCallbackAPITestCase(TestCase):
             "is_new_user": True,
         }
 
-        response = self.client.get(
-            self.url,
-            {
-                "code": "test-code",
-                "state": "valid-state",
-            },
-        )
+        response = self.client.get(self.url, {"code": "test-code", "state": "valid-state"})
 
-        self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.json()["access_token"], "test-access-token")
-        self.assertEqual(response.json()["token_type"], "Bearer")
-        self.assertEqual(response.json()["expires_in"], 3600)
-        self.assertEqual(response.json()["is_new_user"], True)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "http://testserver/onboarding/")
+        self.assertEqual(response.cookies["refresh_token"].value, "test-refresh-token")
+
+    @override_settings(
+        FRONTEND_BASE_URL="https://frontend.example.com",
+        SOCIAL_LOGIN_SUCCESS_URL="https://frontend.example.com",
+        SOCIAL_LOGIN_ONBOARDING_URL="https://frontend.example.com/onboarding",
+    )
+    @patch("apps.users.views.social_auth.handle_kakao_callback")
+    def test_kakao_callback_redirects_existing_user_to_frontend_home(
+        self,
+        mock_handle_kakao_callback: MagicMock,
+    ) -> None:
+        mock_handle_kakao_callback.return_value = {
+            "access_token": "test-access-token",
+            "refresh_token": "test-refresh-token",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "is_new_user": False,
+        }
+
+        response = self.client.get(self.url, {"code": "test-code", "state": "valid-state"})
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "https://frontend.example.com")
         self.assertEqual(response.cookies["refresh_token"].value, "test-refresh-token")
