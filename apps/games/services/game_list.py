@@ -1,7 +1,6 @@
 from typing import Any
 
 from apps.games.igdb import cache as igdb_cache
-from apps.games.igdb.client import get_igdb_client
 
 # IGDB 정렬 매핑: API 쿼리 파라미터 → IGDB sort 필드
 _ORDERING_MAP: dict[str, str] = {
@@ -43,7 +42,7 @@ class GameService:
         return results
 
     @staticmethod
-    def top_n_by_genre(genre_name: str, top_n: int = 10, sort: str = "-raw_rating") -> list[dict[str, Any]]:
+    def top_n_by_genre(genre_name: str, top_n: int = 10, sort: str = "-rawg_rating") -> list[dict[str, Any]]:
         igdb_sort = _ORDERING_MAP.get(sort, "rating desc")
 
         # 캐시에서 장르 이름 -> id 조회
@@ -51,6 +50,5 @@ class GameService:
         if not genre_id:
             return []
 
-        client = get_igdb_client()
-        results = client.search_games(genre_ids=[genre_id], sort=igdb_sort, limit=top_n)
+        results = igdb_cache.search_games(genre_ids=[genre_id], sort=igdb_sort, limit=top_n)
         return results

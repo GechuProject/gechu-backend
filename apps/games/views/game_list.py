@@ -99,4 +99,6 @@ class GameListView(APIView):
             "results": items,
         }
 
-        return Response(response_data, status=status.HTTP_200_OK)
+        serializer = GameListResponseSerializer(response_data)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)

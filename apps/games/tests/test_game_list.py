@@ -72,23 +72,6 @@ class GameListViewTests(APITestCase):
         self.assertEqual(game_data["name"], "Test Game")
         self.assertEqual(game_data["genres"][0]["name"], "Action")
 
-    @patch("apps.games.services.game_list.igdb_cache.search_games")
-    def test_game_list_search_and_ordering(self, mock_search: MagicMock) -> None:
-        """검색어 필터 및 정렬 적용"""
-        mock_search.return_value = [MOCK_GAME_LIST_ITEM]
-
-        self.client.force_authenticate(user=self.user)
-        # 검색어 + 내림차순
-        response = self.client.get(self.url, {"search": "Test", "ordering": "-rawg_rating"})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data["results"]), 1)
-
-        # 검색어 존재하지만 결과 없음
-        mock_search.return_value = []
-        response = self.client.get(self.url, {"search": "NoMatch"})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data["results"]), 0)
-
     def test_invalid_ordering(self) -> None:
         """잘못된 ordering 값"""
         self.client.force_authenticate(user=self.user)
@@ -106,43 +89,55 @@ class GameListViewTests(APITestCase):
         self.assertEqual(response.data["message"], ErrorMessages.INVALID_QUERY_PARAM.message)
 
     @patch("apps.games.services.game_list.igdb_cache.search_games")
-    def test_search_filter(self, mock_search: object) -> None:
-        """검색어 필터 적용"""
-        mock_search.return_value = [MOCK_GAME_LIST_ITEM]  # type: ignore[attr-defined]
-
+    def test_search_and_ordering(self, mock_search: MagicMock) -> None:
+        """검색 + 정렬 통합 테스트"""
         self.client.force_authenticate(user=self.user)
-        response = self.client.get(self.url, {"search": "Test"})
+
+        # 검색 결과 있음
+        mock_search.return_value = [MOCK_GAME_LIST_ITEM]
+
+        response = self.client.get(
+            self.url,
+            {"search": "Test", "ordering": "-rawg_rating"},
+        )
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
 
-        # Second search returns empty
-        mock_search.return_value = []  # type: ignore[attr-defined]
+        game_data = response.data["results"][0]
+        self.assertEqual(game_data["name"], "Test Game")
+
+        # 검색 결과 없음
+        mock_search.return_value = []
+
         response = self.client.get(self.url, {"search": "NoMatch"})
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 0)
 
-    @patch("apps.games.services.game_list.get_igdb_client")
+    @patch("apps.games.services.game_list.igdb_cache.search_games")
     @patch("apps.games.services.game_list.igdb_cache.get_genre_id_by_name")
-    def test_top_n_by_genre_service_real(self, mock_get_genre_id: MagicMock, mock_get_client: MagicMock) -> None:
+    def test_top_n_by_genre_service_real(self, mock_get_genre_id: MagicMock, mock_search: MagicMock) -> None:
         """top_n_by_genre 내부 분기와 검색까지 실제 실행"""
         # ------------------
-        # 장르 존재 시
+        # 장르 존재
         # ------------------
         mock_get_genre_id.return_value = 12
-        mock_client_instance = MagicMock()
-        mock_get_client.return_value = mock_client_instance
-        mock_client_instance.search_games.return_value = MOCK_TOP10_GAMES
+        mock_search.return_value = MOCK_TOP10_GAMES
 
         result = GameService.top_n_by_genre("Action")
+
         self.assertEqual(len(result), 10)
         self.assertEqual(result[0]["rawg_rating"], 5.5)
-        self.assertEqual(result[-1]["rawg_rating"], 4.6)
+        self.assertAlmostEqual(result[-1]["rawg_rating"], 4.6)
 
         # ------------------
-        # 장르 미존재 시
+        # 장르 없음
         # ------------------
         mock_get_genre_id.return_value = None
+
         result = GameService.top_n_by_genre("NonExistent")
+
         self.assertEqual(result, [])
 
     @patch("apps.games.services.game_list.GameService.top_n_by_genre")
@@ -152,7 +147,7 @@ class GameListViewTests(APITestCase):
         self.client.force_authenticate(user=self.user)
         resp = self.client.get(self.url, {"genre_name": "Action"})
         self.assertEqual(len(resp.data["results"]), 10)
-        self.assertEqual(resp.data["results"][0]["rawg_rating"], 5.5)
+        self.assertEqual(resp.data["results"][0]["rawg_rating"], "5.50")
         self.assertIsNone(resp.data["next"])
         self.assertIsNone(resp.data["previous"])
 

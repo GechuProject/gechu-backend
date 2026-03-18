@@ -3,8 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
+from django.conf import settings
 from django.core.cache import cache
 
 from apps.games.models import Platform
@@ -42,8 +43,17 @@ def get_genre_id_by_name(name: str) -> int | None:
     캐시에서 장르 이름 → IGDB 장르 ID 조회
     캐시에 없으면 fetch_all_igdb_genres() 호출 후 캐시 저장
     """
-    genre_map = cache.get("igdb:genre_map") or fetch_all_igdb_genres()
-    cache.set("igdb:genre_map", genre_map, 14 * 24 * 3600)
+    genre_map = cache.get(settings.IGDB_GENRE_MAP_CACHE_KEY)
+    if genre_map is None:
+        genre_map = fetch_all_igdb_genres()
+        cache.set(
+            settings.IGDB_GENRE_MAP_CACHE_KEY,
+            genre_map,
+            settings.IGDB_GENRE_MAP_CACHE_TTL,
+        )
+
+    genre_map = cast(dict[str, int], genre_map)
+
     genre_id = genre_map.get(name)
     return int(genre_id) if genre_id is not None else None
 
