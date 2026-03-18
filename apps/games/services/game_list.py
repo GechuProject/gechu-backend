@@ -40,3 +40,15 @@ class GameService:
         )
 
         return results
+
+    @staticmethod
+    def top_n_by_genre(genre_name: str, top_n: int = 10, sort: str = "-rawg_rating") -> list[dict[str, Any]]:
+        igdb_sort = _ORDERING_MAP.get(sort, "rating desc")
+
+        # 캐시에서 장르 이름 -> id 조회
+        genre_id = igdb_cache.get_genre_id_by_name(genre_name)
+        if not genre_id:
+            return []
+
+        results = igdb_cache.search_games(genre_ids=[genre_id], sort=igdb_sort, limit=top_n)
+        return results

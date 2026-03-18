@@ -67,24 +67,31 @@ class GameListView(APIView):
         page = data.get("page", 1)
         page_size = data.get("page_size", 20)
 
-        results = GameService.list_games(
-            search=data.get("search"),
-            genre_ids=data.get("genre_ids"),
-            platform_ids=data.get("platform_ids"),
-            tag_ids=data.get("tag_ids"),
-            ordering=data.get("ordering"),
-            page=page,
-            page_size=page_size,
-        )
+        genre_name = data.get("genre_name")
 
-        # has_next 판단: page_size+1 개를 요청했으므로
-        has_next = len(results) > page_size
-        items = results[:page_size]
+        if genre_name:
+            items = GameService.top_n_by_genre(genre_name)
+            next_url = None
+            previous_url = None
+        else:
+            results = GameService.list_games(
+                search=data.get("search"),
+                genre_ids=data.get("genre_ids"),
+                platform_ids=data.get("platform_ids"),
+                tag_ids=data.get("tag_ids"),
+                ordering=data.get("ordering"),
+                page=page,
+                page_size=page_size,
+            )
 
-        # next/previous URL 생성
-        path = request.build_absolute_uri(request.path)
-        next_url = f"{path}?page={page + 1}&page_size={page_size}" if has_next else None
-        previous_url = f"{path}?page={page - 1}&page_size={page_size}" if page > 1 else None
+            # has_next 판단: page_size+1 개를 요청했으므로
+            has_next = len(results) > page_size
+            items = results[:page_size]
+
+            # next/previous URL 생성
+            path = request.build_absolute_uri(request.path)
+            next_url = f"{path}?page={page + 1}&page_size={page_size}" if has_next else None
+            previous_url = f"{path}?page={page - 1}&page_size={page_size}" if page > 1 else None
 
         response_data = {
             "next": next_url,
@@ -92,4 +99,6 @@ class GameListView(APIView):
             "results": items,
         }
 
-        return Response(response_data, status=status.HTTP_200_OK)
+        serializer = GameListResponseSerializer(response_data)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)

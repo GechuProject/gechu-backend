@@ -26,6 +26,7 @@ class GameListQuerySerializer(serializers.Serializer[dict[str, Any]]):
     search = serializers.CharField(required=False)
     ordering = serializers.CharField(default="-rawg_rating", required=False)
     genre_ids = serializers.CharField(required=False)
+    genre_name = serializers.CharField(required=False)
     platform_ids = serializers.CharField(required=False)
     tag_ids = serializers.CharField(required=False)
     page = serializers.IntegerField(default=1, required=False)
@@ -39,6 +40,9 @@ class GameListQuerySerializer(serializers.Serializer[dict[str, Any]]):
 
     def validate_genre_ids(self, value: str | None) -> list[int]:
         return self._parse_int_list(value)
+
+    def validate_genre_name(self, value: str | None) -> str | None:
+        return value
 
     def validate_platform_ids(self, value: str | None) -> list[int]:
         return self._parse_int_list(value)

@@ -3,8 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
+from django.conf import settings
 from django.core.cache import cache
 
 from apps.games.models import Platform
@@ -28,6 +29,33 @@ def _cache_key_search(params: dict[str, Any]) -> str:
     raw = json.dumps(params, sort_keys=True, default=str)
     h = hashlib.md5(raw.encode()).hexdigest()[:12]
     return f"igdb:search:{h}"
+
+
+def fetch_all_igdb_genres() -> dict[str, int]:
+    """IGDB에서 장르 목록을 가져와서 {장르이름: 장르ID} 매핑 반환"""
+    client = get_igdb_client()
+    raw_genres = client._post("genres", "fields id,name;limit 50;")
+    return {genre["name"]: genre["id"] for genre in raw_genres}
+
+
+def get_genre_id_by_name(name: str) -> int | None:
+    """
+    캐시에서 장르 이름 → IGDB 장르 ID 조회
+    캐시에 없으면 fetch_all_igdb_genres() 호출 후 캐시 저장
+    """
+    genre_map = cache.get(settings.IGDB_GENRE_MAP_CACHE_KEY)
+    if genre_map is None:
+        genre_map = fetch_all_igdb_genres()
+        cache.set(
+            settings.IGDB_GENRE_MAP_CACHE_KEY,
+            genre_map,
+            settings.IGDB_GENRE_MAP_CACHE_TTL,
+        )
+
+    genre_map = cast(dict[str, int], genre_map)
+
+    genre_id = genre_map.get(name)
+    return int(genre_id) if genre_id is not None else None
 
 
 def _resolve_genre_filters(genre_ids: list[int]) -> dict[str, list[int]]:

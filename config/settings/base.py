@@ -136,6 +136,10 @@ GENRES_CACHE_TTL = 60 * 60  # 캐싱 TTL (초 단위) - 1시간
 PLATFORMS_CACHE_KEY = "platforms:all"
 PLATFORMS_CACHE_TTL = 60 * 60
 
+# IGDB 장르 매핑 캐싱
+IGDB_GENRE_MAP_CACHE_KEY = "igdb:genre_map"
+IGDB_GENRE_MAP_CACHE_TTL = 14 * 24 * 3600
+
 # Celery (RAWG 동기화, 추천 재생성 비동기 처리)
 CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/2"
 CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:{REDIS_PORT}/2"
