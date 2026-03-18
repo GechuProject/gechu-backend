@@ -88,7 +88,7 @@ class GameListView(APIView):
                 page_size=page_size,
             )
 
-            # has_next 판단: page_size+1 개를 요청했으므로
+            # has_next 판단: page_size+1 개를 요청해서
             has_next = len(results) > page_size
             items = results[:page_size]
 
