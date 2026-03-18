@@ -65,6 +65,7 @@ class ErrorMessages(Enum):
     INTERACTION_TYPE_NOT_FOUND = (404, "해당 interaction_type을 찾을 수 없습니다.")
     SOURCE_NOT_FOUND = (404, "해당 source를 찾을 수 없습니다.")
     USER_NOT_FOUND = (404, "사용자를 찾을 수 없습니다.")
+    SEARCH_KEYWORD_NOT_FOUND = (404, "해당 검색어를 찾을 수 없습니다.")
 
     # 409 Conflict
     EMAIL_ALREADY_EXISTS = (409, "이미 사용 중인 이메일입니다.")
