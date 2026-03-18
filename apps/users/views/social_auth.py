@@ -20,7 +20,7 @@ from apps.users.services import (
 
 
 def _resolve_social_redirect_url(request: Request, *, is_new_user: bool) -> str:
-    base_url = settings.FRONTEND_DOMAIN or request.build_absolute_uri("/")  # type: ignore
+    base_url = settings.FRONTEND_DOMAIN or request.build_absolute_uri("/")  
     onboarding_url = settings.SOCIAL_LOGIN_ONBOARDING_URL or request.build_absolute_uri("/api/v1/preferences/me/")
     return onboarding_url if is_new_user else base_url
 
