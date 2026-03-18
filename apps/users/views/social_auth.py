@@ -55,12 +55,11 @@ class SocialCallbackAPIView(APIView):
         request: Request,
         *,
         result: dict[str, object],
-    ) -> Response | HttpResponseRedirect:
+    ) -> HttpResponseRedirect:
         refresh_token = cast(str, result.pop("refresh_token"))
         is_new_user = cast(bool, result["is_new_user"])
-        status_code = 201 if is_new_user else 200
-
-        response = Response(SocialLoginResponseSerializer(result).data, status=status_code)
+        redirect_url = _resolve_social_redirect_url(request, is_new_user=is_new_user)
+        response = redirect(redirect_url)
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
@@ -109,24 +108,6 @@ class SocialCallbackAPIView(APIView):
 class KakaoCallbackAPIView(SocialCallbackAPIView):
     def handle_callback(self, *, code: str, state: str) -> dict[str, object]:
         return handle_kakao_callback(code=code, state=state)
-
-    def build_success_response(
-        self,
-        request: Request,
-        *,
-        result: dict[str, object],
-    ) -> HttpResponseRedirect:
-        refresh_token = cast(str, result.pop("refresh_token"))
-        is_new_user = cast(bool, result["is_new_user"])
-        redirect_url = _resolve_social_redirect_url(request, is_new_user=is_new_user)
-        response = redirect(redirect_url)
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token,
-            httponly=True,
-            samesite="Lax",
-        )
-        return response
 
 
 @extend_schema(
@@ -178,21 +159,3 @@ class DiscordLoginAPIView(APIView):
 class DiscordCallbackAPIView(SocialCallbackAPIView):
     def handle_callback(self, *, code: str, state: str) -> dict[str, object]:
         return handle_discord_callback(code=code, state=state)
-
-    def build_success_response(
-        self,
-        request: Request,
-        *,
-        result: dict[str, object],
-    ) -> HttpResponseRedirect:
-        refresh_token = cast(str, result.pop("refresh_token"))
-        is_new_user = cast(bool, result["is_new_user"])
-        redirect_url = _resolve_social_redirect_url(request, is_new_user=is_new_user)
-        response = redirect(redirect_url)
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token,
-            httponly=True,
-            samesite="Lax",
-        )
-        return response
