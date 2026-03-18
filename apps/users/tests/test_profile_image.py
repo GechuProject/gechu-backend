@@ -47,7 +47,7 @@ class UserProfileImageAPITest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["upload_url"], "https://signed.example.com/upload")
         self.assertEqual(response.json()["expires_in"], 3600)
-        self.assertTrue(response.json()["profile_img_url"].startswith("https://cdn.example.com/profile-images/"))
+        self.assertTrue(response.json()["profile_img_url"].startswith("https://cdn.example.com/images/profile/"))
 
         self.user.refresh_from_db()
         self.assertEqual(self.user.profile_img_url, response.json()["profile_img_url"])
@@ -123,7 +123,7 @@ class UserProfileImageAPITest(TestCase):
 
     def test_delete_profile_image_clears_profile_url(self) -> None:
         self.client.force_authenticate(user=self.user)
-        self.user.profile_img_url = f"https://cdn.example.com/profile-images/{self.user.id}/existing.png"
+        self.user.profile_img_url = f"https://cdn.example.com/images/profile/{self.user.id}/existing.png"
         self.user.save(update_fields=["profile_img_url"])
         mock_s3_client = MagicMock()
 
@@ -137,7 +137,7 @@ class UserProfileImageAPITest(TestCase):
         self.assertIsNone(self.user.profile_img_url)
         mock_s3_client.delete_object.assert_called_once_with(
             Bucket="test-bucket",
-            Key=f"profile-images/{self.user.id}/existing.png",
+            Key=f"images/profile/{self.user.id}/existing.png",
         )
 
     def test_delete_profile_image_without_existing_image_returns_none(self) -> None:

@@ -15,7 +15,7 @@ from apps.users.models.user import User
 from apps.users.services.auth_service import get_active_user_or_deactivated, revoke_all_refresh_tokens
 
 PROFILE_IMAGE_MAX_SIZE_BYTES = 5 * 1024 * 1024
-PROFILE_IMAGE_UPLOAD_DIR = "profile-images"
+PROFILE_IMAGE_UPLOAD_DIR = "images/profile"
 ALLOWED_PROFILE_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 ALLOWED_PROFILE_IMAGE_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
@@ -116,8 +116,6 @@ def _get_s3_client() -> Any:
 
     return boto3.client(
         "s3",
-        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
         region_name=settings.AWS_S3_REGION_NAME,
     )
 
