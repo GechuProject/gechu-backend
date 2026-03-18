@@ -24,7 +24,7 @@ class DiscordCallbackAPITestCase(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["code"], ErrorMessages.INVALID_STATE.name)
 
-    @override_settings(SOCIAL_LOGIN_ONBOARDING_URL=None)
+    @override_settings(SOCIAL_LOGIN_ONBOARDING_URL=None, FRONTEND_DOMAIN=None)
     @patch("apps.users.views.social_auth.handle_discord_callback")
     def test_discord_callback_returns_social_login_response(
         self,
