@@ -23,7 +23,6 @@ DISCORD_AUTHORIZE_URL = "https://discord.com/oauth2/authorize"
 DISCORD_TOKEN_URL = "https://discord.com/api/v10/oauth2/token"
 DISCORD_USER_INFO_URL = "https://discord.com/api/v10/users/@me"
 FRONTEND_DOMAIN = os.getenv("FRONTEND_DOMAIN")
-SOCIAL_LOGIN_ONBOARDING_URL = os.getenv("SOCIAL_LOGIN_ONBOARDING_URL")
 BBATON_AUTHORIZE_URL = os.getenv("BBATON_AUTHORIZE_URL")
 BBATON_TOKEN_URL = os.getenv("BBATON_TOKEN_URL")
 BBATON_USER_INFO_URL = os.getenv("BBATON_USER_INFO_URL")

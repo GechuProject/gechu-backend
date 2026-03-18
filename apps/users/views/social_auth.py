@@ -1,9 +1,9 @@
 from typing import cast
 
-from django.conf import settings
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
+from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -17,12 +17,6 @@ from apps.users.services import (
     handle_discord_callback,
     handle_kakao_callback,
 )
-
-
-def _resolve_social_redirect_url(request: Request, *, is_new_user: bool) -> str:
-    base_url = settings.FRONTEND_DOMAIN or request.build_absolute_uri("/")
-    onboarding_url = settings.SOCIAL_LOGIN_ONBOARDING_URL or f"{base_url.rstrip('/')}/api/v1/preferences/me/"
-    return onboarding_url if is_new_user else base_url
 
 
 @extend_schema(
@@ -48,30 +42,25 @@ class SocialCallbackAPIView(APIView):
     def handle_callback(self, *, code: str, state: str) -> dict[str, object]:
         raise NotImplementedError
 
-    def build_success_response(
-        self,
-        request: Request,
-        *,
-        result: dict[str, object],
-    ) -> HttpResponseRedirect:
+    def build_success_response(self, *, result: dict[str, object]) -> Response:
         refresh_token = cast(str, result.pop("refresh_token"))
         is_new_user = cast(bool, result["is_new_user"])
-        redirect_url = _resolve_social_redirect_url(request, is_new_user=is_new_user)
-        response = redirect(redirect_url)
+        http_status = status.HTTP_201_CREATED if is_new_user else status.HTTP_200_OK
+        response = Response(result, status=http_status)
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            samesite="Lax",
+            samesite="None",
         )
         return response
 
-    def get(self, request: Request) -> Response | HttpResponseRedirect:
+    def get(self, request: Request) -> Response:
         serializer = SocialCallbackRequestSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
 
         result = self.handle_callback(**serializer.validated_data)
-        return self.build_success_response(request, result=result)
+        return self.build_success_response(result=result)
 
 
 @extend_schema(
