@@ -22,6 +22,9 @@ DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI")
 DISCORD_AUTHORIZE_URL = "https://discord.com/oauth2/authorize"
 DISCORD_TOKEN_URL = "https://discord.com/api/v10/oauth2/token"
 DISCORD_USER_INFO_URL = "https://discord.com/api/v10/users/@me"
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL")
+SOCIAL_LOGIN_SUCCESS_URL = os.getenv("SOCIAL_LOGIN_SUCCESS_URL")
+SOCIAL_LOGIN_ONBOARDING_URL = os.getenv("SOCIAL_LOGIN_ONBOARDING_URL")
 BBATON_AUTHORIZE_URL = os.getenv("BBATON_AUTHORIZE_URL")
 BBATON_TOKEN_URL = os.getenv("BBATON_TOKEN_URL")
 BBATON_USER_INFO_URL = os.getenv("BBATON_USER_INFO_URL")
@@ -36,10 +39,8 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 
-# Custom User Model
 AUTH_USER_MODEL = "users.User"
 
-# Application definition
 DJANGO_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -52,13 +53,12 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
-    "rest_framework_simplejwt.token_blacklist",  # 로그아웃 시 refresh 토큰 블랙리스트
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "drf_spectacular",
     "django_filters",
 ]
 
-# 추가한 도메인별 앱
 CUSTOM_APPS: list[str] = [
     "apps.users.apps.UsersConfig",
     "apps.games.apps.GamesConfig",
@@ -100,8 +100,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-
-# Database
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -117,7 +115,6 @@ for field, value in DATABASES["default"].items():
     if field != "ENGINE" and not value:
         raise ValueError(f"Database config '{field}' is not set")
 
-# Redis
 REDIS_HOST = os.getenv("REDIS_HOST")
 REDIS_PORT = os.getenv("REDIS_PORT")
 
@@ -127,26 +124,22 @@ if not REDIS_PORT or not REDIS_HOST:
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/1",  # Redis 서버주소
+        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/1",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         },
     }
 }
 
-# 장르 캐싱
-GENRES_CACHE_KEY = "genres:all"  # 캐싱 키
-GENRES_CACHE_TTL = 60 * 60  # 캐싱 TTL (초 단위) - 1시간
+GENRES_CACHE_KEY = "genres:all"
+GENRES_CACHE_TTL = 60 * 60
 
-# 플랫폼 캐싱
 PLATFORMS_CACHE_KEY = "platforms:all"
 PLATFORMS_CACHE_TTL = 60 * 60
 
-# IGDB 장르 매핑 캐싱
 IGDB_GENRE_MAP_CACHE_KEY = "igdb:genre_map"
 IGDB_GENRE_MAP_CACHE_TTL = 14 * 24 * 3600
 
-# Celery (RAWG 동기화, 추천 재생성 비동기 처리)
 CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/2"
 CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:{REDIS_PORT}/2"
 CELERY_ACCEPT_CONTENT = ["json"]
@@ -154,7 +147,6 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "Asia/Seoul"
 
-# Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -170,7 +162,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# djangorestframework-simplejwt 관련 설정
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
@@ -183,16 +174,13 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "user_id",
 }
 
-# Internationalization
 LANGUAGE_CODE = "ko-KR"
 TIME_ZONE = "Asia/Seoul"
 USE_I18N = True
 USE_TZ = True
 
-# Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# CORS (환경별 settings에서 CORS_ALLOWED_ORIGINS 설정)
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 CORS_ALLOW_HEADERS = [
@@ -205,7 +193,6 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
-# drf 관련 설정
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticatedOrReadOnly",),
@@ -216,7 +203,6 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "apps.core.exceptions.exception_handler.custom_exception_handler",
 }
 
-# drf-spectacular 관련 설정
 SPECTACULAR_SETTINGS = {
     "TITLE": "게임 추천 서비스 Backend API",
     "DESCRIPTION": "사용자 취향 기반 게임 추천 웹사이트 개발을 위한 API입니다.",
@@ -226,10 +212,10 @@ SPECTACULAR_SETTINGS = {
     "SWAGGER_UI_SETTINGS": {
         "dom_id": "#swagger-ui",
         "layout": "BaseLayout",
-        "deepLinking": True,  # API를 클릭할때 마다 SwaggerUI의 url이 변경됩니다. (특정 API url 공유시 유용하기때문에 True설정을 사용합니다)
-        "persistAuthorization": True,  # True 이면 SwaggerUI상 Authorize에 입력된 정보가 새로고침을 하더라도 초기화되지 않습니다.
-        "displayOperationId": True,  # True이면 API의 urlId 값을 노출합니다. 대체로 DRF api name둘과 일치하기때문에 api를 찾을때 유용합니다.
-        "filter": True,  # True 이면 Swagger UI에서 'Filter by Tag' 검색이 가능합니다
+        "deepLinking": True,
+        "persistAuthorization": True,
+        "displayOperationId": True,
+        "filter": True,
     },
     "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
     "SECURITY": [
@@ -243,18 +229,10 @@ SPECTACULAR_SETTINGS = {
     ],
 }
 
-
-# Game data sync
-# RAWG API
 RAWG_API_KEY = os.getenv("RAWG_API_KEY")
-# if not RAWG_API_KEY:
-#     raise ValueError("RAWG_API_KEY must be set")
-
-# IGDB API
 IGDB_CLIENT_ID = os.getenv("IGDB_CLIENT_ID")
 IGDB_CLIENT_SECRET = os.getenv("IGDB_CLIENT_SECRET")
 
-# Celery Beat 스케줄
 from celery.schedules import crontab  # noqa: E402
 
 ACCOUNT_DELETION_RETENTION_DAYS = int(os.getenv("ACCOUNT_DELETION_RETENTION_DAYS", "7"))
@@ -270,9 +248,7 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-CELERY_TASK_ACKS_LATE = True  # 실행 완료 후 ack → 워커 재시작 시 재실행 보장
-CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # 무거운 sync task는 1개씩
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 
-
-# 최근 검색 내역 Redis 보관 개수
 SEARCH_HISTORY_MAX_SIZE = int(os.getenv("SEARCH_HISTORY_MAX_SIZE", "20"))
