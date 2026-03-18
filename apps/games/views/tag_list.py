@@ -20,27 +20,10 @@ from apps.games.services.tag_list import TagService
 )
 class TagListAPIView(APIView):
     def get(self, request: Request) -> Response:
-        # 쿼리 파라미터 검증
-        query_serializer = TagListQuerySerializer(data=request.query_params)
-        query_serializer.is_valid(raise_exception=True)
-
-        search = query_serializer.validated_data.get("search")
-        page = query_serializer.validated_data.get("page")
-        page_size = query_serializer.validated_data.get("page_size")
-
         # Service 호출
-        result = TagService.get_tag_list(
-            search=search,
-            page=page,
-            page_size=page_size,
-        )
+        result = TagService.get_tag_list()
 
         # Serializer 응답 직렬화
-        serializer = TagListResponseSerializer(
-            {
-                "count": result["count"],
-                "results": result["results"],
-            }
-        )
+        serializer = TagListResponseSerializer({"results": result["results"]})
 
         return Response(serializer.data)
