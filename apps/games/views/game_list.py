@@ -21,6 +21,7 @@ from apps.users.services.search_recent_service import save_recent_search_keyword
     parameters=[
         OpenApiParameter("search", type=str, required=False, description="게임 이름 검색"),
         OpenApiParameter("genre_ids", type=str, required=False, description="장르 ID 리스트(콤마 구분)"),
+        OpenApiParameter("genre_name", type=str, required=False, description="장르 NAME"),
         OpenApiParameter("platform_ids", type=str, required=False, description="플랫폼 ID 리스트(콤마 구분)"),
         OpenApiParameter("tag_ids", type=str, required=False, description="태그 ID 리스트(콤마 구분)"),
         OpenApiParameter(
