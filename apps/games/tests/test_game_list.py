@@ -22,9 +22,26 @@ MOCK_GAME_LIST_ITEM = {
     "rawg_ratings_count": 100,
     "genres": [{"id": 12, "name": "Action"}],
     "platforms": [{"id": 6, "name": "PC"}],
+    "tags": [{"id": 100, "name": "SinglePlayer"}],
     "esrb_rating": "everyone",
     "age_rating_min": 0,
 }
+
+MOCK_GAME_LIST_ITEM_2 = {
+    "id": 1943,
+    "slug": "test-game-2",
+    "name": "Test Game 2",
+    "released": "2025-01-01",
+    "thumbnail_img_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co2wyy.jpg",
+    "rawg_rating": 4.8,
+    "rawg_ratings_count": 50,
+    "genres": [{"id": 13, "name": "FPS"}],
+    "platforms": [{"id": 7, "name": "Xbox"}],
+    "tags": [{"id": 101, "name": "Multiplayer"}],
+    "esrb_rating": "everyone",
+    "age_rating_min": 0,
+}
+
 
 MOCK_TOP10_GAMES = [
     {
@@ -62,6 +79,53 @@ class GameListViewTests(APITestCase):
     def _get_recent_keywords(self) -> list[str]:
         raw_keywords = self.connection.lrange(self._recent_search_key(user_id=self.user.id), 0, -1)
         return [keyword.decode("utf-8") if isinstance(keyword, bytes) else str(keyword) for keyword in raw_keywords]
+
+    @patch("apps.games.services.game_list.igdb_cache.search_games")
+    def test_genre_platform_tag_filtering(self, mock_search: MagicMock) -> None:
+        """
+        genre_ids, platform_ids, tag_ids 후처리 필터링 테스트
+        """
+        mock_search.return_value = [MOCK_GAME_LIST_ITEM, MOCK_GAME_LIST_ITEM_2]
+
+        self.client.force_authenticate(user=self.user)
+
+        # genre_ids 필터링: 12번 장르만 통과
+        response = self.client.get(self.url, {"genre_ids": "12"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["genres"][0]["id"], 12)
+
+        # platform_ids 필터링: 6번 플랫폼만 통과
+        response = self.client.get(self.url, {"platform_ids": "6"})
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["platforms"][0]["id"], 6)
+
+        # tag_ids 필터링: 101번 태그만 통과
+        response = self.client.get(self.url, {"tag_ids": "101"})
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["tags"][0]["id"], 101)
+
+        # 복합 필터링: genre 12, platform 6, tag 100
+        response = self.client.get(self.url, {"genre_ids": "12", "platform_ids": "6", "tag_ids": "100"})
+        self.assertEqual(len(response.data["results"]), 1)
+        game = response.data["results"][0]
+        self.assertEqual(game["genres"][0]["id"], 12)
+        self.assertEqual(game["platforms"][0]["id"], 6)
+        self.assertEqual(game["tags"][0]["id"], 100)
+
+        # 아무 것도 통과하지 못하는 경우
+        response = self.client.get(self.url, {"genre_ids": "999"})
+        self.assertEqual(len(response.data["results"]), 0)
+
+    @patch("apps.games.services.game_list.igdb_cache.search_games")
+    def test_pagination_slicing(self, mock_search: MagicMock) -> None:
+        """
+        page_size 적용 후처리 테스트
+        """
+        mock_search.return_value = [MOCK_GAME_LIST_ITEM] * 5
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url, {"page_size": 3})
+        self.assertEqual(len(response.data["results"]), 3)
 
     @patch("apps.games.services.game_list.igdb_cache.search_games")
     def test_game_list_success(self, mock_search: object) -> None:

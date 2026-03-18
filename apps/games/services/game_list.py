@@ -39,7 +39,26 @@ class GameService:
             offset=offset,
         )
 
-        return results
+        filtered_results = []
+        for game in results:
+            if genre_ids:
+                game_genre_ids = [g["id"] for g in game.get("genres", [])]
+                if not any(gid in game_genre_ids for gid in genre_ids):
+                    continue
+
+            if platform_ids:
+                game_platform_ids = [p["id"] for p in game.get("platforms", [])]
+                if not any(pid in game_platform_ids for pid in platform_ids):
+                    continue
+
+            if tag_ids:
+                game_tag_ids = [t["id"] for t in game.get("tags", [])]
+                if not any(tid in game_tag_ids for tid in tag_ids):
+                    continue
+
+            filtered_results.append(game)
+
+        return filtered_results[:page_size]
 
     @staticmethod
     def top_n_by_genre(genre_name: str, top_n: int = 10, sort: str = "-rawg_rating") -> list[dict[str, Any]]:
