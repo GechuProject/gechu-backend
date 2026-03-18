@@ -16,7 +16,6 @@ from .similar_game import (
     SimilarGameResponseSerializer,
 )
 from .tag_list import (
-    TagListQuerySerializer,
     TagListResponseSerializer,
     TagResponseSerializer,
 )
@@ -33,5 +32,4 @@ __all__ = [
     "PlatformListResponseSerializer",
     "TagResponseSerializer",
     "TagListResponseSerializer",
-    "TagListQuerySerializer",
 ]

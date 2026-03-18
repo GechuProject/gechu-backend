@@ -3,10 +3,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.games.serializers import (
-    TagListQuerySerializer,
-    TagListResponseSerializer,
-)
+from apps.games.serializers import TagListResponseSerializer
 from apps.games.services.tag_list import TagService
 
 

@@ -4,11 +4,9 @@ IGDB_ID_TO_SLUG = {
     17: "fantasy",
     18: "sci-fi",
     0: "singleplayer",
-
     # keyword
     2426: "story-rich",
     546: "pvp",
-
     # game_mode
     1: "singleplayer",
     2: "multiplayer",
