@@ -10,7 +10,6 @@ class TagResponseSerializer(serializers.ModelSerializer[Tag]):
 
 
 class TagListResponseSerializer(serializers.Serializer):  # type: ignore[type-arg]
-    count = serializers.IntegerField()
     results = TagResponseSerializer(many=True)
 
 
