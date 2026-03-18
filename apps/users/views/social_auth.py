@@ -1,5 +1,4 @@
 from typing import cast
-from urllib.parse import urljoin
 
 from django.conf import settings
 from django.http import HttpResponseRedirect
@@ -21,10 +20,9 @@ from apps.users.services import (
 
 
 def _resolve_social_redirect_url(request: Request, *, is_new_user: bool) -> str:
-    base_url = settings.FRONTEND_BASE_URL or request.build_absolute_uri("/")
-    success_url = settings.SOCIAL_LOGIN_SUCCESS_URL or base_url
-    onboarding_url = settings.SOCIAL_LOGIN_ONBOARDING_URL or urljoin(base_url.rstrip("/") + "/", "onboarding/")
-    return onboarding_url if is_new_user else success_url
+    base_url = settings.FRONTEND_DOMAIN or request.build_absolute_uri("/")  # type: ignore
+    onboarding_url = settings.SOCIAL_LOGIN_ONBOARDING_URL or request.build_absolute_uri("/api/v1/preferences/me/")
+    return onboarding_url if is_new_user else base_url
 
 
 @extend_schema(

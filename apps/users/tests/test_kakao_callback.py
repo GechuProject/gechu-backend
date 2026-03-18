@@ -23,6 +23,7 @@ class KakaoCallbackAPITestCase(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["code"], ErrorMessages.INVALID_STATE.name)
 
+    @override_settings(SOCIAL_LOGIN_ONBOARDING_URL=None)
     @patch("apps.users.views.social_auth.handle_kakao_callback")
     def test_kakao_callback_returns_social_login_response(
         self,
@@ -39,13 +40,12 @@ class KakaoCallbackAPITestCase(TestCase):
         response = self.client.get(self.url, {"code": "test-code", "state": "valid-state"})
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], "http://testserver/onboarding/")
+        self.assertEqual(response["Location"], "http://testserver/api/v1/preferences/me/")
         self.assertEqual(response.cookies["refresh_token"].value, "test-refresh-token")
 
     @override_settings(
-        FRONTEND_BASE_URL="https://frontend.example.com",
-        SOCIAL_LOGIN_SUCCESS_URL="https://frontend.example.com",
-        SOCIAL_LOGIN_ONBOARDING_URL="https://frontend.example.com/onboarding",
+        FRONTEND_DOMAIN="https://frontend.example.com",
+        SOCIAL_LOGIN_ONBOARDING_URL="https://frontend.example.com/preferences/me/",
     )
     @patch("apps.users.views.social_auth.handle_kakao_callback")
     def test_kakao_callback_redirects_existing_user_to_frontend_home(
