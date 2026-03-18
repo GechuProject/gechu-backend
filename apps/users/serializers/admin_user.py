@@ -51,3 +51,10 @@ class AdminUserDetailResponseSerializer(serializers.ModelSerializer[User]):
 
 class AdminUserStatusUpdateRequestSerializer(serializers.Serializer[dict[str, object]]):
     is_active = serializers.BooleanField()
+
+
+class AdminDashboardSummaryResponseSerializer(serializers.Serializer[dict[str, object]]):
+    total_users = serializers.IntegerField()
+    active_users = serializers.IntegerField()
+    recommendation_jobs_today = serializers.IntegerField()
+    failed_jobs = serializers.IntegerField()

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 from django.db.models import QuerySet
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
@@ -14,12 +16,30 @@ from apps.core.serializers.error_serializer import ErrorResponseSerializer
 from apps.core.utils.pagination import PAGINATION_PARAMS, Pagination
 from apps.users.models.user import User
 from apps.users.serializers.admin_user import (
+    AdminDashboardSummaryResponseSerializer,
     AdminUserDetailResponseSerializer,
     AdminUserListItemSerializer,
     AdminUserListResponseSerializer,
     AdminUserStatusUpdateRequestSerializer,
 )
-from apps.users.services import get_admin_user, list_admin_users, update_admin_user_status
+from apps.users.services import get_admin_dashboard_summary, get_admin_user, list_admin_users, update_admin_user_status
+
+
+@extend_schema(
+    tags=["admin"],
+    summary="어드민 - 대시보드 요약 조회",
+    responses={
+        200: AdminDashboardSummaryResponseSerializer,
+        401: ErrorResponseSerializer,
+        403: ErrorResponseSerializer,
+    },
+)
+class AdminDashboardSummaryAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsStaffAdmin]
+
+    def get(self, request: Request) -> Response:
+        serializer = AdminDashboardSummaryResponseSerializer(cast(dict[str, object], get_admin_dashboard_summary()))
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @extend_schema(
