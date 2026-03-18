@@ -113,7 +113,7 @@ class GameListViewTests(APITestCase):
         self.assertEqual(game["platforms"][0]["id"], 6)
         self.assertEqual(game["tags"][0]["id"], 100)
 
-        # 아무 것도 통과하지 못하는 경우
+        # 아무 것도 통과하지 못하는 경우.
         response = self.client.get(self.url, {"genre_ids": "999"})
         self.assertEqual(len(response.data["results"]), 0)
 
