@@ -13,5 +13,5 @@ urlpatterns = [
     path("platforms/", PlatformListAPIView.as_view(), name="platform-list"),
     path("<int:game_id>/", GameDetailView.as_view(), name="game-detail"),
     path("<int:game_id>/similar/", SimilarGameListView.as_view(), name="similar-game"),
-    path("tags", TagListAPIView.as_view(), name="tag-list"),
+    path("tags/", TagListAPIView.as_view(), name="tag-list"),
 ]
