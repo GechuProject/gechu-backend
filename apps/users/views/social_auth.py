@@ -1,22 +1,36 @@
 from typing import cast
+from urllib.parse import urljoin
 
+from django.conf import settings
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
-from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.serializers.error_serializer import ErrorResponseSerializer
-from apps.users.serializers.social_auth import SocialCallbackRequestSerializer, SocialLoginResponseSerializer
+from apps.users.serializers.social_auth import SocialCallbackRequestSerializer
 from apps.users.services import (
     build_discord_login_url,
     build_kakao_login_url,
     handle_discord_callback,
     handle_kakao_callback,
 )
+
+
+def _resolve_social_redirect_url(request: Request, *, is_new_user: bool) -> str:
+    frontend_base_url = getattr(settings, "FRONTEND_BASE_URL", None)
+    frontend_domain = getattr(settings, "FRONTEND_DOMAIN", None)
+    social_redirect_url = getattr(settings, "FRONTEND_SOCIAL_REDIRECT_URL", None)
+    social_success_url = getattr(settings, "SOCIAL_LOGIN_SUCCESS_URL", None)
+    social_onboarding_url = getattr(settings, "SOCIAL_LOGIN_ONBOARDING_URL", None)
+
+    base_url = frontend_base_url or frontend_domain or social_redirect_url or request.build_absolute_uri("/")
+    success_url = social_success_url or social_redirect_url or base_url
+    onboarding_url = social_onboarding_url or urljoin(base_url.rstrip("/") + "/", "onboarding/")
+    return onboarding_url if is_new_user else success_url
 
 
 @extend_schema(
@@ -42,25 +56,30 @@ class SocialCallbackAPIView(APIView):
     def handle_callback(self, *, code: str, state: str) -> dict[str, object]:
         raise NotImplementedError
 
-    def build_success_response(self, *, result: dict[str, object]) -> Response:
+    def build_success_response(
+        self,
+        request: Request,
+        *,
+        result: dict[str, object],
+    ) -> HttpResponseRedirect:
         refresh_token = cast(str, result.pop("refresh_token"))
         is_new_user = cast(bool, result["is_new_user"])
-        http_status = status.HTTP_201_CREATED if is_new_user else status.HTTP_200_OK
-        response = Response(result, status=http_status)
+        redirect_url = _resolve_social_redirect_url(request, is_new_user=is_new_user)
+        response = redirect(redirect_url)
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            samesite="None",
+            samesite="Lax",
         )
         return response
 
-    def get(self, request: Request) -> Response:
+    def get(self, request: Request) -> Response | HttpResponseRedirect:
         serializer = SocialCallbackRequestSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
 
         result = self.handle_callback(**serializer.validated_data)
-        return self.build_success_response(result=result)
+        return self.build_success_response(request, result=result)
 
 
 @extend_schema(
@@ -83,8 +102,7 @@ class SocialCallbackAPIView(APIView):
         ),
     ],
     responses={
-        200: SocialLoginResponseSerializer,
-        201: SocialLoginResponseSerializer,
+        302: OpenApiResponse(description="Redirect to frontend after Kakao login"),
         400: OpenApiResponse(
             response=ErrorResponseSerializer,
             description="INVALID_STATE, OAUTH_CALLBACK_ERROR 또는 query parameter 검증 오류",
@@ -134,8 +152,7 @@ class DiscordLoginAPIView(APIView):
         ),
     ],
     responses={
-        200: SocialLoginResponseSerializer,
-        201: SocialLoginResponseSerializer,
+        302: OpenApiResponse(description="Redirect to frontend after Discord login"),
         400: OpenApiResponse(
             response=ErrorResponseSerializer,
             description="INVALID_STATE, DISCORD_OAUTH_CALLBACK_ERROR 또는 query parameter 검증 오류",
