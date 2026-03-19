@@ -6,15 +6,16 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "3.13.*"
+boto3 = "^1.42.71"
+celery = {version = ">=5.6.2,<6.0.0", extras = ["redis"]}
 django = ">=6.0.2,<7.0.0"
+django-cors-headers = ">=4.9.0,<5.0.0"
+django-filter = ">=25.2,<26.0"
+django-redis = ">=6.0.0,<7.0.0"
 djangorestframework = ">=3.16.1,<4.0.0"
 djangorestframework-simplejwt = ">=5.5.1,<6.0.0"
 drf-spectacular = ">=0.29.0,<0.30.0"
-django-filter = ">=25.2,<26.0"
-django-cors-headers = ">=4.9.0,<5.0.0"
 psycopg = "^3.1"
-django-redis = ">=6.0.0,<7.0.0"
-celery = {version = ">=5.6.2,<6.0.0", extras = ["redis"]}
 python-dotenv = ">=1.2.2,<2.0.0"
 requests = "^2.32.5"
 
