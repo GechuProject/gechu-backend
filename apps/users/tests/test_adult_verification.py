@@ -28,6 +28,7 @@ from apps.users.services.adult_verification_service import (
     BBATON_CLIENT_ID="test-client-id",
     BBATON_CLIENT_SECRET="test-client-secret",
     BBATON_REDIRECT_URI="https://example.com/api/v1/users/me/adult-verifications/callback/",
+    FRONTEND_BASE_URL="https://frontend.example.com",
 )
 class AdultVerificationAPITestCase(TestCase):
     def setUp(self) -> None:
@@ -72,8 +73,13 @@ class AdultVerificationAPITestCase(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["code"], ErrorMessages.INVALID_STATE.name)
+        self.assertEqual(response.status_code, 302)
+        parsed_url = urlparse(response["Location"])
+        query = parse_qs(parsed_url.query)
+        self.assertEqual(
+            f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}", "https://frontend.example.com/auth/callback"
+        )
+        self.assertEqual(query["error"][0], ErrorMessages.INVALID_STATE.name)
 
     @patch("apps.users.services.adult_verification_service._request_bbaton_user_info")
     @patch("apps.users.services.adult_verification_service._request_bbaton_access_token")
@@ -98,10 +104,15 @@ class AdultVerificationAPITestCase(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["is_adult_verified"])
-        self.assertIsNotNone(response.json()["adult_verified_at"])
-        self.assertIsNotNone(response.json()["expires_at"])
+        self.assertEqual(response.status_code, 302)
+        parsed_url = urlparse(response["Location"])
+        query = parse_qs(parsed_url.query)
+        self.assertEqual(
+            f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}", "https://frontend.example.com/auth/callback"
+        )
+        self.assertEqual(query["is_adult_verified"][0], "true")
+        self.assertTrue(query["adult_verified_at"][0])
+        self.assertTrue(query["expires_at"][0])
 
         self.user.refresh_from_db()
         self.assertTrue(self.user.is_adult_verified)
@@ -139,8 +150,13 @@ class AdultVerificationAPITestCase(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["code"], ErrorMessages.UNDERAGE.name)
+        self.assertEqual(response.status_code, 302)
+        parsed_url = urlparse(response["Location"])
+        query = parse_qs(parsed_url.query)
+        self.assertEqual(
+            f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}", "https://frontend.example.com/auth/callback"
+        )
+        self.assertEqual(query["error"][0], ErrorMessages.UNDERAGE.name)
 
     def test_callback_returns_already_verified_for_valid_user(self) -> None:
         self.user.is_adult_verified = True
@@ -159,8 +175,13 @@ class AdultVerificationAPITestCase(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["code"], ErrorMessages.ALREADY_VERIFIED.name)
+        self.assertEqual(response.status_code, 302)
+        parsed_url = urlparse(response["Location"])
+        query = parse_qs(parsed_url.query)
+        self.assertEqual(
+            f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}", "https://frontend.example.com/auth/callback"
+        )
+        self.assertEqual(query["error"][0], ErrorMessages.ALREADY_VERIFIED.name)
 
     @patch("apps.users.services.adult_verification_service._request_bbaton_user_info")
     @patch("apps.users.services.adult_verification_service._request_bbaton_access_token")
@@ -199,8 +220,13 @@ class AdultVerificationAPITestCase(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 409)
-        self.assertEqual(response.json()["code"], ErrorMessages.VERIFICATION_ALREADY_USED.name)
+        self.assertEqual(response.status_code, 302)
+        parsed_url = urlparse(response["Location"])
+        query = parse_qs(parsed_url.query)
+        self.assertEqual(
+            f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}", "https://frontend.example.com/auth/callback"
+        )
+        self.assertEqual(query["error"][0], ErrorMessages.VERIFICATION_ALREADY_USED.name)
 
     def test_status_returns_current_adult_verification_state(self) -> None:
         verified_at = timezone.now()
