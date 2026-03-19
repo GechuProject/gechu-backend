@@ -225,15 +225,16 @@ SPECTACULAR_SETTINGS = {
         "filter": True,
     },
     "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
-    "SECURITY": [
-        {
+    "SECURITY": [{"BearerAuth": []}],
+    "APPEND_COMPONENTS": {
+        "securitySchemes": {
             "BearerAuth": {
                 "type": "http",
                 "scheme": "bearer",
                 "bearerFormat": "JWT",
             }
         }
-    ],
+    },
 }
 
 RAWG_API_KEY = os.getenv("RAWG_API_KEY")
