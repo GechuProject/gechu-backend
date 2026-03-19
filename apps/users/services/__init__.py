@@ -19,6 +19,8 @@ from .search_recent_service import (
 from .social_auth_service import (
     build_discord_login_url,
     build_kakao_login_url,
+    build_social_error_redirect_url,
+    build_social_success_redirect_url,
     handle_discord_callback,
     handle_kakao_callback,
 )
@@ -59,6 +61,8 @@ __all__ = [
     "verify_user_password",
     "build_discord_login_url",
     "build_kakao_login_url",
+    "build_social_error_redirect_url",
+    "build_social_success_redirect_url",
     "handle_discord_callback",
     "handle_kakao_callback",
 ]

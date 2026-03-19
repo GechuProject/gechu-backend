@@ -33,4 +33,4 @@ class DiscordLoginAPITestCase(TestCase):
         self.assertEqual(query_params["redirect_uri"][0], "https://example.com/auth/discord/callback/")
         self.assertEqual(query_params["response_type"][0], "code")
         self.assertEqual(query_params["scope"][0], "identify email")
-        self.assertTrue(cache.get(f"oauth_state:discord:{state}"))
+        self.assertEqual(cache.get(f"oauth_state:{state}"), "discord")

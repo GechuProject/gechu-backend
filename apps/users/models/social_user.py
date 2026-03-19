@@ -24,7 +24,10 @@ class SocialUser(models.Model):
 
     class Meta:
         db_table = "social_users"
-        unique_together = ("provider", "provider_uid")
+        unique_together = [
+            ("provider", "provider_uid"),
+            ("user", "provider"),
+        ]
 
     def __str__(self) -> str:
         return f"{self.user.email} - {self.provider}"
