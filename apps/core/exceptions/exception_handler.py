@@ -43,7 +43,7 @@ def custom_exception_handler(
     if hasattr(exc, "detail") and hasattr(exc, "status_code"):
         status_code = getattr(exc, "status_code", status.HTTP_400_BAD_REQUEST)
         if status_code >= 500:
-            logger.warning("API exception: %s", exc.detail)
+            logger.error("API exception [%s]: %s", status_code, exc.detail)
         return Response(data=exc.detail, status=status_code)
 
     # IGDB 예외 처리
