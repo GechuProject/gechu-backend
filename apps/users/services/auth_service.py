@@ -52,6 +52,9 @@ def get_active_user_or_deactivated(user: User) -> User:
 
 
 def send_email_code(*, email: str, purpose: str) -> int:
+    if purpose == EMAIL_CODE_PURPOSE_SIGNUP and User.objects.filter(email=email).exists():
+        raise CustomAPIException(ErrorMessages.EMAIL_ALREADY_EXISTS)
+
     cooldown_key = _email_code_cooldown_key(purpose=purpose, email=email)
     if cache.get(cooldown_key):
         raise CustomAPIException(ErrorMessages.TOO_MANY_REQUESTS)
