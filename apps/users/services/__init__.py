@@ -1,4 +1,4 @@
-from .admin_user_service import get_admin_user, list_admin_users, update_admin_user_status
+from .admin_user_service import get_admin_dashboard_summary, get_admin_user, list_admin_users, update_admin_user_status
 from .auth_service import (
     authenticate_user,
     get_active_user_or_deactivated,
@@ -30,6 +30,7 @@ __all__ = [
     "clear_recent_searches",
     "delete_recent_search_keyword",
     "delete_user_me",
+    "get_admin_dashboard_summary",
     "get_admin_user",
     "get_active_user_or_deactivated",
     "get_recent_searches",

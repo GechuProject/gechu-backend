@@ -3,9 +3,11 @@ import datetime
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.recommendations.models import RecommendationJob
 
 User = get_user_model()
 
@@ -33,6 +35,43 @@ class AdminUserAPITestCase(TestCase):
         )
         self.list_url = reverse("admin-user-list")
         self.detail_url = reverse("admin-user-detail", args=[self.user.id])
+        self.dashboard_url = reverse("admin-dashboard-summary")
+
+    def test_admin_dashboard_summary_returns_counts_for_admin(self) -> None:
+        self.client.force_authenticate(user=self.admin_user)
+
+        failed_job = RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.USER_REFRESH,
+            target_user=self.user,
+            status=RecommendationJob.Status.FAILED,
+        )
+        RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.SIMILARITY_REBUILD,
+            status=RecommendationJob.Status.PENDING,
+        )
+        yesterday = timezone.now() - datetime.timedelta(days=1)
+        RecommendationJob.objects.filter(id=failed_job.id).update(created_at=yesterday)
+
+        response = self.client.get(self.dashboard_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["total_users"], 3)
+        self.assertEqual(response.json()["active_users"], 3)
+        self.assertEqual(response.json()["recommendation_jobs_today"], 1)
+        self.assertEqual(response.json()["failed_jobs"], 1)
+
+    def test_admin_dashboard_summary_returns_403_for_non_admin(self) -> None:
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(self.dashboard_url)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["code"], ErrorMessages.FORBIDDEN.name)
+
+    def test_admin_dashboard_summary_returns_401_when_not_authenticated(self) -> None:
+        response = self.client.get(self.dashboard_url)
+
+        self.assertEqual(response.status_code, 401)
 
     def test_admin_user_list_returns_paginated_users_for_admin(self) -> None:
         self.client.force_authenticate(user=self.admin_user)
