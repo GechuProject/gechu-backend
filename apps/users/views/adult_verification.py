@@ -98,12 +98,10 @@ class AdultVerificationCallbackAPIView(APIView):
     def get(self, request: Request) -> Response | HttpResponseRedirect:
         serializer = AdultVerificationCallbackRequestSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
-        code = cast(str, serializer.validated_data["code"])
-        state = cast(str, serializer.validated_data["state"])
         redirect_url = _resolve_adult_verification_redirect_url(request)
 
         try:
-            result = complete_adult_verification(code=code, state=state)
+            result = complete_adult_verification(**serializer.validated_data)
         except CustomAPIException as error:
             error_detail = cast(dict[str, object], error.detail)
             return redirect(

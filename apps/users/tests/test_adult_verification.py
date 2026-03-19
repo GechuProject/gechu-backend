@@ -44,6 +44,15 @@ class AdultVerificationAPITestCase(TestCase):
         self.callback_url = "/api/v1/users/me/adult-verifications/callback/"
         self.status_url = "/api/v1/users/me/adult-verifications/"
 
+    def _assert_redirects_to_frontend_callback(self, response: HttpResponseRedirect) -> dict[str, list[str]]:
+        self.assertEqual(response.status_code, 302)
+        parsed_url = urlparse(response["Location"])
+        self.assertEqual(
+            f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}",
+            "https://frontend.example.com/auth/callback",
+        )
+        return parse_qs(parsed_url.query)
+
     def test_initiate_redirects_to_bbaton_and_saves_state(self) -> None:
         self.client.force_authenticate(user=self.user)
 
@@ -73,12 +82,7 @@ class AdultVerificationAPITestCase(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 302)
-        parsed_url = urlparse(response["Location"])
-        query = parse_qs(parsed_url.query)
-        self.assertEqual(
-            f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}", "https://frontend.example.com/auth/callback"
-        )
+        query = self._assert_redirects_to_frontend_callback(cast(HttpResponseRedirect, response))
         self.assertEqual(query["error"][0], ErrorMessages.INVALID_STATE.name)
 
     @patch("apps.users.services.adult_verification_service._request_bbaton_user_info")
@@ -104,12 +108,7 @@ class AdultVerificationAPITestCase(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 302)
-        parsed_url = urlparse(response["Location"])
-        query = parse_qs(parsed_url.query)
-        self.assertEqual(
-            f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}", "https://frontend.example.com/auth/callback"
-        )
+        query = self._assert_redirects_to_frontend_callback(cast(HttpResponseRedirect, response))
         self.assertEqual(query["is_adult_verified"][0], "true")
         self.assertTrue(query["adult_verified_at"][0])
         self.assertTrue(query["expires_at"][0])
@@ -150,12 +149,7 @@ class AdultVerificationAPITestCase(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 302)
-        parsed_url = urlparse(response["Location"])
-        query = parse_qs(parsed_url.query)
-        self.assertEqual(
-            f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}", "https://frontend.example.com/auth/callback"
-        )
+        query = self._assert_redirects_to_frontend_callback(cast(HttpResponseRedirect, response))
         self.assertEqual(query["error"][0], ErrorMessages.UNDERAGE.name)
 
     def test_callback_returns_already_verified_for_valid_user(self) -> None:
@@ -175,12 +169,7 @@ class AdultVerificationAPITestCase(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 302)
-        parsed_url = urlparse(response["Location"])
-        query = parse_qs(parsed_url.query)
-        self.assertEqual(
-            f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}", "https://frontend.example.com/auth/callback"
-        )
+        query = self._assert_redirects_to_frontend_callback(cast(HttpResponseRedirect, response))
         self.assertEqual(query["error"][0], ErrorMessages.ALREADY_VERIFIED.name)
 
     @patch("apps.users.services.adult_verification_service._request_bbaton_user_info")
@@ -220,12 +209,7 @@ class AdultVerificationAPITestCase(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 302)
-        parsed_url = urlparse(response["Location"])
-        query = parse_qs(parsed_url.query)
-        self.assertEqual(
-            f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}", "https://frontend.example.com/auth/callback"
-        )
+        query = self._assert_redirects_to_frontend_callback(cast(HttpResponseRedirect, response))
         self.assertEqual(query["error"][0], ErrorMessages.VERIFICATION_ALREADY_USED.name)
 
     def test_status_returns_current_adult_verification_state(self) -> None:
