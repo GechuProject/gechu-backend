@@ -52,6 +52,7 @@ class SocialCallbackAPIView(APIView):
             value=refresh_token,
             httponly=True,
             samesite="None",
+            secure=True,
         )
         return response
 

@@ -101,7 +101,8 @@ class LoginAPIView(APIView):
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            samesite="Lax",
+            samesite="None",
+            secure=True,
         )
         return response
 
