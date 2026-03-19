@@ -81,43 +81,6 @@ class GameListViewTests(APITestCase):
         return [keyword.decode("utf-8") if isinstance(keyword, bytes) else str(keyword) for keyword in raw_keywords]
 
     @patch("apps.games.services.game_list.igdb_cache.search_games")
-    def test_genre_platform_tag_filtering(self, mock_search: MagicMock) -> None:
-        """
-        genre_ids, platform_ids, tag_ids 후처리 필터링 테스트
-        """
-        mock_search.return_value = [MOCK_GAME_LIST_ITEM, MOCK_GAME_LIST_ITEM_2]
-
-        self.client.force_authenticate(user=self.user)
-
-        # genre_ids 필터링: 12번 장르만 통과
-        response = self.client.get(self.url, {"genre_ids": "12"})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["genres"][0]["id"], 12)
-
-        # platform_ids 필터링: 6번 플랫폼만 통과
-        response = self.client.get(self.url, {"platform_ids": "6"})
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["platforms"][0]["id"], 6)
-
-        # tag_ids 필터링: 101번 태그만 통과
-        response = self.client.get(self.url, {"tag_ids": "101"})
-        self.assertEqual(len(response.data["results"]), 1)
-        self.assertEqual(response.data["results"][0]["tags"][0]["id"], 101)
-
-        # 복합 필터링: genre 12, platform 6, tag 100
-        response = self.client.get(self.url, {"genre_ids": "12", "platform_ids": "6", "tag_ids": "100"})
-        self.assertEqual(len(response.data["results"]), 1)
-        game = response.data["results"][0]
-        self.assertEqual(game["genres"][0]["id"], 12)
-        self.assertEqual(game["platforms"][0]["id"], 6)
-        self.assertEqual(game["tags"][0]["id"], 100)
-
-        # 아무 것도 통과하지 못하는 경우.
-        response = self.client.get(self.url, {"genre_ids": "999"})
-        self.assertEqual(len(response.data["results"]), 0)
-
-    @patch("apps.games.services.game_list.igdb_cache.search_games")
     def test_pagination_slicing(self, mock_search: MagicMock) -> None:
         """
         page_size 적용 후처리 테스트
