@@ -8,8 +8,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.core.exceptions.exception_message import ErrorMessages
-from apps.games.services.game_list import GameService
 from apps.games.models import Genre
+from apps.games.services.game_list import GameService
 
 User = get_user_model()
 

@@ -1,9 +1,9 @@
 from typing import Any
 
 from apps.games.igdb import cache as igdb_cache
+from apps.games.models import Genre
 from apps.preferences.models import UserGameAffinity
 from apps.users.models import User
-from apps.games.models import Genre
 
 # IGDB 정렬 매핑: API 쿼리 파라미터 → IGDB sort 필드
 _ORDERING_MAP: dict[str, str] = {

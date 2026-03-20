@@ -162,6 +162,7 @@ def search_games(
     cache.set(key, results, _SEARCH_TTL)
     return results
 
+
 def search_games_by_igdb_genre_id(
     *,
     igdb_genre_id: int,
@@ -192,6 +193,7 @@ def search_games_by_igdb_genre_id(
     results = [build_game_list_item(raw) for raw in raw_list]
     cache.set(key, results, _SEARCH_TTL)
     return results
+
 
 def get_games_by_ids(igdb_ids: list[int]) -> list[dict[str, Any]]:
     if not igdb_ids:
