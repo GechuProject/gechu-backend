@@ -48,9 +48,7 @@ class LogoutAPITestCase(TestCase):
         self.assertEqual(login_res.status_code, 200)
 
         access_token = login_res.json()["access_token"]
-        refresh_token = login_res.cookies["refresh_token"].value
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
-        self.client.cookies["refresh_token"] = refresh_token
         self.client.cookies["access_token"] = access_token
 
         logout_res = self.client.post(
