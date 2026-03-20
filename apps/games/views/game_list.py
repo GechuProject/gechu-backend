@@ -11,6 +11,7 @@ from apps.games.serializers.game_list import (
     GameListResponseSerializer,
 )
 from apps.games.services.game_list import GameService
+from apps.users.models import User
 from apps.users.services.search_recent_service import save_recent_search_keyword
 
 
@@ -75,8 +76,13 @@ class GameListView(APIView):
 
         genre_name = data.get("genre_name")
 
+        user: User | None = request.user if request.user.is_authenticated else None
+
         if genre_name:
-            items = GameService.top_n_by_genre(genre_name)
+            items = GameService.top_n_by_genre(
+                genre_name,
+                user=user,
+            )
             next_url = None
             previous_url = None
         else:
@@ -88,16 +94,26 @@ class GameListView(APIView):
                 ordering=data.get("ordering"),
                 page=page,
                 page_size=page_size,
+                user=user,
             )
 
             # has_next 판단: page_size+1 개를 요청해서
             has_next = len(results) > page_size
             items = results[:page_size]
 
-            # next/previous URL 생성
-            path = request.build_absolute_uri(request.path)
-            next_url = f"{path}?page={page + 1}&page_size={page_size}" if has_next else None
-            previous_url = f"{path}?page={page - 1}&page_size={page_size}" if page > 1 else None
+            # next/previous URL 개선 (기존 필터 유지)
+            query_params = request.GET.copy()
+            if has_next:
+                query_params["page"] = page + 1
+                next_url = f"{request.path}?{query_params.urlencode()}"
+            else:
+                next_url = None
+
+            if page > 1:
+                query_params["page"] = page - 1
+                previous_url = f"{request.path}?{query_params.urlencode()}"
+            else:
+                previous_url = None
 
         response_data = {
             "next": next_url,

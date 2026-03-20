@@ -84,6 +84,7 @@ class GameListItemSerializer(serializers.Serializer[dict[str, Any]]):
     genres = GenreSerializer(many=True)
     platforms = PlatformSerializer(many=True)
     tags = TagSerializer(many=True, required=False)
+    is_saved = serializers.BooleanField()
 
 
 class GameListResponseSerializer(serializers.Serializer[dict[str, Any]]):

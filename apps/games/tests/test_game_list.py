@@ -25,6 +25,7 @@ MOCK_GAME_LIST_ITEM = {
     "tags": [{"id": 100, "name": "SinglePlayer"}],
     "esrb_rating": "everyone",
     "age_rating_min": 0,
+    "is_saved": False,
 }
 
 MOCK_GAME_LIST_ITEM_2 = {
@@ -56,6 +57,7 @@ MOCK_TOP10_GAMES = [
         "platforms": [{"id": 6, "name": "PC"}],
         "esrb_rating": "everyone",
         "age_rating_min": 0,
+        "is_saved": False,
     }
     for i in range(1, 11)
 ]
@@ -91,8 +93,8 @@ class GameListViewTests(APITestCase):
         self.assertEqual(len(response.data["results"]), 3)
 
     @patch("apps.games.services.game_list.igdb_cache.search_games")
-    def test_game_list_success(self, mock_search: object) -> None:
-        mock_search.return_value = [MOCK_GAME_LIST_ITEM]  # type: ignore[attr-defined]
+    def test_game_list_success(self, mock_search: MagicMock) -> None:
+        mock_search.return_value = [MOCK_GAME_LIST_ITEM]
 
         self.client.force_authenticate(user=self.user)
         response = self.client.get(self.url)
@@ -134,7 +136,6 @@ class GameListViewTests(APITestCase):
 
         mock_search.return_value = []
         response = self.client.get(self.url, {"search": "NoMatch"})
-
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 0)
 
@@ -171,16 +172,43 @@ class GameListViewTests(APITestCase):
 
         self.assertEqual(result, [])
 
-    @patch("apps.games.services.game_list.GameService.top_n_by_genre")
-    def test_top_n_by_genre_api_mocked(self, mock_top_n: MagicMock) -> None:
-        mock_top_n.return_value = MOCK_TOP10_GAMES
-        self.client.force_authenticate(user=self.user)
-        resp = self.client.get(self.url, {"genre_name": "Action"})
-        self.assertEqual(len(resp.data["results"]), 10)
-        self.assertEqual(resp.data["results"][0]["rawg_rating"], "5.50")
-        self.assertIsNone(resp.data["next"])
-        self.assertIsNone(resp.data["previous"])
+    @patch("apps.games.services.game_list.igdb_cache.get_genre_id_by_name")
+    @patch("apps.games.services.game_list.igdb_cache.search_games")
+    def test_genre_name_returns_top_n(self, mock_search: MagicMock, mock_get_genre_id: MagicMock) -> None:
+        """genre_name 파라미터로 top_n_by_genre 호출."""
+        mock_get_genre_id.return_value = 12
+        mock_search.return_value = MOCK_TOP10_GAMES
 
-        mock_top_n.return_value = []
-        resp = self.client.get(self.url, {"genre_name": "NonExistent"})
-        self.assertEqual(resp.data["results"], [])
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url, {"genre_name": "Action"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 10)
+        self.assertIsNone(response.data["next"])
+        self.assertIsNone(response.data["previous"])
+
+    @patch("apps.games.services.game_list.igdb_cache.search_games")
+    def test_pagination_next_url(self, mock_search: MagicMock) -> None:
+        """has_next=True일 때 next_url 생성"""
+        # page_size=2 요청 시 3개 반환 → has_next=True
+        mock_search.return_value = [MOCK_GAME_LIST_ITEM] * 3
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url, {"page": 1, "page_size": 2})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 2)
+        self.assertIsNotNone(response.data["next"])
+        self.assertIn("page=2", response.data["next"])
+
+    @patch("apps.games.services.game_list.igdb_cache.search_games")
+    def test_pagination_previous_url(self, mock_search: MagicMock) -> None:
+        """page > 1일 때 previous_url 생성"""
+        mock_search.return_value = [MOCK_GAME_LIST_ITEM]
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url, {"page": 2, "page_size": 20})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNotNone(response.data["previous"])
+        self.assertIn("page=1", response.data["previous"])
