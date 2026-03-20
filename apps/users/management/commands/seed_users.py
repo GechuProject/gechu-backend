@@ -81,10 +81,13 @@ class Command(BaseCommand):
                 "nickname": "admin",
                 "birth_date": date(1990, 1, 1),
                 "is_staff": True,
+                "is_superuser": True,
                 "is_active": True,
             },
         )
 
+        admin_user.is_staff = True
+        admin_user.is_superuser = True
         admin_user.set_password("admin")
         admin_user.save()
 
