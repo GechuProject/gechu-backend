@@ -175,7 +175,7 @@ class GameListViewTests(APITestCase):
     @patch("apps.games.services.game_list.igdb_cache.get_genre_id_by_name")
     @patch("apps.games.services.game_list.igdb_cache.search_games")
     def test_genre_name_returns_top_n(self, mock_search: MagicMock, mock_get_genre_id: MagicMock) -> None:
-        """genre_name 파라미터로 top_n_by_genre 호출"""
+        """genre_name 파라미터로 top_n_by_genre 호출."""
         mock_get_genre_id.return_value = 12
         mock_search.return_value = MOCK_TOP10_GAMES
 
