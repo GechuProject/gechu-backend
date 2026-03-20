@@ -19,16 +19,17 @@ from apps.users.services.search_recent_service import save_recent_search_keyword
     tags=["games"],
     summary="게임 목록 조회",
     description="""게임 목록 조회 (검색/필터/정렬) - IGDB API 기반
-        \n - 1  RPG - rpg 
-        \n - 2  어드벤처 - adventure 
-        \n - 3  FPS - shooter 
-        \n - 4  전략 - strategy 
-        \n - 5  시뮬레이션 - simulator 
-        \n - 6  스포츠 - sport 
-        \n - 7  레이싱 - racing 
-        \n - 8  퍼즐 - puzzle 
-        \n - 9  격투 - fighting 
-        \n - 10 아케이드 - arcade 
+        \n - id name - slug (igdb_id)
+        \n - 1  RPG - rpg (12)
+        \n - 2  어드벤처 - adventure (31)
+        \n - 3  FPS - shooter (5)
+        \n - 4  전략 - strategy (15)
+        \n - 5  시뮬레이션 - simulator (13) 
+        \n - 6  스포츠 - sport (14)
+        \n - 7  레이싱 - racing (10)
+        \n - 8  퍼즐 - puzzle (9)
+        \n - 9  격투 - fighting (4)
+        \n - 10 아케이드 - arcade (33)
 """,
     parameters=[
         OpenApiParameter("search", type=str, required=False, description="게임 이름 검색"),
