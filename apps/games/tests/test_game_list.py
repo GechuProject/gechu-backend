@@ -22,9 +22,26 @@ MOCK_GAME_LIST_ITEM = {
     "rawg_ratings_count": 100,
     "genres": [{"id": 12, "name": "Action"}],
     "platforms": [{"id": 6, "name": "PC"}],
+    "tags": [{"id": 100, "name": "SinglePlayer"}],
     "esrb_rating": "everyone",
     "age_rating_min": 0,
 }
+
+MOCK_GAME_LIST_ITEM_2 = {
+    "id": 1943,
+    "slug": "test-game-2",
+    "name": "Test Game 2",
+    "released": "2025-01-01",
+    "thumbnail_img_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co2wyy.jpg",
+    "rawg_rating": 4.8,
+    "rawg_ratings_count": 50,
+    "genres": [{"id": 13, "name": "FPS"}],
+    "platforms": [{"id": 7, "name": "Xbox"}],
+    "tags": [{"id": 101, "name": "Multiplayer"}],
+    "esrb_rating": "everyone",
+    "age_rating_min": 0,
+}
+
 
 MOCK_TOP10_GAMES = [
     {
@@ -62,6 +79,16 @@ class GameListViewTests(APITestCase):
     def _get_recent_keywords(self) -> list[str]:
         raw_keywords = self.connection.lrange(self._recent_search_key(user_id=self.user.id), 0, -1)
         return [keyword.decode("utf-8") if isinstance(keyword, bytes) else str(keyword) for keyword in raw_keywords]
+
+    @patch("apps.games.services.game_list.igdb_cache.search_games")
+    def test_pagination_slicing(self, mock_search: MagicMock) -> None:
+        """
+        page_size 적용 후처리 테스트
+        """
+        mock_search.return_value = [MOCK_GAME_LIST_ITEM] * 5
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url, {"page_size": 3})
+        self.assertEqual(len(response.data["results"]), 3)
 
     @patch("apps.games.services.game_list.igdb_cache.search_games")
     def test_game_list_success(self, mock_search: object) -> None:

@@ -19,6 +19,11 @@ class PlatformSerializer(serializers.Serializer[dict[str, Any]]):
     name = serializers.CharField()
 
 
+class TagSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+
+
 # -----------------------
 # 요청 Serializer
 # -----------------------
@@ -78,6 +83,7 @@ class GameListItemSerializer(serializers.Serializer[dict[str, Any]]):
     rawg_ratings_count = serializers.IntegerField()
     genres = GenreSerializer(many=True)
     platforms = PlatformSerializer(many=True)
+    tags = TagSerializer(many=True, required=False)
 
 
 class GameListResponseSerializer(serializers.Serializer[dict[str, Any]]):
