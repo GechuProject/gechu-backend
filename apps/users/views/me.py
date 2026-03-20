@@ -1,8 +1,10 @@
+import uuid
 from typing import Any, cast
 
 from django.http import HttpResponse
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import generics, serializers
+from rest_framework.exceptions import ErrorDetail
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
@@ -10,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.exceptions.exception_handler import CustomAPIException
+from apps.core.exceptions.exception_message import ErrorMessages
 from apps.users.models.user import User
 from apps.users.serializers.auth import MessageResponseSerializer
 from apps.users.serializers.me import (
@@ -187,10 +190,14 @@ class UserProfileImageContentAPIView(APIView):
         },
         tags=["Users"],
     )
-    def get(self, request: Request, public_id: str) -> HttpResponse:
+    def get(self, request: Request, public_id: uuid.UUID) -> HttpResponse:
         try:
             profile_image = get_profile_image_content(public_id=public_id)
-        except CustomAPIException:
+        except CustomAPIException as exc:
+            detail = exc.detail
+            code = detail.get("code") if isinstance(detail, dict) else None
+            if not isinstance(code, (str, ErrorDetail)) or str(code) != ErrorMessages.USER_NOT_FOUND.name:
+                raise
             return HttpResponse(status=404)
 
         return HttpResponse(bytes(profile_image.image_data), content_type=profile_image.content_type)

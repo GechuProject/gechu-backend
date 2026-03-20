@@ -147,10 +147,13 @@ def upload_user_profile_image(
         raise CustomAPIException(ErrorMessages.FILE_TOO_LARGE)
 
     resized_bytes = _resize_image(image_file)
-    profile_image, _ = UserProfileImage.objects.get_or_create(user=user)
-    profile_image.image_data = resized_bytes
-    profile_image.content_type = "image/webp"
-    profile_image.save(update_fields=["image_data", "content_type", "updated_at"])
+    profile_image, _ = UserProfileImage.objects.update_or_create(
+        user=user,
+        defaults={
+            "image_data": resized_bytes,
+            "content_type": "image/webp",
+        },
+    )
 
     profile_img_url = _build_profile_image_url(base_url=base_url, public_id=profile_image.public_id)
     user.profile_img_url = profile_img_url
