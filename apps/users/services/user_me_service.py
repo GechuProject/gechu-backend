@@ -1,24 +1,25 @@
 from __future__ import annotations
 
 import io
-import uuid
 from datetime import date
 from typing import Any
 
-from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.users.models import UserProfileImage
 from apps.users.models.user import User
 from apps.users.services.auth_service import get_active_user_or_deactivated, revoke_all_refresh_tokens
 
 PROFILE_IMAGE_MAX_SIZE_BYTES = 5 * 1024 * 1024
-PROFILE_IMAGE_UPLOAD_DIR = "images/profile"
 ALLOWED_PROFILE_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 ALLOWED_PROFILE_IMAGE_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+PROFILE_IMAGE_MAX_DIMENSION = (256, 256)
+PROFILE_IMAGE_QUALITY = 75
 
 
 def get_user_me(user: User) -> User:
@@ -105,50 +106,7 @@ def change_user_password(user: User, *, new_password: str) -> None:
     revoke_all_refresh_tokens(user)
 
 
-def _get_s3_client() -> Any:
-    s3_client = getattr(settings, "S3_CLIENT", None)
-    if s3_client is not None:
-        return s3_client
-
-    try:
-        import boto3
-    except ImportError as err:
-        raise CustomAPIException(ErrorMessages.SERVER_ERROR) from err
-
-    return boto3.client(
-        "s3",
-        region_name=settings.AWS_S3_REGION_NAME,
-    )
-
-
-def _ensure_profile_image_storage_config() -> None:
-    required_settings = (
-        settings.AWS_STORAGE_BUCKET_NAME,
-        settings.AWS_S3_PUBLIC_BASE_URL,
-        settings.AWS_S3_REGION_NAME,
-    )
-    if not all(required_settings):
-        raise CustomAPIException(ErrorMessages.SERVER_ERROR)
-
-
-def _build_profile_image_url(object_key: str) -> str:
-    public_base_url = settings.AWS_S3_PUBLIC_BASE_URL
-    if public_base_url is None:
-        raise CustomAPIException(ErrorMessages.SERVER_ERROR)
-    return f"{public_base_url.rstrip('/')}/{object_key}"
-
-
-def _get_profile_image_object_key(profile_img_url: str | None) -> str | None:
-    if not profile_img_url or not settings.AWS_S3_PUBLIC_BASE_URL:
-        return None
-
-    prefix = f"{settings.AWS_S3_PUBLIC_BASE_URL.rstrip('/')}/"
-    if profile_img_url.startswith(prefix):
-        return profile_img_url.removeprefix(prefix)
-    return None
-
-
-def _resize_image(image_file: Any, max_size: tuple[int, int] = (512, 512)) -> bytes:
+def _resize_image(image_file: Any, max_size: tuple[int, int] = PROFILE_IMAGE_MAX_DIMENSION) -> bytes:
     try:
         from PIL import Image
     except ImportError as err:
@@ -159,17 +117,22 @@ def _resize_image(image_file: Any, max_size: tuple[int, int] = (512, 512)) -> by
     converted.thumbnail(max_size, Image.Resampling.LANCZOS)
 
     output = io.BytesIO()
-    converted.save(output, format="WEBP", quality=85)
+    converted.save(output, format="WEBP", quality=PROFILE_IMAGE_QUALITY, method=6)
     return output.getvalue()
+
+
+def _build_profile_image_url(*, base_url: str, public_id: Any) -> str:
+    relative_path = reverse("users-profile-image-content", kwargs={"public_id": public_id})
+    return f"{base_url.rstrip('/')}{relative_path}"
 
 
 def upload_user_profile_image(
     user: User,
     *,
     image_file: Any,
+    base_url: str,
 ) -> dict[str, object]:
     user = get_user_me(user)
-    _ensure_profile_image_storage_config()
 
     content_type = getattr(image_file, "content_type", "")
     if content_type not in ALLOWED_PROFILE_IMAGE_CONTENT_TYPES:
@@ -184,21 +147,12 @@ def upload_user_profile_image(
         raise CustomAPIException(ErrorMessages.FILE_TOO_LARGE)
 
     resized_bytes = _resize_image(image_file)
+    profile_image, _ = UserProfileImage.objects.get_or_create(user=user)
+    profile_image.image_data = resized_bytes
+    profile_image.content_type = "image/webp"
+    profile_image.save(update_fields=["image_data", "content_type", "updated_at"])
 
-    old_key = _get_profile_image_object_key(user.profile_img_url)
-
-    object_key = f"{PROFILE_IMAGE_UPLOAD_DIR}/{user.id}/{uuid.uuid4().hex}.webp"
-    _get_s3_client().put_object(
-        Bucket=settings.AWS_STORAGE_BUCKET_NAME,
-        Key=object_key,
-        Body=resized_bytes,
-        ContentType="image/webp",
-    )
-
-    if old_key is not None:
-        _get_s3_client().delete_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=old_key)
-
-    profile_img_url = _build_profile_image_url(object_key)
+    profile_img_url = _build_profile_image_url(base_url=base_url, public_id=profile_image.public_id)
     user.profile_img_url = profile_img_url
     user.save(update_fields=["profile_img_url", "updated_at"])
 
@@ -207,16 +161,16 @@ def upload_user_profile_image(
 
 def delete_user_profile_image(user: User) -> dict[str, object]:
     user = get_user_me(user)
-    _ensure_profile_image_storage_config()
-
-    object_key = _get_profile_image_object_key(user.profile_img_url)
-    if object_key is not None:
-        _get_s3_client().delete_object(
-            Bucket=settings.AWS_STORAGE_BUCKET_NAME,
-            Key=object_key,
-        )
+    UserProfileImage.objects.filter(user=user).delete()
 
     user.profile_img_url = None
     user.save(update_fields=["profile_img_url", "updated_at"])
 
     return {"profile_img_url": None}
+
+
+def get_profile_image_content(*, public_id: Any) -> UserProfileImage:
+    profile_image = UserProfileImage.objects.filter(public_id=public_id).select_related("user").first()
+    if profile_image is None or profile_image.user.deleted_at is not None:
+        raise CustomAPIException(ErrorMessages.USER_NOT_FOUND)
+    return profile_image

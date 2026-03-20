@@ -1,16 +1,18 @@
 import datetime
 import io
-from unittest.mock import MagicMock, patch
+import uuid
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.users.models import UserProfileImage
 
 
 def make_image_file(width: int = 100, height: int = 100, fmt: str = "PNG") -> SimpleUploadedFile:
@@ -22,11 +24,6 @@ def make_image_file(width: int = 100, height: int = 100, fmt: str = "PNG") -> Si
     return SimpleUploadedFile(f"avatar.{ext}", buffer.read(), content_type=content_type)
 
 
-@override_settings(
-    AWS_S3_REGION_NAME="ap-northeast-2",
-    AWS_STORAGE_BUCKET_NAME="test-bucket",
-    AWS_S3_PUBLIC_BASE_URL="https://cdn.example.com",
-)
 class UserProfileImageAPITest(TestCase):
     def setUp(self) -> None:
         self.client: APIClient = APIClient()
@@ -41,57 +38,38 @@ class UserProfileImageAPITest(TestCase):
 
     def test_upload_profile_image_returns_profile_img_url(self) -> None:
         self.client.force_authenticate(user=self.user)
-        mock_s3_client = MagicMock()
-
-        with override_settings(S3_CLIENT=mock_s3_client):
-            response = self.client.put(
-                self.url,
-                {"image": make_image_file()},
-                format="multipart",
-            )
+        response = self.client.put(
+            self.url,
+            {"image": make_image_file()},
+            format="multipart",
+        )
 
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["profile_img_url"].startswith("https://cdn.example.com/images/profile/"))
-        self.assertTrue(response.json()["profile_img_url"].endswith(".webp"))
+        self.assertIn("/api/v1/users/profile-images/", response.json()["profile_img_url"])
 
         self.user.refresh_from_db()
         self.assertEqual(self.user.profile_img_url, response.json()["profile_img_url"])
-        mock_s3_client.put_object.assert_called_once()
-        _, kwargs = mock_s3_client.put_object.call_args
-        self.assertEqual(kwargs["Bucket"], "test-bucket")
-        self.assertEqual(kwargs["ContentType"], "image/webp")
+        profile_image = UserProfileImage.objects.get(user=self.user)
+        self.assertEqual(profile_image.content_type, "image/webp")
 
     def test_upload_profile_image_resizes_large_image(self) -> None:
         self.client.force_authenticate(user=self.user)
-        mock_s3_client = MagicMock()
+        self.client.put(self.url, {"image": make_image_file(1000, 1000)}, format="multipart")
 
-        captured: dict[str, bytes] = {}
+        profile_image = UserProfileImage.objects.get(user=self.user)
+        img = Image.open(io.BytesIO(bytes(profile_image.image_data)))
+        self.assertLessEqual(img.width, 256)
+        self.assertLessEqual(img.height, 256)
 
-        def capture_put(**kwargs: object) -> None:
-            captured["body"] = kwargs["Body"]  # type: ignore[assignment]
-
-        mock_s3_client.put_object.side_effect = capture_put
-
-        with override_settings(S3_CLIENT=mock_s3_client):
-            self.client.put(self.url, {"image": make_image_file(1000, 1000)}, format="multipart")
-
-        img = Image.open(io.BytesIO(captured["body"]))
-        self.assertLessEqual(img.width, 512)
-        self.assertLessEqual(img.height, 512)
-
-    def test_upload_profile_image_deletes_old_image(self) -> None:
+    def test_upload_profile_image_overwrites_existing_stored_image(self) -> None:
         self.client.force_authenticate(user=self.user)
-        self.user.profile_img_url = f"https://cdn.example.com/images/profile/{self.user.id}/old.webp"
-        self.user.save(update_fields=["profile_img_url"])
-        mock_s3_client = MagicMock()
+        first_response = self.client.put(self.url, {"image": make_image_file()}, format="multipart")
+        first_url = first_response.json()["profile_img_url"]
+        self.client.put(self.url, {"image": make_image_file(fmt="JPEG")}, format="multipart")
 
-        with override_settings(S3_CLIENT=mock_s3_client):
-            self.client.put(self.url, {"image": make_image_file()}, format="multipart")
-
-        mock_s3_client.delete_object.assert_called_once_with(
-            Bucket="test-bucket",
-            Key=f"images/profile/{self.user.id}/old.webp",
-        )
+        self.assertEqual(UserProfileImage.objects.filter(user=self.user).count(), 1)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.profile_img_url, first_url)
 
     def test_upload_profile_image_returns_401_when_not_authenticated(self) -> None:
         response = self.client.put(self.url, {"image": make_image_file()}, format="multipart")
@@ -126,30 +104,36 @@ class UserProfileImageAPITest(TestCase):
 
     def test_delete_profile_image_clears_profile_url(self) -> None:
         self.client.force_authenticate(user=self.user)
-        self.user.profile_img_url = f"https://cdn.example.com/images/profile/{self.user.id}/existing.webp"
-        self.user.save(update_fields=["profile_img_url"])
-        mock_s3_client = MagicMock()
-
-        with override_settings(S3_CLIENT=mock_s3_client):
-            response = self.client.delete(self.url)
+        self.client.put(self.url, {"image": make_image_file()}, format="multipart")
+        response = self.client.delete(self.url)
 
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json()["profile_img_url"])
 
         self.user.refresh_from_db()
         self.assertIsNone(self.user.profile_img_url)
-        mock_s3_client.delete_object.assert_called_once_with(
-            Bucket="test-bucket",
-            Key=f"images/profile/{self.user.id}/existing.webp",
-        )
+        self.assertFalse(UserProfileImage.objects.filter(user=self.user).exists())
 
     def test_delete_profile_image_without_existing_image_returns_none(self) -> None:
         self.client.force_authenticate(user=self.user)
-        mock_s3_client = MagicMock()
-
-        with override_settings(S3_CLIENT=mock_s3_client):
-            response = self.client.delete(self.url)
+        response = self.client.delete(self.url)
 
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json()["profile_img_url"])
-        mock_s3_client.delete_object.assert_not_called()
+
+    def test_profile_image_content_returns_stored_image(self) -> None:
+        self.client.force_authenticate(user=self.user)
+        self.client.put(self.url, {"image": make_image_file()}, format="multipart")
+        profile_image = UserProfileImage.objects.get(user=self.user)
+        content_url = reverse("users-profile-image-content", kwargs={"public_id": profile_image.public_id})
+
+        content_response = self.client.get(content_url)
+
+        self.assertEqual(content_response.status_code, 200)
+        self.assertEqual(content_response["Content-Type"], "image/webp")
+        self.assertEqual(bytes(content_response.content), bytes(profile_image.image_data))
+
+    def test_profile_image_content_returns_404_when_missing(self) -> None:
+        response = self.client.get(reverse("users-profile-image-content", kwargs={"public_id": uuid.UUID(int=0)}))
+
+        self.assertEqual(response.status_code, 404)

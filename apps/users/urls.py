@@ -20,6 +20,7 @@ from apps.users.views.me import (
     UserPasswordChangeAPIView,
     UserPasswordVerifyAPIView,
     UserProfileImageAPIView,
+    UserProfileImageContentAPIView,
 )
 from apps.users.views.search_recent import RecentSearchAPIView, RecentSearchKeywordDeleteAPIView
 from apps.users.views.social_auth import (
@@ -48,6 +49,11 @@ urlpatterns = [
     path("users/me/verify-password/", UserPasswordVerifyAPIView.as_view(), name="users-me-verify-password"),
     path("users/me/password/", UserPasswordChangeAPIView.as_view(), name="users-me-password-change"),
     path("users/me/profile-image/", UserProfileImageAPIView.as_view(), name="users-me-profile-image"),
+    path(
+        "users/profile-images/<uuid:public_id>/",
+        UserProfileImageContentAPIView.as_view(),
+        name="users-profile-image-content",
+    ),
     path("auth/kakao/login/", KakaoLoginAPIView.as_view(), name="auth-kakao-login"),
     path("auth/kakao/callback/", KakaoCallbackAPIView.as_view(), name="auth-kakao-callback"),
     path("auth/discord/login/", DiscordLoginAPIView.as_view(), name="auth-discord-login"),

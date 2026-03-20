@@ -1,13 +1,15 @@
 from typing import Any, cast
 
+from django.http import HttpResponse
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import generics, serializers
 from rest_framework.parsers import MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.users.models.user import User
 from apps.users.serializers.auth import MessageResponseSerializer
 from apps.users.serializers.me import (
@@ -24,6 +26,7 @@ from apps.users.services import (
     change_user_password,
     delete_user_me,
     delete_user_profile_image,
+    get_profile_image_content,
     get_user_me,
     update_user_me,
     upload_user_profile_image,
@@ -148,6 +151,7 @@ class UserProfileImageAPIView(APIView):
         result = upload_user_profile_image(
             cast(User, request.user),
             image_file=serializer.validated_data["image"],
+            base_url=request.build_absolute_uri("/"),
         )
         return Response(UserProfileImageResponseSerializer(result).data)
 
@@ -169,3 +173,24 @@ class UserProfileImageAPIView(APIView):
     def delete(self, request: Request) -> Response:
         result = delete_user_profile_image(cast(User, request.user))
         return Response(UserProfileImageResponseSerializer(result).data)
+
+
+class UserProfileImageContentAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        summary="프로필 이미지 조회",
+        request=None,
+        responses={
+            200: OpenApiResponse(description="Compressed profile image"),
+            404: OpenApiResponse(description="프로필 이미지가 없거나 사용자를 찾을 수 없는 경우"),
+        },
+        tags=["Users"],
+    )
+    def get(self, request: Request, public_id: str) -> HttpResponse:
+        try:
+            profile_image = get_profile_image_content(public_id=public_id)
+        except CustomAPIException:
+            return HttpResponse(status=404)
+
+        return HttpResponse(bytes(profile_image.image_data), content_type=profile_image.content_type)
