@@ -18,7 +18,18 @@ from apps.users.services.search_recent_service import save_recent_search_keyword
 @extend_schema(
     tags=["games"],
     summary="게임 목록 조회",
-    description="게임 목록 조회 (검색/필터/정렬) - IGDB API 기반",
+    description="""게임 목록 조회 (검색/필터/정렬) - IGDB API 기반
+        \n - 1  RPG - rpg 
+        \n - 2  어드벤처 - adventure 
+        \n - 3  FPS - shooter 
+        \n - 4  전략 - strategy 
+        \n - 5  시뮬레이션 - simulator 
+        \n - 6  스포츠 - sport 
+        \n - 7  레이싱 - racing 
+        \n - 8  퍼즐 - puzzle 
+        \n - 9  격투 - fighting 
+        \n - 10 아케이드 - arcade 
+""",
     parameters=[
         OpenApiParameter("search", type=str, required=False, description="게임 이름 검색"),
         OpenApiParameter("genre_ids", type=str, required=False, description="장르 ID 리스트(콤마 구분)"),
