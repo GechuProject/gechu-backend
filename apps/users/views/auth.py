@@ -147,7 +147,8 @@ class LogoutAPIView(APIView):
 
         response_serializer = MessageResponseSerializer({"message": "로그아웃 되었습니다."})
         response = Response(response_serializer.data, status=status.HTTP_200_OK)
-        response.delete_cookie("refresh_token")
+        response.delete_cookie("refresh_token", samesite="None")
+        response.delete_cookie("access_token", samesite="None")
         return response
 
 
