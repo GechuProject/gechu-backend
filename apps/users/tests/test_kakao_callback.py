@@ -69,7 +69,8 @@ class KakaoCallbackAPITestCase(TestCase):
     def test_kakao_callback_redirects_with_error_on_server_exception(self, mock_handle: MagicMock) -> None:
         mock_handle.side_effect = Exception("unexpected error")
 
-        response = self.client.get(self.url, {"code": "test-code", "state": "valid-state"})
+        with self.assertLogs("apps.users.views.social_auth", level="ERROR"):
+            response = self.client.get(self.url, {"code": "test-code", "state": "valid-state"})
 
         self.assertEqual(response.status_code, status.HTTP_302_FOUND)
         params = self._parse_redirect_params(response)

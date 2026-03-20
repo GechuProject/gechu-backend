@@ -90,8 +90,9 @@ class DiscordSocialAuthServiceTestCase(TestCase):
             mock_response.json.return_value = {"error": "invalid_grant"}
             mock_session.post.return_value = mock_response
 
-            with self.assertRaises(CustomAPIException) as context:
-                request_discord_access_token(code="test-code")
+            with self.assertLogs("apps.users.services.social_auth_service", level="ERROR"):
+                with self.assertRaises(CustomAPIException) as context:
+                    request_discord_access_token(code="test-code")
 
         detail = cast(dict[str, Any], context.exception.detail)
         self.assertEqual(detail["code"], ErrorMessages.DISCORD_OAUTH_CALLBACK_ERROR.name)
@@ -102,8 +103,9 @@ class DiscordSocialAuthServiceTestCase(TestCase):
             mock_make_session.return_value = mock_session
             mock_session.post.side_effect = requests.RequestException
 
-            with self.assertRaises(CustomAPIException) as context:
-                request_discord_access_token(code="test-code")
+            with self.assertLogs("apps.users.services.social_auth_service", level="ERROR"):
+                with self.assertRaises(CustomAPIException) as context:
+                    request_discord_access_token(code="test-code")
 
         detail = cast(dict[str, Any], context.exception.detail)
         self.assertEqual(detail["code"], ErrorMessages.DISCORD_OAUTH_CALLBACK_ERROR.name)
@@ -137,8 +139,9 @@ class DiscordSocialAuthServiceTestCase(TestCase):
             mock_make_session.return_value = mock_session
             mock_session.get.side_effect = requests.RequestException
 
-            with self.assertRaises(CustomAPIException) as context:
-                request_discord_user_info(access_token="discord-access-token")
+            with self.assertLogs("apps.users.services.social_auth_service", level="ERROR"):
+                with self.assertRaises(CustomAPIException) as context:
+                    request_discord_user_info(access_token="discord-access-token")
 
         detail = cast(dict[str, Any], context.exception.detail)
         self.assertEqual(detail["code"], ErrorMessages.DISCORD_OAUTH_CALLBACK_ERROR.name)
@@ -151,8 +154,9 @@ class DiscordSocialAuthServiceTestCase(TestCase):
             mock_response.json.return_value = []
             mock_session.get.return_value = mock_response
 
-            with self.assertRaises(CustomAPIException) as context:
-                request_discord_user_info(access_token="discord-access-token")
+            with self.assertLogs("apps.users.services.social_auth_service", level="ERROR"):
+                with self.assertRaises(CustomAPIException) as context:
+                    request_discord_user_info(access_token="discord-access-token")
 
         detail = cast(dict[str, Any], context.exception.detail)
         self.assertEqual(detail["code"], ErrorMessages.DISCORD_OAUTH_CALLBACK_ERROR.name)
@@ -253,7 +257,8 @@ class DiscordSocialAuthServiceTestCase(TestCase):
         }
         mock_generate_nickname.return_value = self.duplicate_nickname_user.nickname
 
-        result = handle_discord_callback(code="test-code", state="valid-state")
+        with self.assertLogs("apps.users.services.social_auth_service", level="WARNING"):
+            result = handle_discord_callback(code="test-code", state="valid-state")
 
         user = User.objects.get(email="nickname-fail-discord@example.com")
         self.assertTrue(result["is_new_user"])

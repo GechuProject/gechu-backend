@@ -153,8 +153,9 @@ class SearchGamesTests(TestCase):
         mock_client = MagicMock()
         mock_client.search_games.side_effect = IgdbRateLimitError()
         mock_get_client.return_value = mock_client
-        with self.assertRaises(IgdbRateLimitError):
-            search_games(query="test")
+        with self.assertLogs("apps.games.igdb.cache", level="WARNING"):
+            with self.assertRaises(IgdbRateLimitError):
+                search_games(query="test")
 
     @patch("apps.games.igdb.cache._resolve_genre_filters", return_value={})
     @patch("apps.games.igdb.cache._resolve_tag_filters", return_value={})
@@ -173,8 +174,9 @@ class SearchGamesTests(TestCase):
         mock_client = MagicMock()
         mock_client.search_games.side_effect = IgdbServerError()
         mock_get_client.return_value = mock_client
-        with self.assertRaises(IgdbServerError):
-            search_games(query="test")
+        with self.assertLogs("apps.games.igdb.cache", level="WARNING"):
+            with self.assertRaises(IgdbServerError):
+                search_games(query="test")
 
 
 class GetGamesByIdsTests(TestCase):
