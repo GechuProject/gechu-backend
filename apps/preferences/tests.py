@@ -12,7 +12,7 @@ from apps.games.models import Genre, Platform, Tag
 from apps.preferences.models import UserPreference
 from apps.users.models import User
 
-_counter = itertools.count(1)
+_counter = itertools.count(1000)
 
 # IGDB game IDs used in tests (no DB Game model)
 IGDB_GAME_ID_BASE = 9000
