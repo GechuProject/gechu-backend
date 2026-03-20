@@ -38,8 +38,7 @@ def _email_code_attempts_key(*, purpose: str, email: str) -> str:
     return f"email_code_attempts:{purpose}:{email}"
 
 
-def _should_issue_email_code(*, email: str, purpose: str) -> bool:
-    user_exists = User.objects.filter(email=email).exists()
+def _should_issue_email_code(*, purpose: str, user_exists: bool) -> bool:
     if purpose == EMAIL_CODE_PURPOSE_SIGNUP:
         return not user_exists
     return user_exists
@@ -52,13 +51,17 @@ def get_active_user_or_deactivated(user: User) -> User:
 
 
 def send_email_code(*, email: str, purpose: str) -> int:
+    user_exists = User.objects.filter(email=email).exists()
+    if purpose == EMAIL_CODE_PURPOSE_SIGNUP and user_exists:
+        raise CustomAPIException(ErrorMessages.EMAIL_ALREADY_EXISTS)
+
     cooldown_key = _email_code_cooldown_key(purpose=purpose, email=email)
     if cache.get(cooldown_key):
         raise CustomAPIException(ErrorMessages.TOO_MANY_REQUESTS)
 
     cache.set(cooldown_key, True, timeout=EMAIL_CODE_COOLDOWN_SECONDS)
 
-    if _should_issue_email_code(email=email, purpose=purpose):
+    if _should_issue_email_code(purpose=purpose, user_exists=user_exists):
         code = f"{secrets.randbelow(1000000):06d}"
         cache.set(_email_code_key(purpose=purpose, email=email), code, timeout=EMAIL_CODE_TTL_SECONDS)
         cache.delete(_email_code_attempts_key(purpose=purpose, email=email))

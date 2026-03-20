@@ -1,12 +1,13 @@
 from typing import cast
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.serializers.error_serializer import ErrorResponseSerializer
 from apps.users.models.user import User
 from apps.users.serializers.auth import (
     AccountRestoreRequestSerializer,
@@ -36,7 +37,17 @@ from apps.users.services import (
 @extend_schema(
     summary="회원가입",
     request=SignupRequestSerializer,
-    responses={201: SignupResponseSerializer},
+    responses={
+        201: SignupResponseSerializer,
+        400: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="VALIDATION_ERROR, INVALID_CODE, CODE_EXPIRED",
+        ),
+        409: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="EMAIL_ALREADY_EXISTS, NICKNAME_ALREADY_EXISTS",
+        ),
+    },
     tags=["auth"],
 )
 class SignupAPIView(APIView):
@@ -53,7 +64,12 @@ class SignupAPIView(APIView):
 @extend_schema(
     summary="이메일 인증 코드 발송",
     request=EmailCodeSendRequestSerializer,
-    responses={201: EmailCodeSendResponseSerializer},
+    responses={
+        201: EmailCodeSendResponseSerializer,
+        400: OpenApiResponse(response=ErrorResponseSerializer, description="VALIDATION_ERROR"),
+        409: OpenApiResponse(response=ErrorResponseSerializer, description="EMAIL_ALREADY_EXISTS"),
+        429: OpenApiResponse(response=ErrorResponseSerializer, description="TOO_MANY_REQUESTS"),
+    },
     tags=["auth"],
 )
 class EmailCodeSendAPIView(APIView):
@@ -110,7 +126,17 @@ class LoginAPIView(APIView):
 @extend_schema(
     summary="로그아웃",
     request=None,
-    responses={200: MessageResponseSerializer},
+    responses={
+        200: MessageResponseSerializer,
+        400: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="INVALID_CODE, VALIDATION_ERROR, SOCIAL_USER_ONLY",
+        ),
+        429: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="TOO_MANY_REQUESTS",
+        ),
+    },
     tags=["auth"],
 )
 class LogoutAPIView(APIView):
