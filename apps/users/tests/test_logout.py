@@ -39,6 +39,27 @@ class LogoutAPITestCase(TestCase):
         self.assertEqual(logout_res.status_code, 200)
         self.assertEqual(logout_res.json()["message"], "로그아웃 되었습니다.")
 
+    def test_logout_deletes_access_token_cookie(self) -> None:
+        login_res = self.client.post(
+            "/api/v1/auth/login/",
+            {"email": "admin@example.com", "password": "password1100110011"},
+            format="json",
+        )
+        self.assertEqual(login_res.status_code, 200)
+
+        access_token = login_res.json()["access_token"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+        self.client.cookies["access_token"] = access_token
+
+        logout_res = self.client.post(
+            "/api/v1/auth/logout/",
+            format="json",
+        )
+
+        self.assertEqual(logout_res.status_code, 200)
+        self.assertIn("access_token", logout_res.cookies)
+        self.assertEqual(logout_res.cookies["access_token"].value, "")
+
     def test_logout_without_refresh_token(self) -> None:
         login_res = self.client.post(
             "/api/v1/auth/login/",
