@@ -24,7 +24,7 @@ from apps.users.services.search_recent_service import save_recent_search_keyword
         \n - 2  어드벤처 - adventure (31)
         \n - 3  FPS - shooter (5)
         \n - 4  전략 - strategy (15)
-        \n - 5  시뮬레이션 - simulator (13) 
+        \n - 5  시뮬레이션 - simulator (13)
         \n - 6  스포츠 - sport (14)
         \n - 7  레이싱 - racing (10)
         \n - 8  퍼즐 - puzzle (9)
