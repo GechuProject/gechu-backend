@@ -145,7 +145,8 @@ class IgdbClientTests(TestCase):
         session.post.side_effect = [token_resp, api_401, token_resp2, api_ok]
         mock_build.return_value = session
         client = IgdbClient()
-        result = client._post_with_auth_retry("games", "fields id;")
+        with self.assertLogs("apps.games.igdb.client", level="WARNING"):
+            result = client._post_with_auth_retry("games", "fields id;")
         self.assertEqual(result, [{"id": 1}])
 
     @patch("apps.games.igdb.client._build_session")
@@ -346,7 +347,8 @@ class IgdbClientTests(TestCase):
         session.post.side_effect = [token_resp, rate_resp, ok_resp]
         mock_build.return_value = session
         client = IgdbClient()
-        pages = list(client.iter_genres())
+        with self.assertLogs("apps.games.igdb.client", level="WARNING"):
+            pages = list(client.iter_genres())
         self.assertEqual(len(pages), 1)
         mock_sleep.assert_called()
 

@@ -52,7 +52,8 @@ class CustomExceptionHandlerTests(TestCase):
 
     def test_generic_exception_returns_500(self) -> None:
         exc = RuntimeError("unexpected")
-        response = custom_exception_handler(exc, _context())
+        with self.assertLogs("apps.core.exceptions.exception_handler", level="ERROR"):
+            response = custom_exception_handler(exc, _context())
         assert response is not None
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.data["code"], "SERVER_ERROR")
@@ -60,7 +61,8 @@ class CustomExceptionHandlerTests(TestCase):
     @patch.dict("os.environ", {"DJANGO_SETTINGS_MODULE": "config.settings.prod"})
     def test_generic_exception_hides_detail_in_prod(self) -> None:
         exc = RuntimeError("secret info")
-        response = custom_exception_handler(exc, _context())
+        with self.assertLogs("apps.core.exceptions.exception_handler", level="ERROR"):
+            response = custom_exception_handler(exc, _context())
         assert response is not None
         self.assertEqual(response.status_code, 500)
         self.assertNotIn("secret info", response.data["message"])
@@ -69,7 +71,8 @@ class CustomExceptionHandlerTests(TestCase):
     @patch.dict("os.environ", {"DJANGO_SETTINGS_MODULE": "config.settings.dev"})
     def test_generic_exception_shows_detail_in_dev(self) -> None:
         exc = RuntimeError("debug info")
-        response = custom_exception_handler(exc, _context())
+        with self.assertLogs("apps.core.exceptions.exception_handler", level="ERROR"):
+            response = custom_exception_handler(exc, _context())
         assert response is not None
         self.assertEqual(response.status_code, 500)
         self.assertIn("debug info", response.data["message"])
