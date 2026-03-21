@@ -183,12 +183,19 @@ def search_games_by_igdb_genre_id(
         return cached
 
     client = get_igdb_client()
-    raw_list = client.search_games(
-        genre_ids=[igdb_genre_id],
-        sort=sort,
-        limit=limit,
-        min_rating_count=min_rating_count,
-    )
+    try:
+        raw_list = client.search_games(
+            genre_ids=[igdb_genre_id],
+            sort=sort,
+            limit=limit,
+            min_rating_count=min_rating_count,
+        )
+    except (IgdbRateLimitError, IgdbServerError):
+        logger.warning("IGDB 호출 실패, stale 캐시 반환 시도")
+        stale: list[dict[str, Any]] | None = cache.get(key)
+        if stale is not None:
+            return stale
+        raise
 
     results = [build_game_list_item(raw) for raw in raw_list]
     cache.set(key, results, _SEARCH_TTL)

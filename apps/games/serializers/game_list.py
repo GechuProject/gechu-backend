@@ -44,7 +44,15 @@ class GameListQuerySerializer(serializers.Serializer[dict[str, Any]]):
         return value
 
     def validate_genre_ids(self, value: str | None) -> list[int]:
-        return self._parse_int_list(value)
+        ids = self._parse_int_list(value)
+        if ids:
+            from apps.games.models import Genre
+
+            existing_ids = set(Genre.objects.filter(id__in=ids).values_list("id", flat=True))
+            invalid_ids = [i for i in ids if i not in existing_ids]
+            if invalid_ids:
+                raise CustomAPIException(ErrorMessages.INVALID_GENRE_ID)
+        return ids
 
     def validate_genre_name(self, value: str | None) -> str | None:
         return value

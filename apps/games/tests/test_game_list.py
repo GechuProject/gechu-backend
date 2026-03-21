@@ -77,7 +77,7 @@ class GameListViewTests(APITestCase):
         self.connection = get_redis_connection("default")
 
         # 테스트용 장르 생성
-        self.action_genre, _ = Genre.objects.get_or_create(
+        self.rpg_genre, _ = Genre.objects.get_or_create(
             igdb_id=12,
             igdb_type="genre",
             defaults={"name": "RPG"},
