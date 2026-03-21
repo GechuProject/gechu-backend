@@ -1,6 +1,7 @@
 from typing import Any
 
 from apps.games.igdb import cache as igdb_cache
+from apps.games.models import Genre
 from apps.preferences.models import UserGameAffinity
 from apps.users.models import User
 
@@ -81,11 +82,16 @@ class GameService:
     ) -> list[dict[str, Any]]:
         igdb_sort = _ORDERING_MAP.get(sort, "rating desc")
 
-        # 캐시에서 장르 이름 -> id 조회
-        genre_id = igdb_cache.get_genre_id_by_name(genre_name)
-        if not genre_id:
+        # DB에서 한국어 장르명으로 igdb_id 조회
+        genre = Genre.objects.filter(name=genre_name).first()
+        if not genre or not genre.igdb_id:
             return []
 
-        results = igdb_cache.search_games(genre_ids=[genre_id], sort=igdb_sort, limit=top_n)
+        # rating_count >= 100, 평점순 top10
+        results = igdb_cache.search_games_by_igdb_genre_id(
+            igdb_genre_id=genre.igdb_id,
+            sort=igdb_sort,
+            limit=top_n,
+        )
 
         return GameService.attach_is_saved(results, user)

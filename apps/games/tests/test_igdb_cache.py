@@ -95,6 +95,7 @@ class GetGameDetailTests(TestCase):
         mock_cache.set.assert_called_once()
 
 
+# 일반 검색 테스트
 class SearchGamesTests(TestCase):
     @patch("apps.games.igdb.cache.get_igdb_client")
     @patch("apps.games.igdb.cache.cache")
@@ -177,6 +178,92 @@ class SearchGamesTests(TestCase):
         with self.assertLogs("apps.games.igdb.cache", level="WARNING"):
             with self.assertRaises(IgdbServerError):
                 search_games(query="test")
+
+    @patch("apps.games.igdb.cache._resolve_genre_filters", return_value={})
+    @patch("apps.games.igdb.cache._resolve_tag_filters", return_value={})
+    @patch("apps.games.igdb.cache._resolve_platform_filters", return_value=[])
+    @patch("apps.games.igdb.cache.get_igdb_client")
+    @patch("apps.games.igdb.cache.cache")
+    def test_rate_limit_returns_stale_cache(
+        self,
+        mock_cache: MagicMock,
+        mock_get_client: MagicMock,
+        _rp: MagicMock,
+        _rt: MagicMock,
+        _rg: MagicMock,
+    ) -> None:
+        stale_data = [{"id": 1, "name": "Stale Game"}]
+        mock_cache.get.side_effect = [None, stale_data]
+        mock_client = MagicMock()
+        mock_client.search_games.side_effect = IgdbRateLimitError()
+        mock_get_client.return_value = mock_client
+
+        with self.assertLogs("apps.games.igdb.cache", level="WARNING"):
+            result = search_games(query="test")
+
+        self.assertEqual(result, stale_data)
+
+
+# top10 테스트
+class SearchGamesByIgdbGenreIdTests(TestCase):
+    @patch("apps.games.igdb.cache.get_igdb_client")
+    @patch("apps.games.igdb.cache.cache")
+    def test_returns_cached(self, mock_cache: MagicMock, mock_get_client: MagicMock) -> None:
+        cached_data = [{"id": 1}]
+        mock_cache.get.return_value = cached_data
+        from apps.games.igdb.cache import search_games_by_igdb_genre_id
+
+        result = search_games_by_igdb_genre_id(igdb_genre_id=12)
+        self.assertEqual(result, cached_data)
+        mock_get_client.assert_not_called()
+
+    @patch("apps.games.igdb.cache.get_igdb_client")
+    @patch("apps.games.igdb.cache.cache")
+    def test_fetches_and_caches(self, mock_cache: MagicMock, mock_get_client: MagicMock) -> None:
+        mock_cache.get.return_value = None
+        mock_client = MagicMock()
+        mock_client.search_games.return_value = [
+            {
+                "id": 10,
+                "slug": "g",
+                "name": "G",
+                "rating": 80,
+                "rating_count": 200,
+                "cover": {"image_id": "co1"},
+            }
+        ]
+        mock_get_client.return_value = mock_client
+        from apps.games.igdb.cache import search_games_by_igdb_genre_id
+
+        result = search_games_by_igdb_genre_id(igdb_genre_id=12)
+        self.assertEqual(len(result), 1)
+        mock_cache.set.assert_called_once()
+
+    @patch("apps.games.igdb.cache.get_igdb_client")
+    @patch("apps.games.igdb.cache.cache")
+    def test_rate_limit_reraises_when_no_stale(self, mock_cache: MagicMock, mock_get_client: MagicMock) -> None:
+        mock_cache.get.return_value = None
+        mock_client = MagicMock()
+        mock_client.search_games.side_effect = IgdbRateLimitError()
+        mock_get_client.return_value = mock_client
+        from apps.games.igdb.cache import search_games_by_igdb_genre_id
+
+        with self.assertLogs("apps.games.igdb.cache", level="WARNING"):
+            with self.assertRaises(IgdbRateLimitError):
+                search_games_by_igdb_genre_id(igdb_genre_id=12)
+
+    @patch("apps.games.igdb.cache.get_igdb_client")
+    @patch("apps.games.igdb.cache.cache")
+    def test_server_error_reraises_when_no_stale(self, mock_cache: MagicMock, mock_get_client: MagicMock) -> None:
+        mock_cache.get.return_value = None
+        mock_client = MagicMock()
+        mock_client.search_games.side_effect = IgdbServerError()
+        mock_get_client.return_value = mock_client
+        from apps.games.igdb.cache import search_games_by_igdb_genre_id
+
+        with self.assertLogs("apps.games.igdb.cache", level="WARNING"):
+            with self.assertRaises(IgdbServerError):
+                search_games_by_igdb_genre_id(igdb_genre_id=12)
 
 
 class GetGamesByIdsTests(TestCase):
