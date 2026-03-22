@@ -45,39 +45,31 @@ class GameListQuerySerializer(serializers.Serializer[dict[str, Any]]):
         return value
 
     def validate_genre_ids(self, value: str | None) -> list[int]:
-        ids = self._parse_int_list(value)
-        if ids:
-            existing_ids = set(Genre.objects.filter(id__in=ids).values_list("id", flat=True))
-            invalid_ids = [i for i in ids if i not in existing_ids]
-            if invalid_ids:
-                raise CustomAPIException(ErrorMessages.INVALID_GENRE_ID)
-        return ids
+        return self._validate_model_ids(value, Genre, ErrorMessages.INVALID_GENRE_ID)
 
     def validate_genre_name(self, value: str | None) -> str | None:
         return value
 
     def validate_platform_ids(self, value: str | None) -> list[int]:
-        ids = self._parse_int_list(value)
-        if ids:
-            existing_ids = set(Platform.objects.filter(id__in=ids).values_list("id", flat=True))
-            invalid_ids = [i for i in ids if i not in existing_ids]
-            if invalid_ids:
-                raise CustomAPIException(ErrorMessages.INVALID_PLATFORM_ID)
-        return ids
+        return self._validate_model_ids(value, Platform, ErrorMessages.INVALID_PLATFORM_ID)
 
     def validate_tag_ids(self, value: str | None) -> list[int]:
-        ids = self._parse_int_list(value)
-        if ids:
-            existing_ids = set(Tag.objects.filter(id__in=ids).values_list("id", flat=True))
-            invalid_ids = [i for i in ids if i not in existing_ids]
-            if invalid_ids:
-                raise CustomAPIException(ErrorMessages.INVALID_TAG_ID)
-        return ids
+        return self._validate_model_ids(value, Tag, ErrorMessages.INVALID_TAG_ID)
 
     def validate_page_size(self, value: int) -> int:
         if value < 1 or value > 100:
             raise CustomAPIException(ErrorMessages.INVALID_QUERY_PARAM)
         return value
+
+    def _validate_model_ids(self, value: str | None, model_class: type[Any], error_message: ErrorMessages) -> list[int]:
+        """주어진 모델에 대해 ID 목록의 유효성을 검사하는 헬퍼입니다."""
+        ids = self._parse_int_list(value)
+        if not ids:
+            return []
+        existing_ids = set(model_class.objects.filter(id__in=ids).values_list("id", flat=True))
+        if set(ids) - existing_ids:
+            raise CustomAPIException(error_message)
+        return ids
 
     def _parse_int_list(self, value: str | None) -> list[int]:
         if not value:
