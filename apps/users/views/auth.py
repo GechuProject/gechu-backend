@@ -2,6 +2,7 @@ from typing import cast
 
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
+from rest_framework.authentication import BaseAuthentication
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -140,7 +141,8 @@ class LoginAPIView(APIView):
     tags=["auth"],
 )
 class LogoutAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    authentication_classes: tuple[type[BaseAuthentication], ...] = ()
+    permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
         logout_user(request.COOKIES.get("refresh_token"))
