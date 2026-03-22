@@ -79,6 +79,14 @@ from apps.users.services.search_recent_service import save_recent_search_keyword
                         "message": ErrorMessages.INVALID_ORDERING.message,
                     },
                 ),
+                OpenApiExample(
+                    "존재하지 않는 장르 ID",
+                    value={
+                        "status_code": ErrorMessages.INVALID_GENRE_ID.status_code,
+                        "code": ErrorMessages.INVALID_GENRE_ID.name,
+                        "message": ErrorMessages.INVALID_GENRE_ID.message,
+                    },
+                ),
             ],
         ),
     },
