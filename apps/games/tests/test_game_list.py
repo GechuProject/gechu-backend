@@ -127,6 +127,27 @@ class GameListViewTests(APITestCase):
         self.assertEqual(response.data["code"], ErrorMessages.INVALID_QUERY_PARAM.name)
         self.assertEqual(response.data["message"], ErrorMessages.INVALID_QUERY_PARAM.message)
 
+    def test_invalid_genre_id_not_in_db(self) -> None:
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url, {"genre_ids": "999"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["code"], ErrorMessages.INVALID_GENRE_ID.name)
+        self.assertEqual(response.data["message"], ErrorMessages.INVALID_GENRE_ID.message)
+
+    def test_invalid_platform_id_not_in_db(self) -> None:
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url, {"platform_ids": "999"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["code"], ErrorMessages.INVALID_PLATFORM_ID.name)
+        self.assertEqual(response.data["message"], ErrorMessages.INVALID_PLATFORM_ID.message)
+
+    def test_invalid_tag_id_not_in_db(self) -> None:
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url, {"tag_ids": "999"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["code"], ErrorMessages.INVALID_TAG_ID.name)
+        self.assertEqual(response.data["message"], ErrorMessages.INVALID_TAG_ID.message)
+
     @patch("apps.games.services.game_list.igdb_cache.search_games")
     def test_search_and_ordering(self, mock_search: MagicMock) -> None:
         self.client.force_authenticate(user=self.user)

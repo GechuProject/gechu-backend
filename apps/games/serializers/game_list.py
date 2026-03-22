@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.games.models import Genre, Platform, Tag
 
 
 # -----------------------
@@ -46,8 +47,6 @@ class GameListQuerySerializer(serializers.Serializer[dict[str, Any]]):
     def validate_genre_ids(self, value: str | None) -> list[int]:
         ids = self._parse_int_list(value)
         if ids:
-            from apps.games.models import Genre
-
             existing_ids = set(Genre.objects.filter(id__in=ids).values_list("id", flat=True))
             invalid_ids = [i for i in ids if i not in existing_ids]
             if invalid_ids:
@@ -58,10 +57,22 @@ class GameListQuerySerializer(serializers.Serializer[dict[str, Any]]):
         return value
 
     def validate_platform_ids(self, value: str | None) -> list[int]:
-        return self._parse_int_list(value)
+        ids = self._parse_int_list(value)
+        if ids:
+            existing_ids = set(Platform.objects.filter(id__in=ids).values_list("id", flat=True))
+            invalid_ids = [i for i in ids if i not in existing_ids]
+            if invalid_ids:
+                raise CustomAPIException(ErrorMessages.INVALID_PLATFORM_ID)
+        return ids
 
     def validate_tag_ids(self, value: str | None) -> list[int]:
-        return self._parse_int_list(value)
+        ids = self._parse_int_list(value)
+        if ids:
+            existing_ids = set(Tag.objects.filter(id__in=ids).values_list("id", flat=True))
+            invalid_ids = [i for i in ids if i not in existing_ids]
+            if invalid_ids:
+                raise CustomAPIException(ErrorMessages.INVALID_TAG_ID)
+        return ids
 
     def validate_page_size(self, value: int) -> int:
         if value < 1 or value > 100:
