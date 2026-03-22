@@ -60,7 +60,7 @@ class LogoutAPITestCase(TestCase):
         self.assertIn("access_token", logout_res.cookies)
         self.assertEqual(logout_res.cookies["access_token"].value, "")
 
-    def test_logout_with_refresh_token_cookie_only(self) -> None:
+    def test_social_logout_with_cookie_tokens(self) -> None:
         login_res = self.client.post(
             "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},
