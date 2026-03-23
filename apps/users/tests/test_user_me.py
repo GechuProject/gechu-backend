@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.core.testcase import FastTestCase
+from apps.users.models.social_user import SocialUser
 from apps.users.tasks import purge_soft_deleted_users
 
 
@@ -39,7 +40,29 @@ class UserMeRetrieveAPITest(FastTestCase):
         self.assertEqual(drf_res.data["is_adult_verified"], self.user.is_adult_verified)
         self.assertEqual(drf_res.data["adult_verified_at"], self.user.adult_verified_at)
         self.assertEqual(drf_res.data["is_active"], self.user.is_active)
+        self.assertFalse(drf_res.data["is_social_user"])
+        self.assertIsNone(drf_res.data["social_provider"])
         self.assertTrue(drf_res.data["created_at"])
+
+    def test_get_me_returns_social_user_info_for_social_only_account(self) -> None:
+        self.user.set_unusable_password()
+        self.user.save(update_fields=["password"])
+        SocialUser.objects.create(
+            user=self.user,
+            provider=SocialUser.Provider.KAKAO,
+            provider_uid="kakao-social-only",
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        res = client.get("/api/v1/users/me/")
+
+        drf_res = cast(Response, res)
+
+        self.assertEqual(drf_res.status_code, 200)
+        self.assertTrue(drf_res.data["is_social_user"])
+        self.assertEqual(drf_res.data["social_provider"], SocialUser.Provider.KAKAO)
 
     def test_get_me_returns_401_when_not_authenticated(self) -> None:
         noauth_res = self.client.get("/api/v1/users/me/")
@@ -116,8 +139,6 @@ class UserMeRetrieveAPITest(FastTestCase):
         self.assertEqual(res.json()["code"], ErrorMessages.VALIDATION_ERROR.name)
 
     def test_patch_me_returns_400_for_social_only_user_with_new_password(self) -> None:
-        from apps.users.models.social_user import SocialUser
-
         self.user.set_unusable_password()
         self.user.save(update_fields=["password"])
         SocialUser.objects.create(
