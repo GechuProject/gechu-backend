@@ -138,3 +138,30 @@ class InteractionWeightRuleUpdateRequestSerializer(serializers.Serializer[dict[s
             raise CustomAPIException(ErrorMessages.VALIDATION_ERROR)
 
         return attrs
+
+
+_ADMIN_USER_INTERACTION_TYPE_CHOICES = (
+    ("view", "view"),
+    ("like", "like"),
+    ("dislike", "dislike"),
+    ("search", "search"),
+    ("saved_add", "saved_add"),
+    ("saved_remove", "saved_remove"),
+)
+
+
+class AdminUserInteractionQuerySerializer(serializers.Serializer[dict[str, Any]]):
+    type = serializers.ChoiceField(choices=_ADMIN_USER_INTERACTION_TYPE_CHOICES, required=False)
+
+
+class AdminUserInteractionItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    type = serializers.CharField()
+    game_id = serializers.IntegerField(source="igdb_game_id", allow_null=True)
+    created_at = serializers.DateTimeField()
+
+
+class AdminUserInteractionListResponseSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    count = serializers.IntegerField()
+    next = serializers.CharField(allow_null=True)
+    previous = serializers.CharField(allow_null=True)
+    results = AdminUserInteractionItemSerializer(many=True)
