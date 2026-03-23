@@ -80,6 +80,9 @@ def _build_similarity_pairs_from_interactions() -> dict[tuple[int, int], Decimal
     ).iterator()
     user_games: defaultdict[int, set[int]] = defaultdict(set)
     for user_id, game_id in user_rows_iterator:
+        # mypy 관점에서는 values_list가 Optional을 반환할 수 있어 타입 가드를 추가합니다.
+        if game_id is None:
+            continue
         user_games[user_id].add(int(game_id))
 
     game_user_count: defaultdict[int, int] = defaultdict(int)
