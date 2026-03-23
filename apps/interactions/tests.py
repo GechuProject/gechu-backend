@@ -7,6 +7,7 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.core.exceptions.exception_message import ErrorMessages
 from apps.games.models import ExternalStore
 from apps.interactions.models import InteractionContextRule, InteractionLog, InteractionWeightRule
 from apps.users.models import User
@@ -1025,3 +1026,123 @@ class AdminInteractionWeightRuleUpdateAPITestCase(TestCase):
         rule.refresh_from_db()
         self.assertEqual(float(cast(Any, rule.base_weight)), 1.5)
         self.assertEqual(rule.cooldown_seconds, 120)
+
+
+class AdminUserInteractionListAPITestCase(TestCase):
+    client: APIClient
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.admin_user = User.objects.create_user(
+            email="admin-int@ex.com",
+            nickname="admin-int",
+            birth_date=date(1991, 1, 1),
+            password="pw",
+            is_staff=True,
+        )
+        self.target_user = User.objects.create_user(
+            email="target-int@ex.com",
+            nickname="target-int",
+            birth_date=date(1992, 1, 1),
+            password="pw",
+        )
+        self.normal_user = User.objects.create_user(
+            email="normal-int@ex.com",
+            nickname="normal-int",
+            birth_date=date(1993, 1, 1),
+            password="pw",
+        )
+        self.base_url = f"/api/v1/admin/users/{self.target_user.id}/interactions/"
+
+    def test_admin_user_interaction_list_unauthorized(self) -> None:
+        response = self.client.get(self.base_url)
+        self.assertEqual(response.status_code, 401)
+
+    def test_admin_user_interaction_list_forbidden_for_non_staff(self) -> None:
+        self.client.force_authenticate(user=self.normal_user)
+        response = self.client.get(self.base_url)
+        self.assertEqual(response.status_code, 403)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), ErrorMessages.FORBIDDEN.name)
+
+    def test_admin_user_interaction_list_404_when_user_not_found(self) -> None:
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get("/api/v1/admin/users/999999/interactions/")
+        self.assertEqual(response.status_code, 404)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data.get("code"), ErrorMessages.USER_NOT_FOUND.name)
+
+    def test_admin_user_interaction_list_success(self) -> None:
+        InteractionLog.objects.create(
+            user=self.target_user,
+            igdb_game_id=IGDB_GAME_ID,
+            type=InteractionLog.ActionType.VIEW,
+            source=InteractionLog.SourceType.DETAIL_PAGE,
+        )
+        InteractionLog.objects.create(
+            user=self.target_user,
+            igdb_game_id=IGDB_GAME_ID_2,
+            type=InteractionLog.ActionType.LIKE,
+            source=InteractionLog.SourceType.DETAIL_PAGE,
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self.base_url)
+
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertIn("count", data)
+        self.assertIn("results", data)
+        self.assertIn("next", data)
+        self.assertIn("previous", data)
+        self.assertEqual(data["count"], 2)
+        results = cast(list[dict[str, Any]], data["results"])
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0]["type"], "like")
+        self.assertEqual(results[0]["game_id"], IGDB_GAME_ID_2)
+        self.assertIn("created_at", results[0])
+        self.assertEqual(results[1]["type"], "view")
+        self.assertEqual(results[1]["game_id"], IGDB_GAME_ID)
+
+    def test_admin_user_interaction_list_filter_by_type(self) -> None:
+        InteractionLog.objects.create(
+            user=self.target_user,
+            igdb_game_id=IGDB_GAME_ID,
+            type=InteractionLog.ActionType.VIEW,
+            source=InteractionLog.SourceType.DETAIL_PAGE,
+        )
+        InteractionLog.objects.create(
+            user=self.target_user,
+            igdb_game_id=IGDB_GAME_ID_2,
+            type=InteractionLog.ActionType.LIKE,
+            source=InteractionLog.SourceType.DETAIL_PAGE,
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self.base_url + "?type=view")
+
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["count"], 1)
+        results = cast(list[dict[str, Any]], data["results"])
+        self.assertEqual(results[0]["type"], "view")
+        self.assertEqual(results[0]["game_id"], IGDB_GAME_ID)
+
+    def test_admin_user_interaction_list_game_id_null_allowed(self) -> None:
+        InteractionLog.objects.create(
+            user=self.target_user,
+            igdb_game_id=None,
+            type=InteractionLog.ActionType.SEARCH,
+            source=InteractionLog.SourceType.SEARCH_RESULT,
+            search_query="some query",
+        )
+
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self.base_url)
+
+        self.assertEqual(response.status_code, 200)
+        data = cast(dict[str, Any], response.data)
+        self.assertEqual(data["count"], 1)
+        results = cast(list[dict[str, Any]], data["results"])
+        self.assertIsNone(results[0]["game_id"])
+        self.assertEqual(results[0]["type"], "search")
