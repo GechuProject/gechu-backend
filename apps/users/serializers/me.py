@@ -4,6 +4,9 @@ from apps.users.models.user import User
 
 
 class UserMeResponseSerializer(serializers.ModelSerializer[User]):
+    is_social_user = serializers.SerializerMethodField()
+    social_provider = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
@@ -15,8 +18,17 @@ class UserMeResponseSerializer(serializers.ModelSerializer[User]):
             "is_adult_verified",
             "adult_verified_at",
             "is_active",
+            "is_social_user",
+            "social_provider",
             "created_at",
         ]
+
+    def get_is_social_user(self, obj: User) -> bool:
+        return obj.social_accounts.exists() and not obj.has_usable_password()
+
+    def get_social_provider(self, obj: User) -> str | None:
+        social_account = obj.social_accounts.order_by("id").first()
+        return social_account.provider if social_account is not None else None
 
 
 class UserMeUpdateResponseSerializer(serializers.ModelSerializer[User]):
