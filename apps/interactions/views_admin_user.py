@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import cast
 
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema
-from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -117,7 +116,7 @@ class AdminUserInteractionListView(APIView):
     permission_classes = [IsStaffAdmin]
 
     def get(self, request: Request, user_id: int) -> Response:
-        if User.objects.filter(pk=user_id).first() is None:
+        if not User.objects.filter(pk=user_id).exists():
             raise CustomAPIException(ErrorMessages.USER_NOT_FOUND)
 
         query_serializer = AdminUserInteractionQuerySerializer(data=request.query_params)

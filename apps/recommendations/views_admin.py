@@ -417,8 +417,7 @@ class AdminUserRecommendationListView(APIView):
     permission_classes = [IsStaffAdmin]
 
     def get(self, request: Request, user_id: int) -> Response:
-        target_user = User.objects.filter(pk=user_id).first()
-        if target_user is None:
+        if not User.objects.filter(pk=user_id).exists():
             raise CustomAPIException(ErrorMessages.USER_NOT_FOUND)
 
         qs = RecommendationAdminService.list_user_recommendations(user_id=user_id)
