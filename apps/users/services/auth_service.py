@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import secrets
 from datetime import date, timedelta
+from typing import cast
 
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
@@ -191,7 +192,7 @@ def logout_user(refresh_token: str | None) -> None:
         raise CustomAPIException(ErrorMessages.INVALID_REFRESH_TOKEN) from err
 
 
-def refresh_access_token(refresh_token: str | None) -> tuple[str, int]:
+def refresh_access_token(refresh_token: str | None) -> tuple[str, str, int]:
     if not refresh_token:
         raise CustomAPIException(ErrorMessages.REFRESH_TOKEN_MISSING)
 
@@ -206,6 +207,11 @@ def refresh_access_token(refresh_token: str | None) -> tuple[str, int]:
             raise CustomAPIException(ErrorMessages.INVALID_REFRESH_TOKEN)
         get_active_user_or_deactivated(user)
 
+        if cast(bool, settings.SIMPLE_JWT["ROTATE_REFRESH_TOKENS"]):
+            if cast(bool, settings.SIMPLE_JWT["BLACKLIST_AFTER_ROTATION"]):
+                refresh.blacklist()
+            return issue_auth_tokens(user)
+
         access = refresh.access_token
     except TokenError as err:
         message = str(err)
@@ -213,4 +219,4 @@ def refresh_access_token(refresh_token: str | None) -> tuple[str, int]:
             raise CustomAPIException(ErrorMessages.REFRESH_TOKEN_EXPIRED) from err
         raise CustomAPIException(ErrorMessages.INVALID_REFRESH_TOKEN) from err
 
-    return str(access), int(access.lifetime.total_seconds())
+    return str(access), str(refresh), int(access.lifetime.total_seconds())

@@ -13,7 +13,7 @@ from apps.core.exceptions.exception_message import ErrorMessages
 
 class AuthMeAPITestCase(TestCase):
     def setUp(self) -> None:
-        self.client = APIClient()
+        self.client: APIClient = APIClient(enforce_csrf_checks=True)
         self.user = get_user_model().objects.create_user(
             email="authme@example.com",
             password="Passw0rd!",
@@ -22,11 +22,23 @@ class AuthMeAPITestCase(TestCase):
         )
         self.url = reverse("auth-me")
 
-    def test_auth_me_returns_current_user_info(self) -> None:
-        client = APIClient()
-        client.force_authenticate(user=self.user)
+    def _set_csrf_header(self) -> str:
+        response = self.client.get("/api/v1/auth/csrf/")
+        self.assertEqual(response.status_code, 200)
+        csrf_token = str(response.json()["csrf_token"])
+        self.client.credentials(HTTP_X_CSRFTOKEN=csrf_token)
+        return csrf_token
 
-        res = client.get(self.url)
+    def test_auth_me_returns_current_user_info_from_login_cookie(self) -> None:
+        self._set_csrf_header()
+        login_response = self.client.post(
+            "/api/v1/auth/login/",
+            {"email": "authme@example.com", "password": "Passw0rd!"},
+            format="json",
+        )
+        self.assertEqual(login_response.status_code, 200)
+
+        res = self.client.get(self.url)
         drf_res = cast(Response, res)
 
         self.assertEqual(drf_res.status_code, 200)

@@ -59,6 +59,10 @@ class MessageResponseSerializer(serializers.Serializer):  # type: ignore[type-ar
     message = serializers.CharField()
 
 
+class CSRFTokenResponseSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    csrf_token = serializers.CharField()
+
+
 class AuthMeResponseSerializer(serializers.ModelSerializer[User]):
     class Meta:
         model = User

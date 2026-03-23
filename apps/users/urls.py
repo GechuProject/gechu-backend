@@ -7,6 +7,7 @@ from apps.users.views.adult_verification import (
 )
 from apps.users.views.auth import (
     AccountRestoreAPIView,
+    AuthCSRFAPIView,
     AuthMeAPIView,
     EmailCodeSendAPIView,
     LoginAPIView,
@@ -32,6 +33,7 @@ from apps.users.views.social_auth import (
 urlpatterns = [
     path("auth/signup/", SignupAPIView.as_view(), name="auth-signup"),
     path("auth/email/code/", EmailCodeSendAPIView.as_view(), name="auth-email-code"),
+    path("auth/csrf/", AuthCSRFAPIView.as_view(), name="auth-csrf"),
     path("auth/login/", LoginAPIView.as_view(), name="auth-login"),
     path("auth/logout/", LogoutAPIView.as_view(), name="auth-logout"),
     path("auth/restore/", AccountRestoreAPIView.as_view(), name="auth-restore"),
