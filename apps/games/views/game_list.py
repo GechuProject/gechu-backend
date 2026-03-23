@@ -38,6 +38,18 @@ from apps.users.services.search_recent_service import save_recent_search_keyword
         \n - 3  Xbox - xbox (169)
         \n - 4  Nintendo Switch - nintendo-switch (130)
         \n - 5  Mobile - mobile (34)
+        \n **태그 (tag_ids)**
+        \n - id name - slug (igdb_id)
+        \n - 1  오픈월드 - open-world (38)
+        \n - 2  스토리 중심 - story-rich (2426)
+        \n - 3  Co-op - co-op (3)
+        \n - 4  PvP - pvp (546)
+        \n - 5  싱글플레이 - single-player (1)
+        \n - 6  멀티플레이 - multiplayer (2)
+        \n - 7  생존 - survival (21)
+        \n - 8  공포 - horror (19)
+        \n - 9  판타지 - fantasy (17)
+        \n - 10 SF - science-fiction (18)
 """,
     parameters=[
         OpenApiParameter("search", type=str, required=False, description="게임 이름 검색"),
@@ -85,6 +97,22 @@ from apps.users.services.search_recent_service import save_recent_search_keyword
                         "status_code": ErrorMessages.INVALID_GENRE_ID.status_code,
                         "code": ErrorMessages.INVALID_GENRE_ID.name,
                         "message": ErrorMessages.INVALID_GENRE_ID.message,
+                    },
+                ),
+                OpenApiExample(
+                    "존재하지 않는 플랫폼 ID",
+                    value={
+                        "status_code": ErrorMessages.INVALID_PLATFORM_ID.status_code,
+                        "code": ErrorMessages.INVALID_PLATFORM_ID.name,
+                        "message": ErrorMessages.INVALID_PLATFORM_ID.message,
+                    },
+                ),
+                OpenApiExample(
+                    "존재하지 않는 태그 ID",
+                    value={
+                        "status_code": ErrorMessages.INVALID_TAG_ID.status_code,
+                        "code": ErrorMessages.INVALID_TAG_ID.name,
+                        "message": ErrorMessages.INVALID_TAG_ID.message,
                     },
                 ),
             ],

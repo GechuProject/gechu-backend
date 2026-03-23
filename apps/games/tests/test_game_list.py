@@ -127,6 +127,22 @@ class GameListViewTests(APITestCase):
         self.assertEqual(response.data["code"], ErrorMessages.INVALID_QUERY_PARAM.name)
         self.assertEqual(response.data["message"], ErrorMessages.INVALID_QUERY_PARAM.message)
 
+    def test_invalid_ids_not_in_db(self) -> None:
+        self.client.force_authenticate(user=self.user)
+
+        test_cases = {
+            "genre_ids": ErrorMessages.INVALID_GENRE_ID,
+            "platform_ids": ErrorMessages.INVALID_PLATFORM_ID,
+            "tag_ids": ErrorMessages.INVALID_TAG_ID,
+        }
+
+        for param, error_message in test_cases.items():
+            with self.subTest(param=param):
+                response = self.client.get(self.url, {param: "999"})
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(response.data["code"], error_message.name)
+                self.assertEqual(response.data["message"], error_message.message)
+
     @patch("apps.games.services.game_list.igdb_cache.search_games")
     def test_search_and_ordering(self, mock_search: MagicMock) -> None:
         self.client.force_authenticate(user=self.user)
