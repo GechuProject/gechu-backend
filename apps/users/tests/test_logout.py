@@ -1,13 +1,13 @@
 import datetime
 
-from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.core.testcase import FastTestCase
 from apps.users.models.user import User
 
 
-class LogoutAPITestCase(TestCase):
+class LogoutAPITestCase(FastTestCase):
     def setUp(self) -> None:
         self.api_client = APIClient(enforce_csrf_checks=True)
         self.user = User.objects.create_user(

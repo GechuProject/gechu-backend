@@ -3,11 +3,11 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, cast
 
-from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.core.testcase import FastTestCase
 from apps.games.models import ExternalStore
 from apps.interactions.models import InteractionContextRule, InteractionLog, InteractionWeightRule
 from apps.users.models import User
@@ -23,7 +23,7 @@ IGDB_GAME_ID_2 = 7001
 IGDB_GAME_ID_STORE = 8001
 
 
-class InteractionViewLogCreateAPITestCase(TestCase):
+class InteractionViewLogCreateAPITestCase(FastTestCase):
     client: APIClient
 
     @classmethod
@@ -247,7 +247,7 @@ class InteractionViewLogCreateAPITestCase(TestCase):
         self.assertEqual(float(cast(Any, second_log.weight)), 0.216)  # 0.2 * 1.2 * 0.9^1
 
 
-class InteractionSearchLogCreateAPITestCase(TestCase):
+class InteractionSearchLogCreateAPITestCase(FastTestCase):
     client: APIClient
 
     @classmethod
@@ -453,7 +453,7 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
         self.assertEqual(float(cast(Any, second_log.weight)), 0.099)  # 0.1 * 1.1 * 0.9^1
 
 
-class InteractionStoreClickLogCreateAPITestCase(TestCase):
+class InteractionStoreClickLogCreateAPITestCase(FastTestCase):
     client: APIClient
 
     @classmethod
@@ -691,7 +691,7 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
         self.assertEqual(float(cast(Any, second_log.weight)), 0.108)  # 0.1 * 1.2 * 0.9^1
 
 
-class AdminInteractionWeightRuleListAPITestCase(TestCase):
+class AdminInteractionWeightRuleListAPITestCase(FastTestCase):
     client: APIClient
 
     def setUp(self) -> None:
@@ -761,7 +761,7 @@ class AdminInteractionWeightRuleListAPITestCase(TestCase):
         self.assertIn("updated_at", first)
 
 
-class AdminInteractionContextRuleListAPITestCase(TestCase):
+class AdminInteractionContextRuleListAPITestCase(FastTestCase):
     client: APIClient
 
     def setUp(self) -> None:
@@ -824,7 +824,7 @@ class AdminInteractionContextRuleListAPITestCase(TestCase):
         self.assertIn("updated_at", first)
 
 
-class AdminInteractionContextRuleUpdateAPITestCase(TestCase):
+class AdminInteractionContextRuleUpdateAPITestCase(FastTestCase):
     client: APIClient
 
     def setUp(self) -> None:
@@ -909,7 +909,7 @@ class AdminInteractionContextRuleUpdateAPITestCase(TestCase):
         self.assertEqual(float(cast(Any, rule.multiplier)), 2.0)
 
 
-class AdminInteractionWeightRuleUpdateAPITestCase(TestCase):
+class AdminInteractionWeightRuleUpdateAPITestCase(FastTestCase):
     client: APIClient
 
     def setUp(self) -> None:
@@ -1028,7 +1028,7 @@ class AdminInteractionWeightRuleUpdateAPITestCase(TestCase):
         self.assertEqual(rule.cooldown_seconds, 120)
 
 
-class AdminUserInteractionListAPITestCase(TestCase):
+class AdminUserInteractionListAPITestCase(FastTestCase):
     client: APIClient
     admin_user: User
     target_user: User

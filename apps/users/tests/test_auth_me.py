@@ -2,16 +2,16 @@ import datetime
 from typing import cast
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.core.testcase import FastTestCase
 
 
-class AuthMeAPITestCase(TestCase):
+class AuthMeAPITestCase(FastTestCase):
     def setUp(self) -> None:
         self.client: APIClient = APIClient(enforce_csrf_checks=True)
         self.user = get_user_model().objects.create_user(

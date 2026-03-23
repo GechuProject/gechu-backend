@@ -2,16 +2,16 @@ import datetime
 from typing import cast
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
 from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.core.testcase import FastTestCase
 from apps.users.tasks import purge_soft_deleted_users
 
 
-class UserMeRetrieveAPITest(TestCase):
+class UserMeRetrieveAPITest(FastTestCase):
     def setUp(self) -> None:
         self.client = APIClient()
         user_model = get_user_model()

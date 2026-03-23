@@ -5,11 +5,11 @@ from decimal import Decimal
 from typing import Any, cast
 from unittest.mock import patch
 
-from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.core.testcase import FastTestCase
 from apps.interactions.models import InteractionLog
 from apps.recommendations.models import GameSimilarity, RecommendationJob, UserRecommendation
 from apps.recommendations.tasks import (
@@ -28,7 +28,7 @@ IGDB_GAME_PUZZLE = 7003
 IGDB_GAME_DUMMY = 7004
 
 
-class RecommendationListAPITestCase(TestCase):
+class RecommendationListAPITestCase(FastTestCase):
     client: APIClient
 
     def setUp(self) -> None:
@@ -157,7 +157,7 @@ class RecommendationListAPITestCase(TestCase):
         self.assertEqual(payload["code"], "INVALID_QUERY_PARAM")
 
 
-class RecommendationStatusAPITestCase(TestCase):
+class RecommendationStatusAPITestCase(FastTestCase):
     client: APIClient
     user: User
 
@@ -268,7 +268,7 @@ class RecommendationStatusAPITestCase(TestCase):
         self.assertEqual(data["generation_version"], rec.generation_version)
 
 
-class RecommendationTaskTestCase(TestCase):
+class RecommendationTaskTestCase(FastTestCase):
     def _create_user(self) -> User:
         return User.objects.create_user(
             email="task-user@ex.com",
@@ -457,7 +457,7 @@ class RecommendationTaskTestCase(TestCase):
         self.assertIsNone(job.started_at)
 
 
-class AdminRecommendationJobListAPITestCase(TestCase):
+class AdminRecommendationJobListAPITestCase(FastTestCase):
     client: APIClient
     admin_user: User
     normal_user: User
@@ -584,7 +584,7 @@ class AdminRecommendationJobListAPITestCase(TestCase):
         self.assertEqual(len(payload["results"]), 2)
 
 
-class AdminRecommendationJobDetailAPITestCase(TestCase):
+class AdminRecommendationJobDetailAPITestCase(FastTestCase):
     client: APIClient
     admin_user: User
     normal_user: User
@@ -666,7 +666,7 @@ class AdminRecommendationJobDetailAPITestCase(TestCase):
         self.assertIsNotNone(payload["created_at"])
 
 
-class AdminRecommendationJobRunAPITestCase(TestCase):
+class AdminRecommendationJobRunAPITestCase(FastTestCase):
     client: APIClient
     admin_user: User
     normal_user: User

@@ -4,10 +4,11 @@ from unittest.mock import MagicMock, patch
 
 import requests
 from django.core.cache import cache
-from django.test import TestCase, override_settings
+from django.test import override_settings
 
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.core.testcase import FastTestCase
 from apps.users.models.social_user import SocialUser
 from apps.users.models.user import User
 from apps.users.services.social_auth_service import (
@@ -24,7 +25,7 @@ from apps.users.services.social_auth_service import (
     KAKAO_CLIENT_SECRET="kakao-client-secret",
     KAKAO_REDIRECT_URI="https://example.com/auth/kakao/callback/",
 )
-class KakaoSocialAuthServiceTestCase(TestCase):
+class KakaoSocialAuthServiceTestCase(FastTestCase):
     existing_user: User
     social_linked_user: User
     duplicate_nickname_user: User

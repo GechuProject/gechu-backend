@@ -1,9 +1,9 @@
 from datetime import date
 from unittest.mock import patch
 
-from django.test import TestCase
 from rest_framework.test import APIClient
 
+from apps.core.testcase import FastTestCase
 from apps.games.igdb.exceptions import IgdbNotFoundError
 from apps.users.models import User
 
@@ -37,7 +37,7 @@ MOCK_ADULT_GAME_DETAIL = {
 }
 
 
-class GameDetailAPITest(TestCase):
+class GameDetailAPITest(FastTestCase):
     def setUp(self) -> None:
         self.client: APIClient = APIClient()
 

@@ -1,15 +1,15 @@
 import datetime
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.core.testcase import FastTestCase
 from apps.users.models.social_user import SocialUser
 
 
-class UserPasswordChangeAPITest(TestCase):
+class UserPasswordChangeAPITest(FastTestCase):
     def setUp(self) -> None:
         self.client: APIClient = APIClient()
         user_model = get_user_model()

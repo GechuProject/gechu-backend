@@ -5,9 +5,6 @@ from config.settings.base import *
 
 DEBUG = True
 
-# 테스트 속도 최적화: 빠른 해시 알고리즘 사용 (보안 불필요한 테스트 환경)
-PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
-
 RAW_ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "")
 if not RAW_ALLOWED_HOSTS:
     raise ValueError("DJANGO_ALLOWED_HOSTS must be set")

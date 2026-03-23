@@ -5,9 +5,9 @@ from datetime import date
 from typing import Any, cast
 from unittest.mock import patch
 
-from django.test import TestCase
 from rest_framework.test import APIClient
 
+from apps.core.testcase import FastTestCase
 from apps.games.models import Genre, Platform, Tag
 from apps.preferences.models import UserPreference
 from apps.users.models import User
@@ -18,7 +18,7 @@ _counter = itertools.count(1000)
 IGDB_GAME_ID_BASE = 9000
 
 
-class PreferenceBaseTestCase(TestCase):
+class PreferenceBaseTestCase(FastTestCase):
     """공통 유저 생성 및 인증을 담당하는 베이스 클래스"""
 
     client: APIClient

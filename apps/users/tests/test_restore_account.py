@@ -1,14 +1,14 @@
 import datetime
 
-from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.core.testcase import FastTestCase
 from apps.users.models.user import User
 
 
-class AccountRestoreAPITestCase(TestCase):
+class AccountRestoreAPITestCase(FastTestCase):
     def setUp(self) -> None:
         self.client = APIClient()
         self.url = "/api/v1/auth/restore/"

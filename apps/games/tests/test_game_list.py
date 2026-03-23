@@ -2,6 +2,7 @@ from datetime import date
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from django.urls import reverse
 from django_redis import get_redis_connection
 from rest_framework import status
@@ -64,6 +65,7 @@ MOCK_TOP10_GAMES = [
 ]
 
 
+@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class GameListViewTests(APITestCase):
     def setUp(self) -> None:
         self.user = User.objects.create_user(
