@@ -22,5 +22,5 @@ class GameDetailService:
             if not user or not user.is_authenticated or not getattr(user, "is_adult_verified", False):
                 raise CustomAPIException(ErrorMessages.ADULT_VERIFICATION_REQUIRED)
 
-        result = GameService.attach_is_saved([game], user if isinstance(user, User) else None)
+        result = GameService.attach_is_saved([game], user if user and user.is_authenticated else None)
         return result[0]
