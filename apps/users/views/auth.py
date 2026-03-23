@@ -170,8 +170,7 @@ class AuthCSRFAPIView(APIView):
         200: OpenApiResponse(
             response=MessageResponseSerializer,
             description="Sets HttpOnly access_token and refresh_token cookies, and also issues a csrftoken cookie for subsequent unsafe requests.",
-        )
-        ,
+        ),
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
             description="INVALID_CREDENTIALS, ACCOUNT_DEACTIVATED",

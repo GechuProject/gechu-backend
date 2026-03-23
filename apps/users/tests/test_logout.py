@@ -41,18 +41,16 @@ class LogoutAPITestCase(TestCase):
         self.assertEqual(logout_res.cookies["access_token"].value, "")
 
     def test_logout_deletes_access_token_cookie(self) -> None:
-        login_res = self.client.post(
+        login_res = self.api_client.post(
             "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},
             format="json",
         )
         self.assertEqual(login_res.status_code, 200)
 
-        access_token = login_res.json()["access_token"]
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
-        self.client.cookies["access_token"] = access_token
+        self._set_csrf_header()
 
-        logout_res = self.client.post(
+        logout_res = self.api_client.post(
             "/api/v1/auth/logout/",
             format="json",
         )
