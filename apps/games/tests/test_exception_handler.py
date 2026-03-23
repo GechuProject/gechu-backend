@@ -1,7 +1,7 @@
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from django.test import TestCase
+from django.test import SimpleTestCase
 from rest_framework.exceptions import NotFound
 
 from apps.core.exceptions.exception_handler import CustomAPIException, custom_exception_handler
@@ -14,7 +14,7 @@ def _context() -> dict[str, MagicMock]:
     return {"view": MagicMock(), "request": MagicMock()}
 
 
-class CustomAPIExceptionTests(TestCase):
+class CustomAPIExceptionTests(SimpleTestCase):
     def test_creates_with_error_messages(self) -> None:
         exc = CustomAPIException(ErrorMessages.GAME_NOT_FOUND)
         self.assertEqual(exc.status_code, 404)
@@ -22,7 +22,7 @@ class CustomAPIExceptionTests(TestCase):
         self.assertIn("게임", exc.detail["message"])  # type: ignore[call-overload, index]
 
 
-class CustomExceptionHandlerTests(TestCase):
+class CustomExceptionHandlerTests(SimpleTestCase):
     def test_drf_exception_handled(self) -> None:
         exc = NotFound("not found")
         response = custom_exception_handler(exc, _context())

@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from django.test import TestCase
+from django.test import SimpleTestCase
 
 from apps.games.igdb.converters import (
     _parse_cover_url,
@@ -23,7 +23,7 @@ from apps.games.igdb.converters import (
 )
 
 
-class TimestampToDateTests(TestCase):
+class TimestampToDateTests(SimpleTestCase):
     def test_valid_timestamp(self) -> None:
         # 2020-01-01 00:00:00 UTC
         self.assertEqual(_timestamp_to_date(1577836800), date(2020, 1, 1))
@@ -38,7 +38,7 @@ class TimestampToDateTests(TestCase):
         self.assertIsNone(_timestamp_to_date(99999999999999))
 
 
-class ParseEsrbTests(TestCase):
+class ParseEsrbTests(SimpleTestCase):
     def test_none_returns_unknown(self) -> None:
         self.assertEqual(_parse_esrb(None), ("unknown", 0))
 
@@ -93,7 +93,7 @@ class ParseEsrbTests(TestCase):
         self.assertEqual(_parse_esrb(ratings), ("teen", 13))
 
 
-class ParseRatingTests(TestCase):
+class ParseRatingTests(SimpleTestCase):
     def test_none_returns_zero(self) -> None:
         self.assertEqual(_parse_rating(None), Decimal("0.00"))
 
@@ -114,7 +114,7 @@ class ParseRatingTests(TestCase):
         self.assertEqual(result, Decimal("75.5") / Decimal("20"))
 
 
-class ParseCoverUrlTests(TestCase):
+class ParseCoverUrlTests(SimpleTestCase):
     def test_valid_cover(self) -> None:
         cover = {"image_id": "co1234"}
         result = _parse_cover_url(cover)
@@ -134,7 +134,7 @@ class ParseCoverUrlTests(TestCase):
         self.assertEqual(_parse_cover_url({"image_id": ""}), "")
 
 
-class ParseWebsiteTests(TestCase):
+class ParseWebsiteTests(SimpleTestCase):
     def test_official_website(self) -> None:
         websites = [{"category": 1, "url": "https://example.com"}]
         self.assertEqual(_parse_website(websites), "https://example.com")
@@ -158,7 +158,7 @@ class ParseWebsiteTests(TestCase):
         self.assertEqual(_parse_website(websites), "")
 
 
-class ConvertGenreTests(TestCase):
+class ConvertGenreTests(SimpleTestCase):
     def test_basic(self) -> None:
         raw = {"id": 5, "name": "Shooter", "slug": "shooter"}
         result = convert_genre(raw)
@@ -179,7 +179,7 @@ class ConvertGenreTests(TestCase):
         self.assertEqual(len(result["slug"]), 50)
 
 
-class ConvertPlatformTests(TestCase):
+class ConvertPlatformTests(SimpleTestCase):
     def test_basic(self) -> None:
         raw = {"id": 48, "name": "PlayStation 4", "slug": "ps4"}
         result = convert_platform(raw)
@@ -209,7 +209,7 @@ class ConvertPlatformTests(TestCase):
         self.assertIsNone(result["icon_url"])
 
 
-class ConvertTagTests(TestCase):
+class ConvertTagTests(SimpleTestCase):
     def test_basic(self) -> None:
         raw = {"id": 10, "name": "Action", "slug": "action"}
         result = convert_tag(raw)
@@ -218,7 +218,7 @@ class ConvertTagTests(TestCase):
         self.assertEqual(result["slug"], "action")
 
 
-class ConvertGameTests(TestCase):
+class ConvertGameTests(SimpleTestCase):
     def _make_raw(self, **overrides: Any) -> dict[str, Any]:
         base: dict[str, Any] = {
             "id": 1942,
@@ -283,7 +283,7 @@ class ConvertGameTests(TestCase):
         self.assertIsNone(result["rawg_updated"])
 
 
-class ExtractGenreIgdbIdsTests(TestCase):
+class ExtractGenreIgdbIdsTests(SimpleTestCase):
     def test_basic(self) -> None:
         raw = {"genres": [{"id": 1}, {"id": 2}]}
         self.assertEqual(extract_genre_igdb_ids(raw), [1, 2])
@@ -299,7 +299,7 @@ class ExtractGenreIgdbIdsTests(TestCase):
         self.assertEqual(extract_genre_igdb_ids(raw), [1])
 
 
-class ExtractKeywordIgdbIdsTests(TestCase):
+class ExtractKeywordIgdbIdsTests(SimpleTestCase):
     def test_basic(self) -> None:
         raw = {"keywords": [{"id": 10}, {"id": 20}]}
         self.assertEqual(extract_keyword_igdb_ids(raw), [10, 20])
@@ -312,7 +312,7 @@ class ExtractKeywordIgdbIdsTests(TestCase):
         self.assertEqual(extract_keyword_igdb_ids(raw), [10])
 
 
-class ExtractPlatformEntriesTests(TestCase):
+class ExtractPlatformEntriesTests(SimpleTestCase):
     def test_basic(self) -> None:
         raw = {"platforms": [{"id": 48}, {"id": 49}]}
         entries = extract_platform_entries(raw)
@@ -328,7 +328,7 @@ class ExtractPlatformEntriesTests(TestCase):
         self.assertEqual(len(extract_platform_entries(raw)), 1)
 
 
-class ExtractStoreEntriesTests(TestCase):
+class ExtractStoreEntriesTests(SimpleTestCase):
     def test_steam_url(self) -> None:
         raw = {"websites": [{"url": "https://store.steampowered.com/app/1234"}]}
         entries = extract_store_entries(raw)
@@ -374,7 +374,7 @@ class ExtractStoreEntriesTests(TestCase):
         self.assertEqual(slugs, {"steam", "gog"})
 
 
-class ConvertScreenshotTests(TestCase):
+class ConvertScreenshotTests(SimpleTestCase):
     def test_basic(self) -> None:
         raw = {"id": 100, "image_id": "sc_abc"}
         result = convert_screenshot(1942, raw)
@@ -392,7 +392,7 @@ class ConvertScreenshotTests(TestCase):
         self.assertEqual(result["media_url"], "")
 
 
-class ConvertTrailerTests(TestCase):
+class ConvertTrailerTests(SimpleTestCase):
     def test_basic(self) -> None:
         raw = {"id": 200, "video_id": "abc123", "name": "Trailer 1"}
         result = convert_trailer(1942, raw)

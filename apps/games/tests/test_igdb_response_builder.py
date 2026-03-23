@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Any
 
-from django.test import TestCase
+from django.test import SimpleTestCase
 
 from apps.games.igdb.response_builder import (
     build_game_detail,
@@ -10,7 +10,7 @@ from apps.games.igdb.response_builder import (
 )
 
 
-class BuildGameListItemTests(TestCase):
+class BuildGameListItemTests(SimpleTestCase):
     def _make_raw(self, **overrides: Any) -> dict[str, Any]:
         base: dict[str, Any] = {
             "id": 1942,
@@ -75,7 +75,7 @@ class BuildGameListItemTests(TestCase):
         self.assertEqual(result["rawg_ratings_count"], 0)
 
 
-class BuildGameDetailTests(TestCase):
+class BuildGameDetailTests(SimpleTestCase):
     def _make_raw(self, **overrides: Any) -> dict[str, Any]:
         base: dict[str, Any] = {
             "id": 1942,
@@ -181,7 +181,7 @@ class BuildGameDetailTests(TestCase):
         self.assertEqual(result["description"], "")
 
 
-class BuildSimilarGameItemTests(TestCase):
+class BuildSimilarGameItemTests(SimpleTestCase):
     def _make_raw(self, **overrides: Any) -> dict[str, Any]:
         base: dict[str, Any] = {
             "id": 100,
