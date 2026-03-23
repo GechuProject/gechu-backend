@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Any, cast
 
@@ -7,6 +8,8 @@ from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
 from apps.core.exceptions.exception_message import ErrorMessages
+
+logger = logging.getLogger(__name__)
 
 
 class CustomAPIException(APIException):
@@ -38,10 +41,10 @@ def custom_exception_handler(
 
     # APIException을 상속하지 않는 커스텀 예외 처리
     if hasattr(exc, "detail") and hasattr(exc, "status_code"):
-        return Response(
-            data=exc.detail,
-            status=getattr(exc, "status_code", status.HTTP_400_BAD_REQUEST),
-        )
+        status_code = getattr(exc, "status_code", status.HTTP_400_BAD_REQUEST)
+        if status_code >= 500:
+            logger.error("API exception [%s]: %s", status_code, exc.detail)
+        return Response(data=exc.detail, status=status_code)
 
     # IGDB 예외 처리
     from apps.games.igdb.exceptions import IgdbNotFoundError, IgdbRateLimitError, IgdbServerError
@@ -63,6 +66,7 @@ def custom_exception_handler(
         )
 
     # 그 외 예외는 500으로 처리
+    logger.exception("Unhandled exception occurred")
     error_message = "서버 오류가 발생했습니다."
 
     # DEBUG = True일 때는 실제 에러 메시지 노출

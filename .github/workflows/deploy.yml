@@ -1,11 +1,10 @@
 name: Deploy Dev to EC2
 
 on:
-  pull_request:
+  push:
     branches:
-      - dev
-    types:
-      - closed
+      - "dev"
+
 
 permissions:
   id-token: write
@@ -14,7 +13,6 @@ permissions:
 jobs:
   deploy:
     if: |
-      github.event.pull_request.merged == true &&
       vars.ENABLE_EC2_DEPLOY == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -60,7 +58,8 @@ jobs:
             set -e
             cd ~/gechu-backend
 
-            git pull origin dev
+            git fetch origin
+            git reset --hard origin/dev
 
             mkdir -p envs
             printf '%s\n' "$PROD_ENV_FILE" > envs/.prod.env

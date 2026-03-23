@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import uuid
 from datetime import date
 from typing import Any
@@ -147,43 +148,61 @@ def _get_profile_image_object_key(profile_img_url: str | None) -> str | None:
     return None
 
 
-def create_user_profile_image_upload_url(
+def _resize_image(image_file: Any, max_size: tuple[int, int] = (512, 512)) -> bytes:
+    try:
+        from PIL import Image
+    except ImportError as err:
+        raise CustomAPIException(ErrorMessages.SERVER_ERROR) from err
+
+    opened = Image.open(image_file)
+    converted = opened.convert("RGB") if opened.mode not in ("RGB", "RGBA") else opened
+    converted.thumbnail(max_size, Image.Resampling.LANCZOS)
+
+    output = io.BytesIO()
+    converted.save(output, format="WEBP", quality=85)
+    return output.getvalue()
+
+
+def upload_user_profile_image(
     user: User,
     *,
-    file_name: str,
-    content_type: str,
-    file_size: int,
+    image_file: Any,
 ) -> dict[str, object]:
     user = get_user_me(user)
     _ensure_profile_image_storage_config()
 
-    extension = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else ""
-    if extension not in ALLOWED_PROFILE_IMAGE_EXTENSIONS or content_type not in ALLOWED_PROFILE_IMAGE_CONTENT_TYPES:
+    content_type = getattr(image_file, "content_type", "")
+    if content_type not in ALLOWED_PROFILE_IMAGE_CONTENT_TYPES:
         raise CustomAPIException(ErrorMessages.INVALID_FILE_TYPE)
 
-    if file_size > PROFILE_IMAGE_MAX_SIZE_BYTES:
+    file_name = getattr(image_file, "name", "")
+    extension = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else ""
+    if extension not in ALLOWED_PROFILE_IMAGE_EXTENSIONS:
+        raise CustomAPIException(ErrorMessages.INVALID_FILE_TYPE)
+
+    if image_file.size > PROFILE_IMAGE_MAX_SIZE_BYTES:
         raise CustomAPIException(ErrorMessages.FILE_TOO_LARGE)
 
-    object_key = f"{PROFILE_IMAGE_UPLOAD_DIR}/{user.id}/{uuid.uuid4().hex}.{extension}"
-    upload_url = _get_s3_client().generate_presigned_url(
-        ClientMethod="put_object",
-        Params={
-            "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
-            "Key": object_key,
-            "ContentType": content_type,
-        },
-        ExpiresIn=settings.AWS_S3_PRESIGNED_URL_EXPIRES_IN,
-    )
-    profile_img_url = _build_profile_image_url(object_key)
+    resized_bytes = _resize_image(image_file)
 
+    old_key = _get_profile_image_object_key(user.profile_img_url)
+
+    object_key = f"{PROFILE_IMAGE_UPLOAD_DIR}/{user.id}/{uuid.uuid4().hex}.webp"
+    _get_s3_client().put_object(
+        Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+        Key=object_key,
+        Body=resized_bytes,
+        ContentType="image/webp",
+    )
+
+    if old_key is not None:
+        _get_s3_client().delete_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=old_key)
+
+    profile_img_url = _build_profile_image_url(object_key)
     user.profile_img_url = profile_img_url
     user.save(update_fields=["profile_img_url", "updated_at"])
 
-    return {
-        "upload_url": upload_url,
-        "profile_img_url": profile_img_url,
-        "expires_in": settings.AWS_S3_PRESIGNED_URL_EXPIRES_IN,
-    }
+    return {"profile_img_url": profile_img_url}
 
 
 def delete_user_profile_image(user: User) -> dict[str, object]:

@@ -1,30 +1,47 @@
-from typing import cast
+import logging
+from datetime import timedelta
+from typing import Literal, TypedDict, cast
 
+from django.conf import settings
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
-from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
-from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.core.serializers.error_serializer import ErrorResponseSerializer
-from apps.users.serializers.social_auth import SocialCallbackRequestSerializer, SocialLoginResponseSerializer
+from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.users.services import (
     build_discord_login_url,
     build_kakao_login_url,
+    build_social_error_redirect_url,
+    build_social_success_redirect_url,
     handle_discord_callback,
     handle_kakao_callback,
 )
 
+logger = logging.getLogger(__name__)
+
+
+class _CookieOptions(TypedDict):
+    httponly: bool
+    samesite: Literal["None"]
+    secure: bool
+
+
+_COOKIE_OPTIONS: _CookieOptions = {
+    "httponly": True,
+    "samesite": "None",
+    "secure": True,
+}
+
 
 @extend_schema(
     summary="카카오 로그인",
+    description="카카오 OAuth 인증 페이지로 리다이렉트합니다. CSRF 방지용 state 값을 생성하여 캐시에 저장합니다.",
     request=None,
     responses={
-        302: OpenApiResponse(description="Redirect to Kakao OAuth"),
-        500: ErrorResponseSerializer,
+        302: OpenApiResponse(description="카카오 OAuth 인증 페이지로 리다이렉트"),
     },
     tags=["auth"],
 )
@@ -42,30 +59,55 @@ class SocialCallbackAPIView(APIView):
     def handle_callback(self, *, code: str, state: str) -> dict[str, object]:
         raise NotImplementedError
 
-    def build_success_response(self, *, result: dict[str, object]) -> Response:
-        refresh_token = cast(str, result.pop("refresh_token"))
-        is_new_user = cast(bool, result["is_new_user"])
-        http_status = status.HTTP_201_CREATED if is_new_user else status.HTTP_200_OK
-        response = Response(result, status=http_status)
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token,
-            httponly=True,
-            samesite="None",
-            secure=True,
-        )
-        return response
+    def get(self, request: Request) -> HttpResponseRedirect:
+        code = request.query_params.get("code", "")
+        state = request.query_params.get("state", "")
 
-    def get(self, request: Request) -> Response:
-        serializer = SocialCallbackRequestSerializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
+        try:
+            result = self.handle_callback(code=code, state=state)
+            refresh_max_age = int(cast(timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]).total_seconds())
+            response = redirect(build_social_success_redirect_url(is_new_user=bool(result["is_new_user"])))
+            response.set_cookie(
+                key="access_token",
+                value=str(result["access_token"]),
+                max_age=cast(int, result["expires_in"]),
+                **_COOKIE_OPTIONS,
+            )
+            response.set_cookie(
+                key="refresh_token",
+                value=str(result["refresh_token"]),
+                max_age=refresh_max_age,
+                **_COOKIE_OPTIONS,
+            )
+            return response
 
-        result = self.handle_callback(**serializer.validated_data)
-        return self.build_success_response(result=result)
+        except CustomAPIException as e:
+            detail = cast(dict[str, str], e.detail)
+            return redirect(
+                build_social_error_redirect_url(
+                    error=detail["code"],
+                    error_description=detail["message"],
+                )
+            )
+
+        except Exception:
+            logger.exception("OAuth 콜백 처리 중 예상치 못한 오류 발생")
+            return redirect(
+                build_social_error_redirect_url(
+                    error="SERVER_ERROR",
+                    error_description="서버 오류가 발생했습니다.",
+                )
+            )
 
 
 @extend_schema(
     summary="카카오 로그인 콜백 처리",
+    description=(
+        "카카오 OAuth 인증 후 호출되는 콜백 엔드포인트입니다.\n\n"
+        "**성공 시** `{FRONTEND_DOMAIN}/auth/callback?is_new_user=true|false` 로 리다이렉트하며, "
+        "`access_token`과 `refresh_token`을 HttpOnly 쿠키로 설정합니다.\n\n"
+        "**실패 시** `{FRONTEND_DOMAIN}/auth/callback?error={코드}&error_description={메시지}` 로 리다이렉트합니다."
+    ),
     request=None,
     parameters=[
         OpenApiParameter(
@@ -80,15 +122,15 @@ class SocialCallbackAPIView(APIView):
             type=str,
             location=OpenApiParameter.QUERY,
             required=True,
-            description="카카오 OAuth state 값",
+            description="CSRF 방지용 state 값 (로그인 요청 시 발급)",
         ),
     ],
     responses={
-        200: SocialLoginResponseSerializer,
-        201: SocialLoginResponseSerializer,
-        400: OpenApiResponse(
-            response=ErrorResponseSerializer,
-            description="INVALID_STATE, OAUTH_CALLBACK_ERROR 또는 query parameter 검증 오류",
+        302: OpenApiResponse(
+            description=(
+                "성공: ?is_new_user=true|false + Set-Cookie: access_token, refresh_token (HttpOnly)\n"
+                "실패: ?error={에러코드}&error_description={메시지}"
+            )
         ),
     },
     tags=["auth"],
@@ -100,10 +142,10 @@ class KakaoCallbackAPIView(SocialCallbackAPIView):
 
 @extend_schema(
     summary="디스코드 로그인",
+    description="디스코드 OAuth 인증 페이지로 리다이렉트합니다. CSRF 방지용 state 값을 생성하여 캐시에 저장합니다.",
     request=None,
     responses={
-        302: OpenApiResponse(description="Redirect to Discord OAuth"),
-        500: ErrorResponseSerializer,
+        302: OpenApiResponse(description="디스코드 OAuth 인증 페이지로 리다이렉트"),
     },
     tags=["auth"],
 )
@@ -117,6 +159,12 @@ class DiscordLoginAPIView(APIView):
 
 @extend_schema(
     summary="디스코드 로그인 콜백 처리",
+    description=(
+        "디스코드 OAuth 인증 후 호출되는 콜백 엔드포인트입니다.\n\n"
+        "**성공 시** `{FRONTEND_DOMAIN}/auth/callback?is_new_user=true|false` 로 리다이렉트하며, "
+        "`access_token`과 `refresh_token`을 HttpOnly 쿠키로 설정합니다.\n\n"
+        "**실패 시** `{FRONTEND_DOMAIN}/auth/callback?error={코드}&error_description={메시지}` 로 리다이렉트합니다."
+    ),
     request=None,
     parameters=[
         OpenApiParameter(
@@ -131,15 +179,15 @@ class DiscordLoginAPIView(APIView):
             type=str,
             location=OpenApiParameter.QUERY,
             required=True,
-            description="디스코드 OAuth state 값",
+            description="CSRF 방지용 state 값 (로그인 요청 시 발급)",
         ),
     ],
     responses={
-        200: SocialLoginResponseSerializer,
-        201: SocialLoginResponseSerializer,
-        400: OpenApiResponse(
-            response=ErrorResponseSerializer,
-            description="INVALID_STATE, DISCORD_OAUTH_CALLBACK_ERROR 또는 query parameter 검증 오류",
+        302: OpenApiResponse(
+            description=(
+                "성공: ?is_new_user=true|false + Set-Cookie: access_token, refresh_token (HttpOnly)\n"
+                "실패: ?error={에러코드}&error_description={메시지}"
+            )
         ),
     },
     tags=["auth"],

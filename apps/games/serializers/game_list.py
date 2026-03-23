@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.games.models import Genre, Platform, Tag
 
 
 # -----------------------
@@ -15,6 +16,11 @@ class GenreSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class PlatformSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+
+
+class TagSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.IntegerField()
     name = serializers.CharField()
 
@@ -39,21 +45,31 @@ class GameListQuerySerializer(serializers.Serializer[dict[str, Any]]):
         return value
 
     def validate_genre_ids(self, value: str | None) -> list[int]:
-        return self._parse_int_list(value)
+        return self._validate_model_ids(value, Genre, ErrorMessages.INVALID_GENRE_ID)
 
     def validate_genre_name(self, value: str | None) -> str | None:
         return value
 
     def validate_platform_ids(self, value: str | None) -> list[int]:
-        return self._parse_int_list(value)
+        return self._validate_model_ids(value, Platform, ErrorMessages.INVALID_PLATFORM_ID)
 
     def validate_tag_ids(self, value: str | None) -> list[int]:
-        return self._parse_int_list(value)
+        return self._validate_model_ids(value, Tag, ErrorMessages.INVALID_TAG_ID)
 
     def validate_page_size(self, value: int) -> int:
         if value < 1 or value > 100:
             raise CustomAPIException(ErrorMessages.INVALID_QUERY_PARAM)
         return value
+
+    def _validate_model_ids(self, value: str | None, model_class: type[Any], error_message: ErrorMessages) -> list[int]:
+        """주어진 모델에 대해 ID 목록의 유효성을 검사하는 헬퍼입니다."""
+        ids = self._parse_int_list(value)
+        if not ids:
+            return []
+        existing_ids = set(model_class.objects.filter(id__in=ids).values_list("id", flat=True))
+        if set(ids) - existing_ids:
+            raise CustomAPIException(error_message)
+        return ids
 
     def _parse_int_list(self, value: str | None) -> list[int]:
         if not value:
@@ -78,6 +94,8 @@ class GameListItemSerializer(serializers.Serializer[dict[str, Any]]):
     rawg_ratings_count = serializers.IntegerField()
     genres = GenreSerializer(many=True)
     platforms = PlatformSerializer(many=True)
+    tags = TagSerializer(many=True, required=False)
+    is_saved = serializers.BooleanField()
 
 
 class GameListResponseSerializer(serializers.Serializer[dict[str, Any]]):

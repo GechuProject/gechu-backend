@@ -1,7 +1,8 @@
 from typing import Any, cast
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import generics, serializers
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -18,15 +19,14 @@ from apps.users.serializers.me import (
     UserPasswordVerifyRequestSerializer,
     UserProfileImageResponseSerializer,
     UserProfileImageUploadRequestSerializer,
-    UserProfileImageUploadResponseSerializer,
 )
 from apps.users.services import (
     change_user_password,
-    create_user_profile_image_upload_url,
     delete_user_me,
     delete_user_profile_image,
     get_user_me,
     update_user_me,
+    upload_user_profile_image,
     verify_user_password,
 )
 
@@ -119,31 +119,51 @@ class UserPasswordChangeAPIView(APIView):
         return Response(MessageResponseSerializer({"message": "비밀번호가 변경되었습니다."}).data)
 
 
-@extend_schema(
-    summary="프로필 이미지 업로드 URL 발급",
-    request=UserProfileImageUploadRequestSerializer,
-    responses={200: UserProfileImageUploadResponseSerializer},
-    tags=["Users"],
-)
 class UserProfileImageAPIView(APIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser]
 
+    @extend_schema(
+        summary="프로필 이미지 업로드",
+        description=(
+            "프로필 이미지를 서버에 업로드합니다.\n\n"
+            "- 허용 형식: jpg, jpeg, png, webp\n"
+            "- 최대 파일 크기: 5MB\n"
+            "- 이미지는 서버에서 자동으로 512×512 이하로 리사이즈되며, WebP 형식으로 변환되어 저장됩니다.\n"
+            "- 기존 프로필 이미지가 있을 경우 자동으로 삭제됩니다."
+        ),
+        request={"multipart/form-data": UserProfileImageUploadRequestSerializer},
+        responses={
+            200: UserProfileImageResponseSerializer,
+            400: OpenApiResponse(description="허용되지 않는 파일 형식이거나 파일 크기가 5MB를 초과한 경우"),
+            401: OpenApiResponse(description="인증되지 않은 사용자"),
+            404: OpenApiResponse(description="탈퇴한 사용자"),
+        },
+        tags=["Users"],
+    )
     def put(self, request: Request) -> Response:
         serializer = UserProfileImageUploadRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        result = create_user_profile_image_upload_url(
+        result = upload_user_profile_image(
             cast(User, request.user),
-            file_name=cast(str, serializer.validated_data["file_name"]),
-            content_type=cast(str, serializer.validated_data["content_type"]),
-            file_size=cast(int, serializer.validated_data["file_size"]),
+            image_file=serializer.validated_data["image"],
         )
-        return Response(UserProfileImageUploadResponseSerializer(result).data)
+        return Response(UserProfileImageResponseSerializer(result).data)
 
     @extend_schema(
         summary="프로필 이미지 삭제",
+        description=(
+            "현재 프로필 이미지를 삭제합니다.\n\n"
+            "- 삭제 후 `profile_img_url`은 `null`로 반환됩니다.\n"
+            "- 이미 이미지가 없는 경우에도 정상 응답합니다."
+        ),
         request=None,
-        responses={200: UserProfileImageResponseSerializer},
+        responses={
+            200: UserProfileImageResponseSerializer,
+            401: OpenApiResponse(description="인증되지 않은 사용자"),
+            404: OpenApiResponse(description="탈퇴한 사용자"),
+        },
         tags=["Users"],
     )
     def delete(self, request: Request) -> Response:

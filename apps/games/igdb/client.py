@@ -272,6 +272,7 @@ class IgdbClient:
         tag_ids: list[int] | None = None,
         theme_ids: list[int] | None = None,
         game_mode_ids: list[int] | None = None,
+        min_rating_count: int | None = None,
         sort: str = "rating desc",
         limit: int = 20,
         offset: int = 0,
@@ -291,6 +292,9 @@ class IgdbClient:
         )
 
         where_parts: list[str] = []
+
+        if min_rating_count:
+            where_parts.append(f"rating_count >= {min_rating_count}")
 
         if genre_ids:
             ids_str = ",".join(str(i) for i in genre_ids)

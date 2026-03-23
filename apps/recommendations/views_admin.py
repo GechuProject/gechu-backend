@@ -404,8 +404,8 @@ class AdminRecommendationJobRunView(APIView):
                 "next": "http://example.com/api/v1/admin/users/1/recommendations/?page=2",
                 "previous": None,
                 "results": [
-                    {"game_id": 12345, "score": 120.5},
-                    {"game_id": 67890, "score": 98.2},
+                    {"game_id": 12345, "score": "120.5000"},
+                    {"game_id": 67890, "score": "98.2000"},
                 ],
             },
             response_only=True,

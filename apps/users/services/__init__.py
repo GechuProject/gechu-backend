@@ -19,16 +19,18 @@ from .search_recent_service import (
 from .social_auth_service import (
     build_discord_login_url,
     build_kakao_login_url,
+    build_social_error_redirect_url,
+    build_social_success_redirect_url,
     handle_discord_callback,
     handle_kakao_callback,
 )
 from .user_me_service import (
     change_user_password,
-    create_user_profile_image_upload_url,
     delete_user_me,
     delete_user_profile_image,
     get_user_me,
     update_user_me,
+    upload_user_profile_image,
     verify_user_password,
 )
 
@@ -36,7 +38,6 @@ __all__ = [
     "authenticate_user",
     "change_user_password",
     "clear_recent_searches",
-    "create_user_profile_image_upload_url",
     "delete_recent_search_keyword",
     "delete_user_me",
     "delete_user_profile_image",
@@ -56,9 +57,12 @@ __all__ = [
     "signup_user",
     "update_admin_user_status",
     "update_user_me",
+    "upload_user_profile_image",
     "verify_user_password",
     "build_discord_login_url",
     "build_kakao_login_url",
+    "build_social_error_redirect_url",
+    "build_social_success_redirect_url",
     "handle_discord_callback",
     "handle_kakao_callback",
 ]

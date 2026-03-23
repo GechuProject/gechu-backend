@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.games.models import Genre
 from apps.games.services.game_list import GameService
 
 User = get_user_model()
@@ -22,9 +23,27 @@ MOCK_GAME_LIST_ITEM = {
     "rawg_ratings_count": 100,
     "genres": [{"id": 12, "name": "Action"}],
     "platforms": [{"id": 6, "name": "PC"}],
+    "tags": [{"id": 100, "name": "SinglePlayer"}],
+    "esrb_rating": "everyone",
+    "age_rating_min": 0,
+    "is_saved": False,
+}
+
+MOCK_GAME_LIST_ITEM_2 = {
+    "id": 1943,
+    "slug": "test-game-2",
+    "name": "Test Game 2",
+    "released": "2025-01-01",
+    "thumbnail_img_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co2wyy.jpg",
+    "rawg_rating": 4.8,
+    "rawg_ratings_count": 50,
+    "genres": [{"id": 13, "name": "FPS"}],
+    "platforms": [{"id": 7, "name": "Xbox"}],
+    "tags": [{"id": 101, "name": "Multiplayer"}],
     "esrb_rating": "everyone",
     "age_rating_min": 0,
 }
+
 
 MOCK_TOP10_GAMES = [
     {
@@ -39,6 +58,7 @@ MOCK_TOP10_GAMES = [
         "platforms": [{"id": 6, "name": "PC"}],
         "esrb_rating": "everyone",
         "age_rating_min": 0,
+        "is_saved": False,
     }
     for i in range(1, 11)
 ]
@@ -56,6 +76,13 @@ class GameListViewTests(APITestCase):
         self.url = reverse("game-list")
         self.connection = get_redis_connection("default")
 
+        # 테스트용 장르 생성
+        self.rpg_genre, _ = Genre.objects.get_or_create(
+            igdb_id=12,
+            igdb_type="genre",
+            defaults={"name": "RPG"},
+        )
+
     def _recent_search_key(self, *, user_id: int) -> str:
         return f"search:recent:{user_id}"
 
@@ -64,8 +91,18 @@ class GameListViewTests(APITestCase):
         return [keyword.decode("utf-8") if isinstance(keyword, bytes) else str(keyword) for keyword in raw_keywords]
 
     @patch("apps.games.services.game_list.igdb_cache.search_games")
-    def test_game_list_success(self, mock_search: object) -> None:
-        mock_search.return_value = [MOCK_GAME_LIST_ITEM]  # type: ignore[attr-defined]
+    def test_pagination_slicing(self, mock_search: MagicMock) -> None:
+        """
+        page_size 적용 후처리 테스트
+        """
+        mock_search.return_value = [MOCK_GAME_LIST_ITEM] * 5
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url, {"page_size": 3})
+        self.assertEqual(len(response.data["results"]), 3)
+
+    @patch("apps.games.services.game_list.igdb_cache.search_games")
+    def test_game_list_success(self, mock_search: MagicMock) -> None:
+        mock_search.return_value = [MOCK_GAME_LIST_ITEM]
 
         self.client.force_authenticate(user=self.user)
         response = self.client.get(self.url)
@@ -90,6 +127,22 @@ class GameListViewTests(APITestCase):
         self.assertEqual(response.data["code"], ErrorMessages.INVALID_QUERY_PARAM.name)
         self.assertEqual(response.data["message"], ErrorMessages.INVALID_QUERY_PARAM.message)
 
+    def test_invalid_ids_not_in_db(self) -> None:
+        self.client.force_authenticate(user=self.user)
+
+        test_cases = {
+            "genre_ids": ErrorMessages.INVALID_GENRE_ID,
+            "platform_ids": ErrorMessages.INVALID_PLATFORM_ID,
+            "tag_ids": ErrorMessages.INVALID_TAG_ID,
+        }
+
+        for param, error_message in test_cases.items():
+            with self.subTest(param=param):
+                response = self.client.get(self.url, {param: "999"})
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(response.data["code"], error_message.name)
+                self.assertEqual(response.data["message"], error_message.message)
+
     @patch("apps.games.services.game_list.igdb_cache.search_games")
     def test_search_and_ordering(self, mock_search: MagicMock) -> None:
         self.client.force_authenticate(user=self.user)
@@ -107,7 +160,6 @@ class GameListViewTests(APITestCase):
 
         mock_search.return_value = []
         response = self.client.get(self.url, {"search": "NoMatch"})
-
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 0)
 
@@ -126,34 +178,53 @@ class GameListViewTests(APITestCase):
         self.assertEqual(second_response.status_code, status.HTTP_200_OK)
         self.assertEqual(self._get_recent_keywords(), ["NoMatch", "Test"])
 
-    @patch("apps.games.services.game_list.igdb_cache.search_games")
-    @patch("apps.games.services.game_list.igdb_cache.get_genre_id_by_name")
-    def test_top_n_by_genre_service_real(self, mock_get_genre_id: MagicMock, mock_search: MagicMock) -> None:
-        mock_get_genre_id.return_value = 12
-        mock_search.return_value = MOCK_TOP10_GAMES
-
-        result = GameService.top_n_by_genre("Action")
+    def test_top_n_by_genre_service_real(self) -> None:
+        with patch("apps.games.services.game_list.igdb_cache.search_games_by_igdb_genre_id") as mock_search:
+            mock_search.return_value = MOCK_TOP10_GAMES
+            result = GameService.top_n_by_genre("RPG")
 
         self.assertEqual(len(result), 10)
         self.assertEqual(result[0]["rawg_rating"], 5.5)
         self.assertAlmostEqual(result[-1]["rawg_rating"], 4.6)
 
-        mock_get_genre_id.return_value = None
-
         result = GameService.top_n_by_genre("NonExistent")
-
         self.assertEqual(result, [])
 
-    @patch("apps.games.services.game_list.GameService.top_n_by_genre")
-    def test_top_n_by_genre_api_mocked(self, mock_top_n: MagicMock) -> None:
-        mock_top_n.return_value = MOCK_TOP10_GAMES
-        self.client.force_authenticate(user=self.user)
-        resp = self.client.get(self.url, {"genre_name": "Action"})
-        self.assertEqual(len(resp.data["results"]), 10)
-        self.assertEqual(resp.data["results"][0]["rawg_rating"], "5.50")
-        self.assertIsNone(resp.data["next"])
-        self.assertIsNone(resp.data["previous"])
+    def test_genre_name_returns_top_n(self) -> None:
 
-        mock_top_n.return_value = []
-        resp = self.client.get(self.url, {"genre_name": "NonExistent"})
-        self.assertEqual(resp.data["results"], [])
+        with patch("apps.games.services.game_list.igdb_cache.search_games_by_igdb_genre_id") as mock_search:
+            mock_search.return_value = MOCK_TOP10_GAMES
+
+            self.client.force_authenticate(user=self.user)
+            response = self.client.get(self.url, {"genre_name": "RPG"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 10)
+        self.assertIsNone(response.data["next"])
+        self.assertIsNone(response.data["previous"])
+
+    @patch("apps.games.services.game_list.igdb_cache.search_games")
+    def test_pagination_next_url(self, mock_search: MagicMock) -> None:
+        """has_next=True일 때 next_url 생성"""
+        # page_size=2 요청 시 3개 반환 → has_next=True
+        mock_search.return_value = [MOCK_GAME_LIST_ITEM] * 3
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url, {"page": 1, "page_size": 2})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 2)
+        self.assertIsNotNone(response.data["next"])
+        self.assertIn("page=2", response.data["next"])
+
+    @patch("apps.games.services.game_list.igdb_cache.search_games")
+    def test_pagination_previous_url(self, mock_search: MagicMock) -> None:
+        """page > 1일 때 previous_url 생성"""
+        mock_search.return_value = [MOCK_GAME_LIST_ITEM]
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url, {"page": 2, "page_size": 20})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNotNone(response.data["previous"])
+        self.assertIn("page=1", response.data["previous"])
