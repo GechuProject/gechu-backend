@@ -15,8 +15,20 @@ _ORDERING_MAP: dict[str, str] = {
     "-rawg_added": "follows desc",
 }
 
+AGE_RATING_LIMIT = 18
+
 
 class GameService:
+    @staticmethod
+    def filter_adult_games(results: list[dict[str, Any]], user: User | None = None) -> list[dict[str, Any]]:
+        """
+        성인 인증 안 된 유저에게 성인 게임 노출 X
+        """
+        if user and user.is_authenticated and user.is_adult_verified:
+            return results  # 성인 인증 완료 유저는 전체 반환
+
+        return [game for game in results if game.get("age_rating_min", 0) < AGE_RATING_LIMIT]
+
     @staticmethod
     def attach_is_saved(results: list[dict[str, Any]], user: User | None = None) -> list[dict[str, Any]]:
         """
@@ -71,7 +83,8 @@ class GameService:
             offset=offset,
         )
 
-        return GameService.attach_is_saved(results, user)
+        results = GameService.attach_is_saved(results, user)
+        return GameService.filter_adult_games(results, user)
 
     @staticmethod
     def top_n_by_genre(
@@ -94,4 +107,5 @@ class GameService:
             limit=top_n,
         )
 
-        return GameService.attach_is_saved(results, user)
+        results = GameService.attach_is_saved(results, user)
+        return GameService.filter_adult_games(results, user)
