@@ -22,7 +22,7 @@ class BuildGameListItemTests(SimpleTestCase):
             "cover": {"image_id": "co1234"},
             "genres": [{"id": 1, "name": "RPG"}],
             "platforms": [{"id": 48, "name": "PS4"}],
-            "age_ratings": [{"category": 1, "rating": 6}],
+            "age_ratings": [{"organization": 1, "rating_category": 6}],
         }
         base.update(overrides)
         return base
@@ -89,7 +89,7 @@ class BuildGameDetailTests(SimpleTestCase):
             "genres": [{"id": 1, "name": "RPG", "slug": "rpg"}],
             "platforms": [{"id": 48, "name": "PS4"}],
             "keywords": [{"id": 10, "name": "open-world"}],
-            "age_ratings": [{"category": 1, "rating": 6}],
+            "age_ratings": [{"organization": 1, "rating_category": 6}],
             "websites": [{"category": 1, "url": "https://thewitcher.com"}],
             "follows": 500,
             "screenshots": [{"image_id": "sc_abc"}],

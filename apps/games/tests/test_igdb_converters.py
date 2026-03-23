@@ -46,49 +46,49 @@ class ParseEsrbTests(SimpleTestCase):
         self.assertEqual(_parse_esrb([]), ("unknown", 0))
 
     def test_esrb_mature(self) -> None:
-        ratings = [{"category": 1, "rating": 6}]
+        ratings = [{"organization": 1, "rating_category": 6}]
         self.assertEqual(_parse_esrb(ratings), ("mature", 17))
 
     def test_esrb_teen(self) -> None:
-        ratings = [{"category": 1, "rating": 5}]
+        ratings = [{"organization": 1, "rating_category": 5}]
         self.assertEqual(_parse_esrb(ratings), ("teen", 13))
 
     def test_esrb_everyone(self) -> None:
-        ratings = [{"category": 1, "rating": 3}]
+        ratings = [{"organization": 1, "rating_category": 3}]
         self.assertEqual(_parse_esrb(ratings), ("everyone", 0))
 
     def test_esrb_everyone_10_plus(self) -> None:
-        ratings = [{"category": 1, "rating": 4}]
+        ratings = [{"organization": 1, "rating_category": 4}]
         self.assertEqual(_parse_esrb(ratings), ("everyone_10_plus", 10))
 
     def test_esrb_adults_only(self) -> None:
-        ratings = [{"category": 1, "rating": 7}]
+        ratings = [{"organization": 1, "rating_category": 7}]
         self.assertEqual(_parse_esrb(ratings), ("adults_only", 18))
 
     def test_esrb_rating_pending(self) -> None:
-        ratings = [{"category": 1, "rating": 1}]
+        ratings = [{"organization": 1, "rating_category": 1}]
         self.assertEqual(_parse_esrb(ratings), ("rating_pending", 0))
 
     def test_esrb_early_childhood(self) -> None:
-        ratings = [{"category": 1, "rating": 2}]
+        ratings = [{"organization": 1, "rating_category": 2}]
         self.assertEqual(_parse_esrb(ratings), ("everyone", 0))
 
     def test_pegi_only_returns_unknown(self) -> None:
-        ratings = [{"category": 2, "rating": 3}]
+        ratings = [{"organization": 2, "rating_category": 3}]
         self.assertEqual(_parse_esrb(ratings), ("unknown", 0))
 
     def test_non_dict_entries_skipped(self) -> None:
-        ratings: list[Any] = ["not_a_dict", {"category": 1, "rating": 6}]
+        ratings: list[Any] = ["not_a_dict", {"organization": 1, "rating_category": 6}]
         self.assertEqual(_parse_esrb(ratings), ("mature", 17))
 
     def test_unknown_rating_id(self) -> None:
-        ratings = [{"category": 1, "rating": 999}]
+        ratings = [{"organization": 1, "rating_category": 999}]
         self.assertEqual(_parse_esrb(ratings), ("unknown", 0))
 
     def test_mixed_categories_picks_esrb(self) -> None:
         ratings = [
-            {"category": 2, "rating": 5},
-            {"category": 1, "rating": 5},
+            {"organization": 2, "rating_category": 5},
+            {"organization": 1, "rating_category": 5},
         ]
         self.assertEqual(_parse_esrb(ratings), ("teen", 13))
 
@@ -230,7 +230,7 @@ class ConvertGameTests(SimpleTestCase):
             "rating_count": 1000,
             "cover": {"image_id": "co1234"},
             "websites": [{"category": 1, "url": "https://thewitcher.com"}],
-            "age_ratings": [{"category": 1, "rating": 6}],
+            "age_ratings": [{"organization": 1, "rating_category": 6}],
             "follows": 500,
             "updated_at": 1609459200,  # 2021-01-01
         }

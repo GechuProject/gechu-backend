@@ -234,7 +234,7 @@ class IgdbClient:
             "genres.id,genres.name,genres.slug,"
             "platforms.id,platforms.name,"
             "keywords.id,"
-            "age_ratings.category,age_ratings.rating,"
+            "age_ratings.organization,age_ratings.rating_category,"
             "screenshots.image_id,"
             "videos.video_id,videos.name,"
             "websites.url,websites.category,"
@@ -252,7 +252,7 @@ class IgdbClient:
             "genres.id,genres.name,genres.slug,"
             "platforms.id,platforms.name,platforms.slug,"
             "keywords.id,keywords.name,keywords.slug,"
-            "age_ratings.category,age_ratings.rating,"
+            "age_ratings.organization,age_ratings.rating_category,"
             "screenshots.image_id,"
             "videos.video_id,videos.name,"
             "websites.url,websites.category,"
@@ -287,7 +287,7 @@ class IgdbClient:
             "keywords.id,keywords.name,"
             "themes.id,themes.name,"
             "game_modes.id,game_modes.name,"
-            "age_ratings.category,age_ratings.rating,"
+            "age_ratings.organization,age_ratings.rating_category,"
             "follows"
         )
 
@@ -344,7 +344,7 @@ class IgdbClient:
             "genres.id,genres.name,"
             "platforms.id,platforms.name,"
             "keywords.id,keywords.name,"
-            "age_ratings.category,age_ratings.rating,"
+            "age_ratings.organization,age_ratings.rating_category,"
             "follows"
         )
 
