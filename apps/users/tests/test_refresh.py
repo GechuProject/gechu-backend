@@ -1,8 +1,5 @@
 import datetime
-from datetime import timedelta
-from typing import cast
 
-from django.conf import settings
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -11,7 +8,7 @@ from apps.users.models.user import User
 
 class RefreshAPITestCase(TestCase):
     def setUp(self) -> None:
-        self.client = APIClient()
+        self.api_client = APIClient(enforce_csrf_checks=True)
         self.user = User.objects.create_user(
             email="admin@example.com",
             nickname="admin",
@@ -19,60 +16,50 @@ class RefreshAPITestCase(TestCase):
             password="password1100110011",
         )
 
-    def test_refresh(self) -> None:
-        login_res = self.client.post(
+    def _set_csrf_header(self) -> str:
+        response = self.api_client.get("/api/v1/auth/csrf/")
+        self.assertEqual(response.status_code, 200)
+        csrf_token = str(response.json()["csrf_token"])
+        self.api_client.credentials(HTTP_X_CSRFTOKEN=csrf_token)
+        return csrf_token
+
+    def test_refresh_updates_access_token_cookie(self) -> None:
+        login_res = self.api_client.post(
             "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},
             format="json",
         )
         self.assertEqual(login_res.status_code, 200)
-        self.assertIn("refresh_token", login_res.cookies)
+        old_access_token = login_res.cookies["access_token"].value
 
-        res = self.client.post(
-            "/api/v1/auth/refresh/",
-            format="json",
-        )
+        self._set_csrf_header()
+        res = self.api_client.post("/api/v1/auth/refresh/", format="json")
 
         self.assertEqual(res.status_code, 200)
-
-        data = res.json()
-        self.assertIn("access_token", data)
-        self.assertTrue(data["access_token"])
-        self.assertEqual(data["token_type"], "Bearer")
-        self.assertEqual(
-            data["expires_in"],
-            int(
-                cast(
-                    timedelta,
-                    settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"],
-                ).total_seconds()
-            ),
-        )
+        self.assertEqual(res.json()["message"], "액세스 토큰이 갱신되었습니다.")
+        self.assertIn("access_token", res.cookies)
+        self.assertIn("csrftoken", res.cookies)
+        self.assertTrue(res.cookies["access_token"].value)
+        self.assertNotEqual(res.cookies["access_token"].value, old_access_token)
 
     def test_refresh_without_refresh_token(self) -> None:
-        res = self.client.post(
-            "/api/v1/auth/refresh/",
-            format="json",
-        )
+        self._set_csrf_header()
+        res = self.api_client.post("/api/v1/auth/refresh/", format="json")
 
         self.assertEqual(res.status_code, 400)
-        data = res.json()
-        self.assertEqual(data["code"], "REFRESH_TOKEN_MISSING")
+        self.assertEqual(res.json()["code"], "REFRESH_TOKEN_MISSING")
 
     def test_refresh_with_invalid_refresh_token(self) -> None:
-        self.client.cookies["refresh_token"] = "invalid.token.value"
+        self._set_csrf_header()
+        self.api_client.cookies["refresh_token"] = "invalid.token.value"
 
-        res = self.client.post(
-            "/api/v1/auth/refresh/",
-            format="json",
-        )
+        res = self.api_client.post("/api/v1/auth/refresh/", format="json")
 
         self.assertEqual(res.status_code, 401)
-        data = res.json()
-        self.assertEqual(data["code"], "INVALID_REFRESH_TOKEN")
+        self.assertEqual(res.json()["code"], "INVALID_REFRESH_TOKEN")
 
     def test_refresh_with_deactivated_user(self) -> None:
-        login_res = self.client.post(
+        login_res = self.api_client.post(
             "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},
             format="json",
@@ -82,11 +69,23 @@ class RefreshAPITestCase(TestCase):
         self.user.is_active = False
         self.user.save(update_fields=["is_active"])
 
-        res = self.client.post(
-            "/api/v1/auth/refresh/",
-            format="json",
-        )
+        self._set_csrf_header()
+        res = self.api_client.post("/api/v1/auth/refresh/", format="json")
 
         self.assertEqual(res.status_code, 401)
-        data = res.json()
-        self.assertEqual(data["code"], "ACCOUNT_DEACTIVATED")
+        self.assertEqual(res.json()["code"], "ACCOUNT_DEACTIVATED")
+
+    def test_refresh_ignores_invalid_access_token_cookie(self) -> None:
+        login_res = self.api_client.post(
+            "/api/v1/auth/login/",
+            {"email": "admin@example.com", "password": "password1100110011"},
+            format="json",
+        )
+        self.assertEqual(login_res.status_code, 200)
+
+        self.api_client.cookies["access_token"] = "invalid.token.value"
+        self._set_csrf_header()
+        res = self.api_client.post("/api/v1/auth/refresh/", format="json")
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["message"], "액세스 토큰이 갱신되었습니다.")

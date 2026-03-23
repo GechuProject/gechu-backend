@@ -57,6 +57,7 @@ class ErrorMessages(Enum):
 
     # 403 Forbidden
     FORBIDDEN = (403, "관리자 권한이 필요합니다.")
+    CSRF_FAILED = (403, "CSRF 검증에 실패했습니다.")
     ADULT_VERIFICATION_REQUIRED = (403, "성인 인증이 필요한 게임입니다.")
 
     # 404 Not Found

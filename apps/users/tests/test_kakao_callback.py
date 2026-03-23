@@ -45,6 +45,7 @@ class KakaoCallbackAPITestCase(TestCase):
         self.assertEqual(params["is_new_user"], "true")
         self.assertEqual(response.cookies["access_token"].value, "test-access-token")
         self.assertEqual(response.cookies["refresh_token"].value, "test-refresh-token")
+        self.assertTrue(response.cookies["csrftoken"].value)
 
     @patch("apps.users.views.social_auth.handle_kakao_callback")
     def test_kakao_callback_redirects_with_access_token_for_existing_user(self, mock_handle: MagicMock) -> None:
@@ -64,6 +65,7 @@ class KakaoCallbackAPITestCase(TestCase):
         self.assertEqual(params["is_new_user"], "false")
         self.assertEqual(response.cookies["access_token"].value, "test-access-token")
         self.assertEqual(response.cookies["refresh_token"].value, "test-refresh-token")
+        self.assertTrue(response.cookies["csrftoken"].value)
 
     @patch("apps.users.views.social_auth.handle_kakao_callback")
     def test_kakao_callback_redirects_with_error_on_server_exception(self, mock_handle: MagicMock) -> None:

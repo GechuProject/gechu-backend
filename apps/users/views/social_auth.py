@@ -4,6 +4,7 @@ from typing import Literal, TypedDict, cast
 
 from django.conf import settings
 from django.http import HttpResponseRedirect
+from django.middleware.csrf import get_token
 from django.shortcuts import redirect
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework.permissions import AllowAny
@@ -29,8 +30,18 @@ class _CookieOptions(TypedDict):
     secure: bool
 
 
+class _CSRFCookieOptions(TypedDict):
+    samesite: Literal["None"]
+    secure: bool
+
+
 _COOKIE_OPTIONS: _CookieOptions = {
     "httponly": True,
+    "samesite": "None",
+    "secure": True,
+}
+
+_CSRF_COOKIE_OPTIONS: _CSRFCookieOptions = {
     "samesite": "None",
     "secure": True,
 }
@@ -79,6 +90,11 @@ class SocialCallbackAPIView(APIView):
                 max_age=refresh_max_age,
                 **_COOKIE_OPTIONS,
             )
+            response.set_cookie(
+                key="csrftoken",
+                value=get_token(request),
+                **_CSRF_COOKIE_OPTIONS,
+            )
             return response
 
         except CustomAPIException as e:
@@ -105,7 +121,7 @@ class SocialCallbackAPIView(APIView):
     description=(
         "카카오 OAuth 인증 후 호출되는 콜백 엔드포인트입니다.\n\n"
         "**성공 시** `{FRONTEND_DOMAIN}/auth/callback?is_new_user=true|false` 로 리다이렉트하며, "
-        "`access_token`과 `refresh_token`을 HttpOnly 쿠키로 설정합니다.\n\n"
+        "`access_token`과 `refresh_token`을 HttpOnly 쿠키로 설정하고, `csrftoken` 쿠키를 함께 발급합니다.\n\n"
         "**실패 시** `{FRONTEND_DOMAIN}/auth/callback?error={코드}&error_description={메시지}` 로 리다이렉트합니다."
     ),
     request=None,
@@ -128,7 +144,7 @@ class SocialCallbackAPIView(APIView):
     responses={
         302: OpenApiResponse(
             description=(
-                "성공: ?is_new_user=true|false + Set-Cookie: access_token, refresh_token (HttpOnly)\n"
+                "성공: ?is_new_user=true|false + Set-Cookie: access_token, refresh_token (HttpOnly), csrftoken\n"
                 "실패: ?error={에러코드}&error_description={메시지}"
             )
         ),
@@ -162,7 +178,7 @@ class DiscordLoginAPIView(APIView):
     description=(
         "디스코드 OAuth 인증 후 호출되는 콜백 엔드포인트입니다.\n\n"
         "**성공 시** `{FRONTEND_DOMAIN}/auth/callback?is_new_user=true|false` 로 리다이렉트하며, "
-        "`access_token`과 `refresh_token`을 HttpOnly 쿠키로 설정합니다.\n\n"
+        "`access_token`과 `refresh_token`을 HttpOnly 쿠키로 설정하고, `csrftoken` 쿠키를 함께 발급합니다.\n\n"
         "**실패 시** `{FRONTEND_DOMAIN}/auth/callback?error={코드}&error_description={메시지}` 로 리다이렉트합니다."
     ),
     request=None,
@@ -185,7 +201,7 @@ class DiscordLoginAPIView(APIView):
     responses={
         302: OpenApiResponse(
             description=(
-                "성공: ?is_new_user=true|false + Set-Cookie: access_token, refresh_token (HttpOnly)\n"
+                "성공: ?is_new_user=true|false + Set-Cookie: access_token, refresh_token (HttpOnly), csrftoken\n"
                 "실패: ?error={에러코드}&error_description={메시지}"
             )
         ),

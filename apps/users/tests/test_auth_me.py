@@ -22,11 +22,15 @@ class AuthMeAPITestCase(TestCase):
         )
         self.url = reverse("auth-me")
 
-    def test_auth_me_returns_current_user_info(self) -> None:
-        client = APIClient()
-        client.force_authenticate(user=self.user)
+    def test_auth_me_returns_current_user_info_from_login_cookie(self) -> None:
+        login_response = self.client.post(
+            "/api/v1/auth/login/",
+            {"email": "authme@example.com", "password": "Passw0rd!"},
+            format="json",
+        )
+        self.assertEqual(login_response.status_code, 200)
 
-        res = client.get(self.url)
+        res = self.client.get(self.url)
         drf_res = cast(Response, res)
 
         self.assertEqual(drf_res.status_code, 200)
