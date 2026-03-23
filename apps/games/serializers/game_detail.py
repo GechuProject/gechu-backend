@@ -50,3 +50,4 @@ class GameDetailSerializer(serializers.Serializer[dict[str, Any]]):
     tags = GameTagSerializer(many=True)
     media = GameMediaSerializer(many=True)
     stores = GameStoreSerializer(many=True)
+    is_saved = serializers.BooleanField()
