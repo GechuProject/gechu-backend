@@ -10,7 +10,7 @@ from apps.users.models.user import User
 
 class LoginAPITestCase(TestCase):
     def setUp(self) -> None:
-        self.client = APIClient()
+        self.client: APIClient = APIClient(enforce_csrf_checks=True)
         self.user = User.objects.create_user(
             email="admin@example.com",
             nickname="admin",
@@ -18,7 +18,15 @@ class LoginAPITestCase(TestCase):
             password="password1100110011",
         )
 
+    def _set_csrf_header(self) -> str:
+        response = self.client.get("/api/v1/auth/csrf/")
+        self.assertEqual(response.status_code, 200)
+        csrf_token = str(response.json()["csrf_token"])
+        self.client.credentials(HTTP_X_CSRFTOKEN=csrf_token)
+        return csrf_token
+
     def test_login_sets_auth_and_csrf_cookies(self) -> None:
+        self._set_csrf_header()
         res = self.client.post(
             "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},
@@ -36,6 +44,16 @@ class LoginAPITestCase(TestCase):
         self.assertTrue(res.cookies["access_token"]["httponly"])
         self.assertTrue(res.cookies["refresh_token"]["httponly"])
 
+    def test_login_requires_csrf(self) -> None:
+        res = self.client.post(
+            "/api/v1/auth/login/",
+            {"email": "admin@example.com", "password": "password1100110011"},
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.json()["code"], ErrorMessages.CSRF_FAILED.name)
+
     def test_auth_csrf_returns_token_and_cookie(self) -> None:
         res = self.client.get("/api/v1/auth/csrf/")
 
@@ -46,6 +64,7 @@ class LoginAPITestCase(TestCase):
         self.assertTrue(res.cookies["csrftoken"].value)
 
     def test_login_invalid_password(self) -> None:
+        self._set_csrf_header()
         res = self.client.post(
             "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "oh.no"},
@@ -56,6 +75,7 @@ class LoginAPITestCase(TestCase):
         self.assertEqual(res.json()["code"], ErrorMessages.INVALID_CREDENTIALS.name)
 
     def test_login_none_email(self) -> None:
+        self._set_csrf_header()
         res = self.client.post(
             "/api/v1/auth/login/",
             {"email": "nonexistent@example.com", "password": "oh.no"},
@@ -70,6 +90,7 @@ class LoginAPITestCase(TestCase):
         self.user.is_active = False
         self.user.save(update_fields=["deleted_at", "is_active"])
 
+        self._set_csrf_header()
         res = self.client.post(
             "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},

@@ -25,6 +25,7 @@ class LogoutAPITestCase(TestCase):
         return csrf_token
 
     def test_logout_clears_auth_cookies(self) -> None:
+        self._set_csrf_header()
         login_res = self.api_client.post(
             "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},
@@ -41,6 +42,7 @@ class LogoutAPITestCase(TestCase):
         self.assertEqual(logout_res.cookies["access_token"].value, "")
 
     def test_logout_deletes_access_token_cookie(self) -> None:
+        self._set_csrf_header()
         login_res = self.api_client.post(
             "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},
@@ -49,17 +51,14 @@ class LogoutAPITestCase(TestCase):
         self.assertEqual(login_res.status_code, 200)
 
         self._set_csrf_header()
-
-        logout_res = self.api_client.post(
-            "/api/v1/auth/logout/",
-            format="json",
-        )
+        logout_res = self.api_client.post("/api/v1/auth/logout/", format="json")
 
         self.assertEqual(logout_res.status_code, 200)
         self.assertIn("access_token", logout_res.cookies)
         self.assertEqual(logout_res.cookies["access_token"].value, "")
 
     def test_logout_without_refresh_token(self) -> None:
+        self._set_csrf_header()
         login_res = self.api_client.post(
             "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},
@@ -75,12 +74,14 @@ class LogoutAPITestCase(TestCase):
         self.assertEqual(res.json()["code"], "REFRESH_TOKEN_MISSING")
 
     def test_logout_requires_csrf(self) -> None:
+        self._set_csrf_header()
         login_res = self.api_client.post(
             "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},
             format="json",
         )
         self.assertEqual(login_res.status_code, 200)
+        self.api_client.credentials()
 
         res = self.api_client.post("/api/v1/auth/logout/", format="json")
 

@@ -1,18 +1,20 @@
-from datetime import timedelta
-from typing import Literal, TypedDict, cast
+from typing import cast
 
-from django.conf import settings
-from django.middleware.csrf import get_token
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
-from rest_framework.authentication import BaseAuthentication, CSRFCheck
+from rest_framework.authentication import BaseAuthentication
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.core.exceptions.exception_handler import CustomAPIException
-from apps.core.exceptions.exception_message import ErrorMessages
+from apps.core.auth_utils import (
+    enforce_csrf,
+    expire_auth_cookies,
+    set_access_token_cookie,
+    set_csrf_cookie,
+    set_refresh_token_cookie,
+)
 from apps.core.serializers.error_serializer import ErrorResponseSerializer
 from apps.users.models.user import User
 from apps.users.serializers.auth import (
@@ -38,57 +40,6 @@ from apps.users.services import (
     send_email_code,
     signup_user,
 )
-
-
-class _AuthCookieOptions(TypedDict):
-    httponly: bool
-    samesite: Literal["None"]
-    secure: bool
-
-
-class _CSRFCookieOptions(TypedDict):
-    samesite: Literal["None"]
-    secure: bool
-
-
-_AUTH_COOKIE_OPTIONS: _AuthCookieOptions = {
-    "httponly": True,
-    "samesite": "None",
-    "secure": True,
-}
-
-_CSRF_COOKIE_OPTIONS: _CSRFCookieOptions = {
-    "samesite": "None",
-    "secure": True,
-}
-
-
-def _enforce_csrf(request: Request) -> None:
-    check = CSRFCheck(request)  # type: ignore[arg-type]
-    check.process_request(request)
-    reason = check.process_view(request, lambda r: None, (), {})  # type: ignore[arg-type, return-value]
-    if reason:
-        raise CustomAPIException(ErrorMessages.CSRF_FAILED)
-
-
-def _set_access_token_cookie(*, response: Response, access_token: str, expires_in: int) -> None:
-    response.set_cookie("access_token", value=access_token, max_age=expires_in, **_AUTH_COOKIE_OPTIONS)
-
-
-def _set_refresh_token_cookie(*, response: Response, refresh_token: str) -> None:
-    refresh_max_age = int(cast(timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]).total_seconds())
-    response.set_cookie("refresh_token", value=refresh_token, max_age=refresh_max_age, **_AUTH_COOKIE_OPTIONS)
-
-
-def _set_csrf_cookie(*, request: Request, response: Response) -> str:
-    csrf_token = get_token(request)
-    response.set_cookie("csrftoken", value=csrf_token, **_CSRF_COOKIE_OPTIONS)
-    return csrf_token
-
-
-def _expire_auth_cookies(*, response: Response) -> None:
-    response.set_cookie("refresh_token", value="", max_age=0, **_AUTH_COOKIE_OPTIONS)
-    response.set_cookie("access_token", value="", max_age=0, **_AUTH_COOKIE_OPTIONS)
 
 
 @extend_schema(
@@ -158,7 +109,7 @@ class AuthCSRFAPIView(APIView):
 
     def get(self, request: Request) -> Response:
         response = Response(status=status.HTTP_200_OK)
-        csrf_token = _set_csrf_cookie(request=request, response=response)
+        csrf_token = set_csrf_cookie(request=request, response=response)
         response.data = CSRFTokenResponseSerializer({"csrf_token": csrf_token}).data
         return response
 
@@ -175,6 +126,7 @@ class AuthCSRFAPIView(APIView):
             response=ErrorResponseSerializer,
             description="INVALID_CREDENTIALS, ACCOUNT_DEACTIVATED",
         ),
+        403: OpenApiResponse(response=ErrorResponseSerializer, description="CSRF_FAILED"),
     },
     tags=["auth"],
 )
@@ -182,6 +134,8 @@ class LoginAPIView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
+        enforce_csrf(request)
+
         serializer = LoginRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -190,9 +144,9 @@ class LoginAPIView(APIView):
 
         response_serializer = MessageResponseSerializer({"message": "로그인 되었습니다."})
         response = Response(response_serializer.data, status=status.HTTP_200_OK)
-        _set_access_token_cookie(response=response, access_token=access_token, expires_in=expires_in)
-        _set_refresh_token_cookie(response=response, refresh_token=refresh_token)
-        _set_csrf_cookie(request=request, response=response)
+        set_access_token_cookie(response=response, access_token=access_token, expires_in=expires_in)
+        set_refresh_token_cookie(response=response, refresh_token=refresh_token)
+        set_csrf_cookie(request=request, response=response)
         return response
 
 
@@ -212,12 +166,12 @@ class LogoutAPIView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
-        _enforce_csrf(request)
+        enforce_csrf(request)
         logout_user(request.COOKIES.get("refresh_token"))
 
         response_serializer = MessageResponseSerializer({"message": "로그아웃 되었습니다."})
         response = Response(response_serializer.data, status=status.HTTP_200_OK)
-        _expire_auth_cookies(response=response)
+        expire_auth_cookies(response=response)
         return response
 
 
@@ -227,7 +181,7 @@ class LogoutAPIView(APIView):
     responses={
         200: OpenApiResponse(
             response=MessageResponseSerializer,
-            description="Refreshes the session, updates the HttpOnly access_token cookie, and reissues the csrftoken cookie.",
+            description="Refreshes the session, rotates the refresh token, updates the HttpOnly access_token and refresh_token cookies, and reissues the csrftoken cookie.",
         ),
         400: OpenApiResponse(response=ErrorResponseSerializer, description="REFRESH_TOKEN_MISSING"),
         401: OpenApiResponse(
@@ -243,13 +197,14 @@ class RefreshAPIView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
-        _enforce_csrf(request)
-        access_token, expires_in = refresh_access_token(request.COOKIES.get("refresh_token"))
+        enforce_csrf(request)
+        access_token, refresh_token, expires_in = refresh_access_token(request.COOKIES.get("refresh_token"))
 
         response_serializer = MessageResponseSerializer({"message": "액세스 토큰이 갱신되었습니다."})
         response = Response(response_serializer.data, status=status.HTTP_200_OK)
-        _set_access_token_cookie(response=response, access_token=access_token, expires_in=expires_in)
-        _set_csrf_cookie(request=request, response=response)
+        set_access_token_cookie(response=response, access_token=access_token, expires_in=expires_in)
+        set_refresh_token_cookie(response=response, refresh_token=refresh_token)
+        set_csrf_cookie(request=request, response=response)
         return response
 
 

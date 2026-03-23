@@ -23,7 +23,8 @@ class RefreshAPITestCase(TestCase):
         self.api_client.credentials(HTTP_X_CSRFTOKEN=csrf_token)
         return csrf_token
 
-    def test_refresh_updates_access_token_cookie(self) -> None:
+    def test_refresh_updates_auth_cookies(self) -> None:
+        self._set_csrf_header()
         login_res = self.api_client.post(
             "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},
@@ -31,6 +32,7 @@ class RefreshAPITestCase(TestCase):
         )
         self.assertEqual(login_res.status_code, 200)
         old_access_token = login_res.cookies["access_token"].value
+        old_refresh_token = login_res.cookies["refresh_token"].value
 
         self._set_csrf_header()
         res = self.api_client.post("/api/v1/auth/refresh/", format="json")
@@ -38,9 +40,12 @@ class RefreshAPITestCase(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json()["message"], "액세스 토큰이 갱신되었습니다.")
         self.assertIn("access_token", res.cookies)
+        self.assertIn("refresh_token", res.cookies)
         self.assertIn("csrftoken", res.cookies)
         self.assertTrue(res.cookies["access_token"].value)
+        self.assertTrue(res.cookies["refresh_token"].value)
         self.assertNotEqual(res.cookies["access_token"].value, old_access_token)
+        self.assertNotEqual(res.cookies["refresh_token"].value, old_refresh_token)
 
     def test_refresh_without_refresh_token(self) -> None:
         self._set_csrf_header()
@@ -59,6 +64,7 @@ class RefreshAPITestCase(TestCase):
         self.assertEqual(res.json()["code"], "INVALID_REFRESH_TOKEN")
 
     def test_refresh_with_deactivated_user(self) -> None:
+        self._set_csrf_header()
         login_res = self.api_client.post(
             "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},
@@ -76,6 +82,7 @@ class RefreshAPITestCase(TestCase):
         self.assertEqual(res.json()["code"], "ACCOUNT_DEACTIVATED")
 
     def test_refresh_ignores_invalid_access_token_cookie(self) -> None:
+        self._set_csrf_header()
         login_res = self.api_client.post(
             "/api/v1/auth/login/",
             {"email": "admin@example.com", "password": "password1100110011"},
