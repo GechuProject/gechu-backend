@@ -19,6 +19,7 @@ from apps.users.services.search_recent_service import save_recent_search_keyword
     tags=["games"],
     summary="게임 목록 조회",
     description="""게임 목록 조회 (검색/필터/정렬) - IGDB API 기반
+        \n **장르 (genre_ids)**
         \n - id name - slug (igdb_id)
         \n - 1  RPG - rpg (12)
         \n - 2  어드벤처 - adventure (31)
@@ -30,6 +31,13 @@ from apps.users.services.search_recent_service import save_recent_search_keyword
         \n - 8  퍼즐 - puzzle (9)
         \n - 9  격투 - fighting (4)
         \n - 10 아케이드 - arcade (33)
+        \n **플랫폼 (platform_ids)**
+        \n - id name - slug (igdb_id)
+        \n - 1  PC - pc (6)
+        \n - 2  PlayStation - playstation (167)
+        \n - 3  Xbox - xbox (169)
+        \n - 4  Nintendo Switch - nintendo-switch (130)
+        \n - 5  Mobile - mobile (34)
 """,
     parameters=[
         OpenApiParameter("search", type=str, required=False, description="게임 이름 검색"),
@@ -69,6 +77,14 @@ from apps.users.services.search_recent_service import save_recent_search_keyword
                         "status_code": ErrorMessages.INVALID_ORDERING.status_code,
                         "code": ErrorMessages.INVALID_ORDERING.name,
                         "message": ErrorMessages.INVALID_ORDERING.message,
+                    },
+                ),
+                OpenApiExample(
+                    "존재하지 않는 장르 ID",
+                    value={
+                        "status_code": ErrorMessages.INVALID_GENRE_ID.status_code,
+                        "code": ErrorMessages.INVALID_GENRE_ID.name,
+                        "message": ErrorMessages.INVALID_GENRE_ID.message,
                     },
                 ),
             ],
