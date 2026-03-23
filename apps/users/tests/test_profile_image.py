@@ -4,13 +4,14 @@ from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.core.testcase import FastTestCase
 
 
 def make_image_file(width: int = 100, height: int = 100, fmt: str = "PNG") -> SimpleUploadedFile:
@@ -27,7 +28,7 @@ def make_image_file(width: int = 100, height: int = 100, fmt: str = "PNG") -> Si
     AWS_STORAGE_BUCKET_NAME="test-bucket",
     AWS_S3_PUBLIC_BASE_URL="https://cdn.example.com",
 )
-class UserProfileImageAPITest(TestCase):
+class UserProfileImageAPITest(FastTestCase):
     def setUp(self) -> None:
         self.client: APIClient = APIClient()
         user_model = get_user_model()

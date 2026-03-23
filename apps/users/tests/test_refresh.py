@@ -1,12 +1,12 @@
 import datetime
 
-from django.test import TestCase
 from rest_framework.test import APIClient
 
+from apps.core.testcase import FastTestCase
 from apps.users.models.user import User
 
 
-class RefreshAPITestCase(TestCase):
+class RefreshAPITestCase(FastTestCase):
     def setUp(self) -> None:
         self.api_client = APIClient(enforce_csrf_checks=True)
         self.user = User.objects.create_user(

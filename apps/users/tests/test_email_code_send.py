@@ -3,15 +3,15 @@ from typing import cast
 from unittest.mock import MagicMock, patch
 
 from django.core.cache import cache
-from django.test import TestCase
 from rest_framework.response import Response
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.core.testcase import FastTestCase
 from apps.users.models.user import User
 
 
-class EmailCodeSendAPITest(TestCase):
+class EmailCodeSendAPITest(FastTestCase):
     def setUp(self) -> None:
         self.client = APIClient()
         self.email = "user@example.com"

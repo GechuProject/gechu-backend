@@ -6,12 +6,13 @@ from urllib.parse import parse_qs, urlparse
 import requests
 from django.core.cache import cache
 from django.http import HttpResponseRedirect
-from django.test import TestCase, override_settings
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.core.testcase import FastTestCase
 from apps.users.models import AdultVerification, User
 from apps.users.services.adult_verification_service import (
     _extract_bbaton_verification_data,
@@ -30,7 +31,7 @@ from apps.users.services.adult_verification_service import (
     BBATON_REDIRECT_URI="https://example.com/api/v1/users/me/adult-verifications/callback/",
     FRONTEND_BASE_URL="https://frontend.example.com",
 )
-class AdultVerificationAPITestCase(TestCase):
+class AdultVerificationAPITestCase(FastTestCase):
     def setUp(self) -> None:
         cache.clear()
         self.client: APIClient = APIClient()
@@ -245,7 +246,7 @@ class AdultVerificationAPITestCase(TestCase):
         self.assertFalse(response.json()["is_adult_verified"])
 
 
-class AdultVerificationServiceTestCase(TestCase):
+class AdultVerificationServiceTestCase(FastTestCase):
     def test_extract_bbaton_verification_data_raises_for_invalid_payload(self) -> None:
         with self.assertRaises(CustomAPIException) as context:
             _extract_bbaton_verification_data({"user_id": 123, "adult_flag": "Y"})

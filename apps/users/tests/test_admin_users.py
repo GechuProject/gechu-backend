@@ -1,18 +1,18 @@
 import datetime
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.core.testcase import FastTestCase
 from apps.recommendations.models import RecommendationJob
 
 User = get_user_model()
 
 
-class AdminUserAPITestCase(TestCase):
+class AdminUserAPITestCase(FastTestCase):
     def setUp(self) -> None:
         self.client: APIClient = APIClient()
         self.admin_user = User.objects.create_superuser(

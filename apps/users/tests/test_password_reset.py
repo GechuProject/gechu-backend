@@ -1,17 +1,17 @@
 import datetime
 
 from django.core.cache import cache
-from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.core.testcase import FastTestCase
 from apps.users.models.social_user import SocialUser
 from apps.users.models.user import User
 
 
-class PasswordResetAPITestCase(TestCase):
+class PasswordResetAPITestCase(FastTestCase):
     def setUp(self) -> None:
         self.client = APIClient()
         self.email = "reset@example.com"
