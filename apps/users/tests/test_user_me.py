@@ -7,8 +7,8 @@ from rest_framework.response import Response
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
-from apps.users.models.social_user import SocialUser
 from apps.core.testcase import FastTestCase
+from apps.users.models.social_user import SocialUser
 from apps.users.tasks import purge_soft_deleted_users
 
 
