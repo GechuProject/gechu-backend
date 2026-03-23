@@ -17,6 +17,7 @@ from apps.recommendations.tasks import (
     _collect_seed_game_ids,
     _upsert_recommendations,
     process_pending_recommendation_jobs,
+    run_similarity_rebuild_job,
     run_user_refresh_job,
 )
 from apps.users.models import User
@@ -400,6 +401,51 @@ class RecommendationTaskTestCase(FastTestCase):
         self.assertEqual(job.retry_count, 1)
         self.assertIn("boom", cast(str, job.error_message))
 
+    def test_run_similarity_rebuild_job_success(self) -> None:
+        user_a = self._create_user()
+        user_b = User.objects.create_user(
+            email="rec-user2@ex.com",
+            nickname="rec-user2",
+            birth_date=date(1994, 1, 1),
+            password="pw",
+        )
+
+        InteractionLog.objects.create(
+            user=user_a,
+            igdb_game_id=9001,
+            type=InteractionLog.ActionType.VIEW,
+            source=InteractionLog.SourceType.DETAIL_PAGE,
+        )
+        InteractionLog.objects.create(
+            user=user_a,
+            igdb_game_id=9002,
+            type=InteractionLog.ActionType.VIEW,
+            source=InteractionLog.SourceType.DETAIL_PAGE,
+        )
+        InteractionLog.objects.create(
+            user=user_b,
+            igdb_game_id=9001,
+            type=InteractionLog.ActionType.VIEW,
+            source=InteractionLog.SourceType.DETAIL_PAGE,
+        )
+        InteractionLog.objects.create(
+            user=user_b,
+            igdb_game_id=9002,
+            type=InteractionLog.ActionType.VIEW,
+            source=InteractionLog.SourceType.DETAIL_PAGE,
+        )
+
+        job = RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.SIMILARITY_REBUILD,
+            target_user=None,
+            status=RecommendationJob.Status.PENDING,
+        )
+        run_similarity_rebuild_job(job.id)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, RecommendationJob.Status.SUCCESS)
+        self.assertTrue(GameSimilarity.objects.filter(igdb_game_id=9001, igdb_similar_game_id=9002).exists())
+
     def test_run_user_refresh_job_skips_when_job_already_running(self) -> None:
         user = self._create_user()
         job = RecommendationJob.objects.create(
@@ -414,6 +460,21 @@ class RecommendationTaskTestCase(FastTestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, RecommendationJob.Status.RUNNING)
         self.assertFalse(UserRecommendation.objects.filter(user=user).exists())
+
+    def test_process_pending_recommendation_jobs_enqueues_similarity_rebuild(self) -> None:
+        similarity_job = RecommendationJob.objects.create(
+            job_type=RecommendationJob.JobType.SIMILARITY_REBUILD,
+            target_user=None,
+            status=RecommendationJob.Status.PENDING,
+        )
+
+        with patch("apps.recommendations.tasks.process_similarity_rebuild_job.delay") as mocked_delay:
+            queued = process_pending_recommendation_jobs(limit=20)
+
+        self.assertEqual(queued, 1)
+        mocked_delay.assert_called_once_with(similarity_job.id)
+        similarity_job.refresh_from_db()
+        self.assertEqual(similarity_job.status, RecommendationJob.Status.RUNNING)
 
     def test_process_pending_recommendation_jobs_enqueues_pending_only(self) -> None:
         user = self._create_user()
@@ -776,3 +837,18 @@ class AdminRecommendationJobRunAPITestCase(FastTestCase):
         )
 
         self.assertEqual(response.status_code, 400)
+
+    def test_admin_recommendation_job_run_similarity_rebuild_enqueues(self) -> None:
+        self.client.force_authenticate(user=self.admin_user)
+
+        with patch("apps.recommendations.views_admin.process_similarity_rebuild_job.delay") as mocked_delay:
+            response = self.client.post(
+                self.url,
+                data={"job_type": "similarity_rebuild"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        payload = cast(dict[str, Any], response.data)
+        self.assertEqual(payload["type"], RecommendationJob.JobType.SIMILARITY_REBUILD)
+        mocked_delay.assert_called_once_with(payload["id"])

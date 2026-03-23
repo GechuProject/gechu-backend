@@ -28,7 +28,7 @@ from apps.recommendations.serializers import (
     RecommendationJobRunResponseSerializer,
 )
 from apps.recommendations.services import RecommendationAdminService
-from apps.recommendations.tasks import process_user_refresh_job
+from apps.recommendations.tasks import process_similarity_rebuild_job, process_user_refresh_job
 from apps.users.models import User
 
 
@@ -329,6 +329,8 @@ class AdminRecommendationJobRunView(APIView):
         )
         if job.job_type == RecommendationJob.JobType.USER_REFRESH and job.target_user_id is not None:
             process_user_refresh_job.delay(job.id)
+        elif job.job_type == RecommendationJob.JobType.SIMILARITY_REBUILD:
+            process_similarity_rebuild_job.delay(job.id)
 
         serializer = RecommendationJobRunResponseSerializer(job)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
