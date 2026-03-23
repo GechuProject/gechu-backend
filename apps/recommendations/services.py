@@ -101,6 +101,10 @@ class RecommendationService:
 
 class RecommendationAdminService:
     @staticmethod
+    def list_user_recommendations(*, user_id: int) -> QuerySet[UserRecommendation]:
+        return UserRecommendation.objects.filter(user_id=user_id).order_by("rank")
+
+    @staticmethod
     def list_recommendation_jobs(
         *,
         job_status: str | None = None,

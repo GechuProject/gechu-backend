@@ -142,3 +142,15 @@ class RecommendationJobRunResponseSerializer(serializers.Serializer):  # type: i
     type = serializers.CharField(source="job_type")
     status = serializers.CharField()
     created_at = serializers.DateTimeField()
+
+
+class AdminUserRecommendationItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    game_id = serializers.IntegerField(source="igdb_game_id")
+    score = serializers.DecimalField(max_digits=5, decimal_places=4)
+
+
+class AdminUserRecommendationListResponseSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    count = serializers.IntegerField()
+    next = serializers.CharField(allow_null=True)
+    previous = serializers.CharField(allow_null=True)
+    results = AdminUserRecommendationItemSerializer(many=True)

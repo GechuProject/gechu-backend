@@ -13,10 +13,13 @@ from rest_framework.views import APIView
 
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
+from apps.core.permissions import IsStaffAdmin
 from apps.core.serializers.error_serializer import ErrorResponseSerializer
 from apps.core.utils.pagination import PAGINATION_PARAMS, Pagination
 from apps.recommendations.models import RecommendationJob
 from apps.recommendations.serializers import (
+    AdminUserRecommendationItemSerializer,
+    AdminUserRecommendationListResponseSerializer,
     RecommendationJobDetailResponseSerializer,
     RecommendationJobItemSerializer,
     RecommendationJobListQuerySerializer,
@@ -329,3 +332,96 @@ class AdminRecommendationJobRunView(APIView):
 
         serializer = RecommendationJobRunResponseSerializer(job)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(
+    tags=["admin"],
+    summary="어드민 - 특정 유저 추천 결과 조회",
+    description=(
+        "관리자(staff) 전용 API입니다. path의 유저 ID에 해당하는 추천 결과 목록을 페이지네이션으로 조회합니다. "
+        "추천 디버깅용으로 사용합니다. 각 항목은 game_id(IGDB 게임 ID)와 score를 반환합니다."
+    ),
+    parameters=[
+        OpenApiParameter(
+            name="user_id",
+            type=int,
+            location=OpenApiParameter.PATH,
+            required=True,
+            description="추천 결과를 조회할 유저의 ID (user pk)",
+        ),
+        *PAGINATION_PARAMS,
+    ],
+    responses={
+        200: AdminUserRecommendationListResponseSerializer,
+        401: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="인증되지 않음. Authorization 헤더에 유효한 Bearer 토큰이 필요합니다.",
+            examples=[
+                OpenApiExample(
+                    "인증 필요",
+                    value={
+                        "status_code": ErrorMessages.UNAUTHORIZED.status_code,
+                        "code": ErrorMessages.UNAUTHORIZED.name,
+                        "message": ErrorMessages.UNAUTHORIZED.message,
+                    },
+                )
+            ],
+        ),
+        403: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="권한 없음. is_staff=True인 관리자만 호출할 수 있습니다.",
+            examples=[
+                OpenApiExample(
+                    "관리자 권한 필요",
+                    value={
+                        "status_code": ErrorMessages.FORBIDDEN.status_code,
+                        "code": ErrorMessages.FORBIDDEN.name,
+                        "message": ErrorMessages.FORBIDDEN.message,
+                    },
+                )
+            ],
+        ),
+        404: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="해당 ID의 사용자를 찾을 수 없음.",
+            examples=[
+                OpenApiExample(
+                    "USER_NOT_FOUND",
+                    value={
+                        "status_code": ErrorMessages.USER_NOT_FOUND.status_code,
+                        "code": ErrorMessages.USER_NOT_FOUND.name,
+                        "message": ErrorMessages.USER_NOT_FOUND.message,
+                    },
+                )
+            ],
+        ),
+    },
+    examples=[
+        OpenApiExample(
+            "성공 시 응답 예시",
+            value={
+                "count": 20,
+                "next": "http://example.com/api/v1/admin/users/1/recommendations/?page=2",
+                "previous": None,
+                "results": [
+                    {"game_id": 12345, "score": "120.5000"},
+                    {"game_id": 67890, "score": "98.2000"},
+                ],
+            },
+            response_only=True,
+            status_codes=["200"],
+        )
+    ],
+)
+class AdminUserRecommendationListView(APIView):
+    permission_classes = [IsStaffAdmin]
+
+    def get(self, request: Request, user_id: int) -> Response:
+        if not User.objects.filter(pk=user_id).exists():
+            raise CustomAPIException(ErrorMessages.USER_NOT_FOUND)
+
+        qs = RecommendationAdminService.list_user_recommendations(user_id=user_id)
+        paginator = Pagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = AdminUserRecommendationItemSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
