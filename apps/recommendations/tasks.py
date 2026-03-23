@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import timedelta
 from decimal import Decimal
 from math import sqrt
-from typing import DefaultDict
-from collections import defaultdict
 
 from celery import shared_task
 from django.db import transaction
@@ -75,15 +74,16 @@ def _upsert_recommendations(
 
 
 def _build_similarity_pairs_from_interactions() -> dict[tuple[int, int], Decimal]:
-    user_rows = InteractionLog.objects.filter(igdb_game_id__isnull=False).values_list("user_id", "igdb_game_id")
-    user_games: DefaultDict[int, set[int]] = defaultdict(set)
-    for user_id, game_id in user_rows:
-        if game_id is None:
-            continue
+    # 대량 InteractionLog를 한 번에 메모리에 올리지 않기 위해 iterator로 스트리밍 처리합니다.
+    user_rows_iterator = (
+        InteractionLog.objects.filter(igdb_game_id__isnull=False).values_list("user_id", "igdb_game_id")
+    ).iterator()
+    user_games: defaultdict[int, set[int]] = defaultdict(set)
+    for user_id, game_id in user_rows_iterator:
         user_games[user_id].add(int(game_id))
 
-    game_user_count: DefaultDict[int, int] = defaultdict(int)
-    co_occurrence: DefaultDict[tuple[int, int], int] = defaultdict(int)
+    game_user_count: defaultdict[int, int] = defaultdict(int)
+    co_occurrence: defaultdict[tuple[int, int], int] = defaultdict(int)
 
     for games in user_games.values():
         game_ids = sorted(games)
@@ -108,7 +108,7 @@ def _build_similarity_pairs_from_interactions() -> dict[tuple[int, int], Decimal
 
 
 def _replace_game_similarities(*, pair_scores: dict[tuple[int, int], Decimal]) -> int:
-    top_per_game: DefaultDict[int, list[tuple[int, Decimal]]] = defaultdict(list)
+    top_per_game: defaultdict[int, list[tuple[int, Decimal]]] = defaultdict(list)
     for (game_id, similar_game_id), score in pair_scores.items():
         top_per_game[game_id].append((similar_game_id, score))
 
