@@ -5,6 +5,7 @@ from django.contrib.auth.models import AnonymousUser
 from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.games.igdb import cache as igdb_cache
+from apps.games.services.game_list import GameService
 from apps.users.models import User
 
 
@@ -21,4 +22,5 @@ class GameDetailService:
             if not user or not user.is_authenticated or not getattr(user, "is_adult_verified", False):
                 raise CustomAPIException(ErrorMessages.ADULT_VERIFICATION_REQUIRED)
 
-        return game
+        result = GameService.attach_is_saved([game], user if isinstance(user, User) else None)
+        return result[0]
