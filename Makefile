@@ -49,12 +49,12 @@ seed:
 
 # 테스트 -------------------------------------------------------------------
 test:
-	$(DJANGO) coverage run manage.py test
+	$(DJANGO) coverage run manage.py test --keepdb
 	$(DJANGO) coverage report
 
 # 특정 앱만: make test-app APP=users
 test-app:
-	$(DJANGO) coverage run manage.py test apps.$(APP)
+	$(DJANGO) coverage run manage.py test apps.$(APP) --keepdb
 	$(DJANGO) coverage report
 
 # 코드 품질 ----------------------------------------------------------------

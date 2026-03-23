@@ -22,17 +22,22 @@ class PreferenceBaseTestCase(TestCase):
     """공통 유저 생성 및 인증을 담당하는 베이스 클래스"""
 
     client: APIClient
+    user: User
 
-    def setUp(self) -> None:
-        self.client = APIClient()
-        self.client.raise_request_exception = True
-        self.user = User.objects.create_user(
-            email=f"test_{self.__class__.__name__}@example.com",
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.user = User.objects.create_user(
+            email=f"test_{cls.__name__}@example.com",
             nickname="tester",
             birth_date=date(1990, 1, 1),
             password="testpass123",
         )
-        UserPreference.objects.get_or_create(user=self.user)
+        UserPreference.objects.get_or_create(user=cls.user)
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.client.raise_request_exception = True
+        self.user.refresh_from_db()
         # 기본적으로 인증된 상태로 시작
         self.client.force_authenticate(user=self.user)
 

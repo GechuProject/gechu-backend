@@ -159,16 +159,21 @@ class RecommendationListAPITestCase(TestCase):
 
 class RecommendationStatusAPITestCase(TestCase):
     client: APIClient
+    user: User
 
-    def setUp(self) -> None:
-        self.client = APIClient()
-        self.url = "/api/v1/recommendations/status/"
-        self.user = User.objects.create_user(
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.user = User.objects.create_user(
             email="status-user@ex.com",
             nickname="status-user",
             birth_date=date(1991, 1, 1),
             password="pw",
         )
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/recommendations/status/"
+        self.user.refresh_from_db()
 
     def _create_recommendation(self, *, generation: int) -> UserRecommendation:
         igdb_game_id = 9000 + generation
@@ -454,23 +459,30 @@ class RecommendationTaskTestCase(TestCase):
 
 class AdminRecommendationJobListAPITestCase(TestCase):
     client: APIClient
+    admin_user: User
+    normal_user: User
 
-    def setUp(self) -> None:
-        self.client = APIClient()
-        self.url = "/api/v1/admin/recommendation-jobs/"
-        self.admin_user = User.objects.create_user(
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.admin_user = User.objects.create_user(
             email="admin-rec@ex.com",
             nickname="admin-rec",
             birth_date=date(1990, 1, 1),
             password="pw",
             is_staff=True,
         )
-        self.normal_user = User.objects.create_user(
+        cls.normal_user = User.objects.create_user(
             email="normal-rec@ex.com",
             nickname="normal-rec",
             birth_date=date(1994, 1, 1),
             password="pw",
         )
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/admin/recommendation-jobs/"
+        self.admin_user.refresh_from_db()
+        self.normal_user.refresh_from_db()
 
     def test_admin_recommendation_job_list_unauthorized(self) -> None:
         response = self.client.get(self.url)
@@ -574,22 +586,29 @@ class AdminRecommendationJobListAPITestCase(TestCase):
 
 class AdminRecommendationJobDetailAPITestCase(TestCase):
     client: APIClient
+    admin_user: User
+    normal_user: User
 
-    def setUp(self) -> None:
-        self.client = APIClient()
-        self.admin_user = User.objects.create_user(
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.admin_user = User.objects.create_user(
             email="admin-detail@ex.com",
             nickname="admin-detail",
             birth_date=date(1990, 1, 1),
             password="pw",
             is_staff=True,
         )
-        self.normal_user = User.objects.create_user(
+        cls.normal_user = User.objects.create_user(
             email="normal-detail@ex.com",
             nickname="normal-detail",
             birth_date=date(1994, 1, 1),
             password="pw",
         )
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.admin_user.refresh_from_db()
+        self.normal_user.refresh_from_db()
 
     def _url(self, job_id: int) -> str:
         return f"/api/v1/admin/recommendation-jobs/{job_id}/"
@@ -649,23 +668,30 @@ class AdminRecommendationJobDetailAPITestCase(TestCase):
 
 class AdminRecommendationJobRunAPITestCase(TestCase):
     client: APIClient
+    admin_user: User
+    normal_user: User
 
-    def setUp(self) -> None:
-        self.client = APIClient()
-        self.url = "/api/v1/admin/recommendation-jobs/run/"
-        self.admin_user = User.objects.create_user(
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.admin_user = User.objects.create_user(
             email="admin-run@ex.com",
             nickname="admin-run",
             birth_date=date(1990, 1, 1),
             password="pw",
             is_staff=True,
         )
-        self.normal_user = User.objects.create_user(
+        cls.normal_user = User.objects.create_user(
             email="normal-run@ex.com",
             nickname="normal-run",
             birth_date=date(1994, 1, 1),
             password="pw",
         )
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/admin/recommendation-jobs/run/"
+        self.admin_user.refresh_from_db()
+        self.normal_user.refresh_from_db()
 
     def test_admin_recommendation_job_run_unauthorized(self) -> None:
         response = self.client.post(self.url, data={"job_type": "user_refresh"}, format="json")

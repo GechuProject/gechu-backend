@@ -26,20 +26,8 @@ IGDB_GAME_ID_STORE = 8001
 class InteractionViewLogCreateAPITestCase(TestCase):
     client: APIClient
 
-    def setUp(self) -> None:
-        self.client = APIClient()
-        self.url = "/api/v1/interactions/view/"
-        self._create_view_rules()
-
-    def _create_user(self) -> User:
-        return User.objects.create_user(
-            email="user@ex.com",
-            nickname="user",
-            birth_date=date(1990, 1, 1),
-            password="pw",
-        )
-
-    def _create_view_rules(self) -> None:
+    @classmethod
+    def setUpTestData(cls) -> None:
         InteractionWeightRule.objects.create(
             interaction_type=InteractionWeightRule.ActionType.VIEW,
             base_weight=0.20,
@@ -68,6 +56,18 @@ class InteractionViewLogCreateAPITestCase(TestCase):
                     interaction_source=InteractionContextRule.InteractionSource.ONBOARDING, multiplier=1.50
                 ),
             ]
+        )
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/interactions/view/"
+
+    def _create_user(self) -> User:
+        return User.objects.create_user(
+            email="user@ex.com",
+            nickname="user",
+            birth_date=date(1990, 1, 1),
+            password="pw",
         )
 
     def test_interaction_view_unauthorized(self) -> None:
@@ -250,20 +250,8 @@ class InteractionViewLogCreateAPITestCase(TestCase):
 class InteractionSearchLogCreateAPITestCase(TestCase):
     client: APIClient
 
-    def setUp(self) -> None:
-        self.client = APIClient()
-        self.url = "/api/v1/interactions/search/"
-        self._create_search_rules()
-
-    def _create_user(self) -> User:
-        return User.objects.create_user(
-            email="search-user@ex.com",
-            nickname="search-user",
-            birth_date=date(1992, 1, 1),
-            password="pw",
-        )
-
-    def _create_search_rules(self) -> None:
+    @classmethod
+    def setUpTestData(cls) -> None:
         InteractionWeightRule.objects.create(
             interaction_type=InteractionWeightRule.ActionType.SEARCH,
             base_weight=0.10,
@@ -274,6 +262,18 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
         InteractionContextRule.objects.get_or_create(
             interaction_source=InteractionContextRule.InteractionSource.SEARCH_RESULT,
             defaults={"multiplier": 1.10},
+        )
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.url = "/api/v1/interactions/search/"
+
+    def _create_user(self) -> User:
+        return User.objects.create_user(
+            email="search-user@ex.com",
+            nickname="search-user",
+            birth_date=date(1992, 1, 1),
+            password="pw",
         )
 
     def test_interaction_search_unauthorized(self) -> None:
@@ -456,10 +456,23 @@ class InteractionSearchLogCreateAPITestCase(TestCase):
 class InteractionStoreClickLogCreateAPITestCase(TestCase):
     client: APIClient
 
+    @classmethod
+    def setUpTestData(cls) -> None:
+        InteractionWeightRule.objects.create(
+            interaction_type=InteractionWeightRule.ActionType.STORE_CLICK,
+            base_weight=0.10,
+            cooldown_seconds=120,
+            repeat_decay=0.900,
+            is_active=True,
+        )
+        InteractionContextRule.objects.get_or_create(
+            interaction_source=InteractionContextRule.InteractionSource.DETAIL_PAGE,
+            defaults={"multiplier": 1.20},
+        )
+
     def setUp(self) -> None:
         self.client = APIClient()
         self.url = "/api/v1/interactions/store-click/"
-        self._create_store_click_rules()
 
     def _create_user(self) -> User:
         return User.objects.create_user(
@@ -479,19 +492,6 @@ class InteractionStoreClickLogCreateAPITestCase(TestCase):
         }
         defaults.update(kwargs)
         return ExternalStore.objects.create(**defaults)
-
-    def _create_store_click_rules(self) -> None:
-        InteractionWeightRule.objects.create(
-            interaction_type=InteractionWeightRule.ActionType.STORE_CLICK,
-            base_weight=0.10,
-            cooldown_seconds=120,
-            repeat_decay=0.900,
-            is_active=True,
-        )
-        InteractionContextRule.objects.get_or_create(
-            interaction_source=InteractionContextRule.InteractionSource.DETAIL_PAGE,
-            defaults={"multiplier": 1.20},
-        )
 
     def test_interaction_store_click_unauthorized(self) -> None:
         response = self.client.post(
@@ -1030,28 +1030,37 @@ class AdminInteractionWeightRuleUpdateAPITestCase(TestCase):
 
 class AdminUserInteractionListAPITestCase(TestCase):
     client: APIClient
+    admin_user: User
+    target_user: User
+    normal_user: User
 
-    def setUp(self) -> None:
-        self.client = APIClient()
-        self.admin_user = User.objects.create_user(
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.admin_user = User.objects.create_user(
             email="admin-int@ex.com",
             nickname="admin-int",
             birth_date=date(1991, 1, 1),
             password="pw",
             is_staff=True,
         )
-        self.target_user = User.objects.create_user(
+        cls.target_user = User.objects.create_user(
             email="target-int@ex.com",
             nickname="target-int",
             birth_date=date(1992, 1, 1),
             password="pw",
         )
-        self.normal_user = User.objects.create_user(
+        cls.normal_user = User.objects.create_user(
             email="normal-int@ex.com",
             nickname="normal-int",
             birth_date=date(1993, 1, 1),
             password="pw",
         )
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.admin_user.refresh_from_db()
+        self.target_user.refresh_from_db()
+        self.normal_user.refresh_from_db()
         self.base_url = f"/api/v1/admin/users/{self.target_user.id}/interactions/"
 
     def test_admin_user_interaction_list_unauthorized(self) -> None:

@@ -1,7 +1,7 @@
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, override_settings
 
 from apps.games.igdb.client import IgdbClient, get_igdb_client, get_image_url
 from apps.games.igdb.exceptions import (
@@ -12,7 +12,7 @@ from apps.games.igdb.exceptions import (
 )
 
 
-class GetImageUrlTests(TestCase):
+class GetImageUrlTests(SimpleTestCase):
     def test_default_size(self) -> None:
         url = get_image_url("co1234")
         self.assertEqual(url, "https://images.igdb.com/igdb/image/upload/t_cover_big/co1234.jpg")
@@ -23,7 +23,7 @@ class GetImageUrlTests(TestCase):
 
 
 @override_settings(IGDB_CLIENT_ID="test_id", IGDB_CLIENT_SECRET="test_secret")
-class IgdbClientTests(TestCase):
+class IgdbClientTests(SimpleTestCase):
     def _make_client(self, mock_session: Any) -> tuple[IgdbClient, MagicMock]:
         """Create an IgdbClient with mocked session and token fetch."""
         token_resp = MagicMock()
@@ -354,7 +354,7 @@ class IgdbClientTests(TestCase):
 
 
 @override_settings(IGDB_CLIENT_ID="test_id", IGDB_CLIENT_SECRET="test_secret")
-class GetIgdbClientTests(TestCase):
+class GetIgdbClientTests(SimpleTestCase):
     @patch("apps.games.igdb.client._build_session")
     def test_singleton(self, mock_build: MagicMock) -> None:
         session = MagicMock()
