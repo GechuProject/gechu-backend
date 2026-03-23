@@ -172,8 +172,6 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
-    "AUTH_HEADER_TYPES": ("Bearer",),
-    "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
 }
@@ -186,6 +184,9 @@ USE_TZ = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CSRF_TRUSTED_ORIGINS = [o for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
+AUTH_COOKIE_SECURE = True
+AUTH_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SAMESITE = "None"
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
@@ -219,19 +220,26 @@ SPECTACULAR_SETTINGS = {
         "dom_id": "#swagger-ui",
         "layout": "BaseLayout",
         "deepLinking": True,
-        "persistAuthorization": True,
+        "persistAuthorization": False,
         "displayOperationId": True,
         "filter": True,
     },
     "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
-    "SECURITY": [{"BearerAuth": []}],
+    "SECURITY": [{"CookieAuth": []}],
     "APPEND_COMPONENTS": {
         "securitySchemes": {
-            "BearerAuth": {
-                "type": "http",
-                "scheme": "bearer",
-                "bearerFormat": "JWT",
-            }
+            "CookieAuth": {
+                "type": "apiKey",
+                "in": "cookie",
+                "name": "access_token",
+                "description": "HttpOnly access_token cookie authentication.",
+            },
+            "CsrfToken": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "X-CSRFToken",
+                "description": "Required for authenticated POST, PUT, PATCH, DELETE requests.",
+            },
         }
     },
 }

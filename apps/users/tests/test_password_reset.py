@@ -168,6 +168,25 @@ class PasswordResetAPITestCase(FastTestCase):
             BlacklistedToken.objects.filter(token__in=outstanding_tokens).count(), outstanding_tokens.count()
         )
 
+    def test_password_reset_returns_401_for_deactivated_user(self) -> None:
+        self.user.deleted_at = datetime.datetime.now(datetime.UTC)
+        self.user.is_active = False
+        self.user.save(update_fields=["deleted_at", "is_active"])
+        cache.set("email_code:password_reset:reset@example.com", "123456", timeout=300)
+
+        response = self.client.post(
+            self.url,
+            {
+                "email": "reset@example.com",
+                "code": "123456",
+                "new_password": "NewPass1234!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["code"], ErrorMessages.ACCOUNT_DEACTIVATED.name)
+
     def test_password_reset_nonexistent_email_returns_invalid_code(self) -> None:
         cache.set("email_code:password_reset:missing@example.com", "123456", timeout=300)
 

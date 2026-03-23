@@ -31,6 +31,11 @@ from apps.recommendations.services import RecommendationAdminService
 from apps.recommendations.tasks import process_similarity_rebuild_job, process_user_refresh_job
 from apps.users.models import User
 
+COOKIE_AUTH_DESCRIPTION = "HttpOnly access_token cookie authentication is required."
+UNSAFE_COOKIE_AUTH_DESCRIPTION = (
+    "HttpOnly access_token cookie authentication is required. Unsafe requests must also include the X-CSRFToken header."
+)
+
 
 @extend_schema(
     tags=["admin"],
@@ -57,7 +62,7 @@ from apps.users.models import User
         200: RecommendationJobListResponseSerializer,
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Unauthorized",
+            description=COOKIE_AUTH_DESCRIPTION,
             examples=[
                 OpenApiExample(
                     "인증 필요",
@@ -154,7 +159,7 @@ class AdminRecommendationJobListView(ListAPIView):  # type: ignore[type-arg]
         200: RecommendationJobDetailResponseSerializer,
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Unauthorized",
+            description=COOKIE_AUTH_DESCRIPTION,
             examples=[
                 OpenApiExample(
                     "인증 필요",
@@ -251,7 +256,7 @@ class AdminRecommendationJobDetailView(APIView):
         ),
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Unauthorized",
+            description=UNSAFE_COOKIE_AUTH_DESCRIPTION,
             examples=[
                 OpenApiExample(
                     "인증 필요",
@@ -265,7 +270,7 @@ class AdminRecommendationJobDetailView(APIView):
         ),
         403: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Forbidden",
+            description="FORBIDDEN or CSRF_FAILED",
             examples=[
                 OpenApiExample(
                     "관리자 권한 필요",
@@ -357,7 +362,7 @@ class AdminRecommendationJobRunView(APIView):
         200: AdminUserRecommendationListResponseSerializer,
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="인증되지 않음. Authorization 헤더에 유효한 Bearer 토큰이 필요합니다.",
+            description=COOKIE_AUTH_DESCRIPTION,
             examples=[
                 OpenApiExample(
                     "인증 필요",

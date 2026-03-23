@@ -6,13 +6,14 @@ from django.contrib.auth import get_user_model
 from django_redis import get_redis_connection
 from rest_framework.test import APIClient
 
+from apps.core.auth_test_utils import authenticate_client_with_cookies, make_cookie_client
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.core.testcase import FastTestCase
 
 
 class RecentSearchAPITest(FastTestCase):
     def setUp(self) -> None:
-        self.client: APIClient = APIClient()
+        self.client: APIClient = make_cookie_client()
         user_model = get_user_model()
         self.user = user_model.objects.create_user(
             email="recent@example.com",
@@ -31,7 +32,7 @@ class RecentSearchAPITest(FastTestCase):
         self.connection.lpush(self.key, "elden ring")
         self.connection.lpush(self.key, "cyberpunk")
         self.connection.lpush(self.key, "witcher")
-        self.client.force_authenticate(user=self.user)
+        authenticate_client_with_cookies(self.client, self.user)
 
         response = self.client.get("/api/v1/search/recent/")
 
@@ -45,7 +46,7 @@ class RecentSearchAPITest(FastTestCase):
 
     def test_delete_recent_searches_clears_all_keywords(self) -> None:
         self.connection.rpush(self.key, "witcher", "cyberpunk")
-        self.client.force_authenticate(user=self.user)
+        authenticate_client_with_cookies(self.client, self.user)
 
         response = self.client.delete("/api/v1/search/recent/")
 
@@ -60,7 +61,7 @@ class RecentSearchAPITest(FastTestCase):
 
     def test_delete_recent_search_keyword_removes_matching_keyword(self) -> None:
         self.connection.rpush(self.key, "witcher", "cyberpunk", "elden ring")
-        self.client.force_authenticate(user=self.user)
+        authenticate_client_with_cookies(self.client, self.user)
 
         response = self.client.delete("/api/v1/search/recent/cyberpunk/")
 
@@ -75,7 +76,7 @@ class RecentSearchAPITest(FastTestCase):
 
     def test_delete_recent_search_keyword_returns_404_when_keyword_not_found(self) -> None:
         self.connection.rpush(self.key, "witcher")
-        self.client.force_authenticate(user=self.user)
+        authenticate_client_with_cookies(self.client, self.user)
 
         response = self.client.delete("/api/v1/search/recent/cyberpunk/")
 
@@ -84,7 +85,7 @@ class RecentSearchAPITest(FastTestCase):
 
     def test_delete_recent_search_keyword_allows_slash_in_keyword(self) -> None:
         self.connection.rpush(self.key, "Nier/Automata")
-        self.client.force_authenticate(user=self.user)
+        authenticate_client_with_cookies(self.client, self.user)
 
         response = self.client.delete("/api/v1/search/recent/Nier/Automata/")
 

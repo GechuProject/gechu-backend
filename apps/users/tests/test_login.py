@@ -1,5 +1,6 @@
 import datetime
 
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -62,6 +63,29 @@ class LoginAPITestCase(FastTestCase):
         self.assertIn("csrftoken", res.cookies)
         self.assertTrue(res.json()["csrf_token"])
         self.assertTrue(res.cookies["csrftoken"].value)
+
+    @override_settings(
+        AUTH_COOKIE_SECURE=False,
+        AUTH_COOKIE_SAMESITE="Lax",
+        CSRF_COOKIE_SECURE=False,
+        CSRF_COOKIE_SAMESITE="Lax",
+    )
+    def test_login_respects_cookie_settings(self) -> None:
+        self._set_csrf_header()
+
+        res = self.client.post(
+            "/api/v1/auth/login/",
+            {"email": "admin@example.com", "password": "password1100110011"},
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(res.cookies["access_token"]["secure"])
+        self.assertFalse(res.cookies["refresh_token"]["secure"])
+        self.assertFalse(res.cookies["csrftoken"]["secure"])
+        self.assertEqual(res.cookies["access_token"]["samesite"], "Lax")
+        self.assertEqual(res.cookies["refresh_token"]["samesite"], "Lax")
+        self.assertEqual(res.cookies["csrftoken"]["samesite"], "Lax")
 
     def test_login_invalid_password(self) -> None:
         self._set_csrf_header()

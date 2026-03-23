@@ -8,6 +8,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.serializers.error_serializer import ErrorResponseSerializer
 from apps.users.models.user import User
 from apps.users.serializers.auth import MessageResponseSerializer
 from apps.users.serializers.me import (
@@ -15,19 +16,22 @@ from apps.users.serializers.me import (
     UserMeResponseSerializer,
     UserMeUpdateRequestSerializer,
     UserMeUpdateResponseSerializer,
-    UserPasswordChangeRequestSerializer,
     UserPasswordVerifyRequestSerializer,
     UserProfileImageResponseSerializer,
     UserProfileImageUploadRequestSerializer,
 )
 from apps.users.services import (
-    change_user_password,
     delete_user_me,
     delete_user_profile_image,
     get_user_me,
     update_user_me,
     upload_user_profile_image,
     verify_user_password,
+)
+
+COOKIE_AUTH_DESCRIPTION = "HttpOnly access_token cookie authentication is required."
+UNSAFE_COOKIE_AUTH_DESCRIPTION = (
+    "HttpOnly access_token cookie authentication is required. Unsafe requests must also include the X-CSRFToken header."
 )
 
 
@@ -46,16 +50,27 @@ class UserMeAPIView(generics.RetrieveUpdateDestroyAPIView[User]):
         return UserMeResponseSerializer
 
     @extend_schema(
-        summary="내 정보 조회",
-        responses={200: UserMeResponseSerializer},
+        summary="Get my profile",
+        description=COOKIE_AUTH_DESCRIPTION,
+        responses={
+            200: UserMeResponseSerializer,
+            401: OpenApiResponse(response=ErrorResponseSerializer, description="UNAUTHORIZED, ACCOUNT_DEACTIVATED"),
+        },
     )
     def get(self, request: Request, *args: object, **kwargs: object) -> Response:
         return super().retrieve(request, *args, **kwargs)
 
     @extend_schema(
-        summary="내 정보 수정",
+        summary="Update my profile",
+        description=UNSAFE_COOKIE_AUTH_DESCRIPTION,
         request=UserMeUpdateRequestSerializer,
-        responses={200: UserMeUpdateResponseSerializer},
+        responses={
+            200: UserMeUpdateResponseSerializer,
+            400: OpenApiResponse(response=ErrorResponseSerializer, description="VALIDATION_ERROR, SOCIAL_USER_ONLY"),
+            401: OpenApiResponse(response=ErrorResponseSerializer, description="UNAUTHORIZED, ACCOUNT_DEACTIVATED"),
+            403: OpenApiResponse(response=ErrorResponseSerializer, description="CSRF_FAILED"),
+            409: OpenApiResponse(response=ErrorResponseSerializer, description="NICKNAME_ALREADY_EXISTS"),
+        },
     )
     def patch(self, request: Request, *args: object, **kwargs: object) -> Response:
         return self.update(request, *args, **kwargs)
@@ -69,8 +84,13 @@ class UserMeAPIView(generics.RetrieveUpdateDestroyAPIView[User]):
         return Response(response_serializer.data)
 
     @extend_schema(
-        summary="회원 탈퇴",
-        responses={200: UserMeDeleteResponseSerializer},
+        summary="Delete my account",
+        description=UNSAFE_COOKIE_AUTH_DESCRIPTION,
+        responses={
+            200: UserMeDeleteResponseSerializer,
+            401: OpenApiResponse(response=ErrorResponseSerializer, description="UNAUTHORIZED, ACCOUNT_DEACTIVATED"),
+            403: OpenApiResponse(response=ErrorResponseSerializer, description="CSRF_FAILED"),
+        },
     )
     def delete(self, request: Request, *args: object, **kwargs: object) -> Response:
         delete_user_me(self.get_object())
@@ -80,9 +100,15 @@ class UserMeAPIView(generics.RetrieveUpdateDestroyAPIView[User]):
 
 
 @extend_schema(
-    summary="비밀번호 확인",
+    summary="Verify password",
+    description=UNSAFE_COOKIE_AUTH_DESCRIPTION,
     request=UserPasswordVerifyRequestSerializer,
-    responses={200: MessageResponseSerializer},
+    responses={
+        200: MessageResponseSerializer,
+        400: OpenApiResponse(response=ErrorResponseSerializer, description="SOCIAL_USER_ONLY"),
+        401: OpenApiResponse(response=ErrorResponseSerializer, description="UNAUTHORIZED, ACCOUNT_DEACTIVATED"),
+        403: OpenApiResponse(response=ErrorResponseSerializer, description="CSRF_FAILED"),
+    },
     tags=["Users"],
 )
 class UserPasswordVerifyAPIView(APIView):
@@ -99,45 +125,25 @@ class UserPasswordVerifyAPIView(APIView):
         return Response(MessageResponseSerializer({"message": "비밀번호가 확인되었습니다."}).data)
 
 
-@extend_schema(
-    summary="비밀번호 변경",
-    request=UserPasswordChangeRequestSerializer,
-    responses={200: MessageResponseSerializer},
-    tags=["Users"],
-)
-class UserPasswordChangeAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def patch(self, request: Request) -> Response:
-        serializer = UserPasswordChangeRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        change_user_password(
-            cast(User, request.user),
-            new_password=cast(str, serializer.validated_data["new_password"]),
-        )
-        return Response(MessageResponseSerializer({"message": "비밀번호가 변경되었습니다."}).data)
-
-
 class UserProfileImageAPIView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser]
 
     @extend_schema(
-        summary="프로필 이미지 업로드",
+        summary="Upload profile image",
         description=(
-            "프로필 이미지를 서버에 업로드합니다.\n\n"
-            "- 허용 형식: jpg, jpeg, png, webp\n"
-            "- 최대 파일 크기: 5MB\n"
-            "- 이미지는 서버에서 자동으로 512×512 이하로 리사이즈되며, WebP 형식으로 변환되어 저장됩니다.\n"
-            "- 기존 프로필 이미지가 있을 경우 자동으로 삭제됩니다."
+            "Uploads a profile image to the server.\n\n"
+            "- Supported formats: jpg, jpeg, png, webp\n"
+            "- Maximum file size: 5MB\n"
+            "- The server resizes the image to within 512x512 and stores it as WebP.\n"
+            "- Any previous profile image is deleted automatically."
         ),
         request={"multipart/form-data": UserProfileImageUploadRequestSerializer},
         responses={
             200: UserProfileImageResponseSerializer,
-            400: OpenApiResponse(description="허용되지 않는 파일 형식이거나 파일 크기가 5MB를 초과한 경우"),
-            401: OpenApiResponse(description="인증되지 않은 사용자"),
-            404: OpenApiResponse(description="탈퇴한 사용자"),
+            400: OpenApiResponse(response=ErrorResponseSerializer, description="INVALID_FILE_TYPE, FILE_TOO_LARGE"),
+            401: OpenApiResponse(response=ErrorResponseSerializer, description="UNAUTHORIZED, ACCOUNT_DEACTIVATED"),
+            403: OpenApiResponse(response=ErrorResponseSerializer, description="CSRF_FAILED"),
         },
         tags=["Users"],
     )
@@ -152,17 +158,17 @@ class UserProfileImageAPIView(APIView):
         return Response(UserProfileImageResponseSerializer(result).data)
 
     @extend_schema(
-        summary="프로필 이미지 삭제",
+        summary="Delete profile image",
         description=(
-            "현재 프로필 이미지를 삭제합니다.\n\n"
-            "- 삭제 후 `profile_img_url`은 `null`로 반환됩니다.\n"
-            "- 이미 이미지가 없는 경우에도 정상 응답합니다."
+            "Deletes the current profile image.\n\n"
+            "- After deletion, profile_img_url is returned as null.\n"
+            "- If no image exists, the request still succeeds."
         ),
         request=None,
         responses={
             200: UserProfileImageResponseSerializer,
-            401: OpenApiResponse(description="인증되지 않은 사용자"),
-            404: OpenApiResponse(description="탈퇴한 사용자"),
+            401: OpenApiResponse(response=ErrorResponseSerializer, description="UNAUTHORIZED, ACCOUNT_DEACTIVATED"),
+            403: OpenApiResponse(response=ErrorResponseSerializer, description="CSRF_FAILED"),
         },
         tags=["Users"],
     )

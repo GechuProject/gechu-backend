@@ -24,13 +24,18 @@ from apps.users.serializers.admin_user import (
 )
 from apps.users.services import get_admin_dashboard_summary, get_admin_user, list_admin_users, update_admin_user_status
 
+COOKIE_AUTH_DESCRIPTION = "HttpOnly access_token cookie authentication is required."
+UNSAFE_COOKIE_AUTH_DESCRIPTION = (
+    "HttpOnly access_token cookie authentication is required. Unsafe requests must also include the X-CSRFToken header."
+)
+
 
 @extend_schema(
     tags=["admin"],
     summary="어드민 - 대시보드 요약 조회",
     responses={
         200: AdminDashboardSummaryResponseSerializer,
-        401: ErrorResponseSerializer,
+        401: OpenApiResponse(response=ErrorResponseSerializer, description=COOKIE_AUTH_DESCRIPTION),
         403: ErrorResponseSerializer,
     },
 )
@@ -48,7 +53,7 @@ class AdminDashboardSummaryAPIView(APIView):
     parameters=PAGINATION_PARAMS,
     responses={
         200: AdminUserListResponseSerializer,
-        401: ErrorResponseSerializer,
+        401: OpenApiResponse(response=ErrorResponseSerializer, description=COOKIE_AUTH_DESCRIPTION),
         403: ErrorResponseSerializer,
     },
 )
@@ -66,7 +71,7 @@ class AdminUserListAPIView(ListAPIView):  # type: ignore[type-arg]
     summary="어드민 - 유저 상세 조회",
     responses={
         200: AdminUserDetailResponseSerializer,
-        401: ErrorResponseSerializer,
+        401: OpenApiResponse(response=ErrorResponseSerializer, description=COOKIE_AUTH_DESCRIPTION),
         403: ErrorResponseSerializer,
         404: OpenApiResponse(response=ErrorResponseSerializer, description="User not found"),
     },
@@ -85,8 +90,8 @@ class AdminUserDetailAPIView(APIView):
         request=AdminUserStatusUpdateRequestSerializer,
         responses={
             200: AdminUserDetailResponseSerializer,
-            401: ErrorResponseSerializer,
-            403: ErrorResponseSerializer,
+            401: OpenApiResponse(response=ErrorResponseSerializer, description=UNSAFE_COOKIE_AUTH_DESCRIPTION),
+            403: OpenApiResponse(response=ErrorResponseSerializer, description="FORBIDDEN or CSRF_FAILED"),
             404: OpenApiResponse(response=ErrorResponseSerializer, description="User not found"),
         },
     )
