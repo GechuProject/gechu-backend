@@ -146,7 +146,7 @@ class RecommendationJobRunResponseSerializer(serializers.Serializer):  # type: i
 
 class AdminUserRecommendationItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
     game_id = serializers.IntegerField(source="igdb_game_id")
-    score = serializers.FloatField()
+    score = serializers.DecimalField(max_digits=5, decimal_places=4)
 
 
 class AdminUserRecommendationListResponseSerializer(serializers.Serializer):  # type: ignore[type-arg]
