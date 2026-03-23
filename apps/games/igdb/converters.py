@@ -10,8 +10,8 @@ IGDB API 응답(dict) → 각 모델 저장용 dict 변환
 IGDB vs RAWG 주요 차이:
     rating: IGDB는 0~100 → 0~5로 변환 (÷ 20)
     esrb: RAWG slug 방식 → IGDB age_ratings 배열 방식
-          category=1: ESRB, category=2: PEGI
-          ESRB rating: 1=RP, 2=EC, 3=E, 4=E10, 5=T, 6=M, 7=AO
+          organization=1: ESRB, organization=2: PEGI
+          ESRB rating_category: 1=RP, 2=EC, 3=E, 4=E10+, 5=T, 6=M, 7=AO
     cover: image_id → URL 조합 필요
     trailer: YouTube video_id만 제공 (직접 URL 아님)
     screenshot: image_id → URL 조합 필요
@@ -41,8 +41,8 @@ def _timestamp_to_date(ts: int | None) -> date | None:
         return None
 
 
-# IGDB ESRB rating id → DB value 매핑
-# category=1이 ESRB, rating 값으로 구분
+# IGDB ESRB rating_category → DB value 매핑
+# organization=1이 ESRB, rating_category 값으로 구분
 _IGDB_ESRB_RATING_MAP: dict[int, tuple[str, int]] = {
     1: ("rating_pending", 0),  # RP
     2: ("everyone", 0),  # EC (Early Childhood)
@@ -104,7 +104,7 @@ def convert_tag(raw: dict[str, Any]) -> dict[str, Any]:
 
 def _parse_esrb(age_ratings: list[dict[str, Any]] | None) -> tuple[str, int]:
     """
-    IGDB age_ratings 배열에서 ESRB(category=1) 파싱
+    IGDB age_ratings 배열에서 ESRB(organization=1) 파싱
 
     Returns:
         (db_value, age_rating_min) 튜플
@@ -115,11 +115,11 @@ def _parse_esrb(age_ratings: list[dict[str, Any]] | None) -> tuple[str, int]:
     for rating in age_ratings:
         if not isinstance(rating, dict):
             continue
-        # category=1: ESRB
-        if rating.get("category") == 1:
-            rating_id = rating.get("rating")
-            if rating_id in _IGDB_ESRB_RATING_MAP:
-                return _IGDB_ESRB_RATING_MAP[rating_id]
+        # organization=1: ESRB
+        if rating.get("organization") == 1:
+            rating_category = rating.get("rating_category")
+            if rating_category in _IGDB_ESRB_RATING_MAP:
+                return _IGDB_ESRB_RATING_MAP[rating_category]
 
     return "unknown", 0
 
