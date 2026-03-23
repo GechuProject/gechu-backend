@@ -439,9 +439,7 @@ class RecommendationTaskTestCase(TestCase):
 
         job.refresh_from_db()
         self.assertEqual(job.status, RecommendationJob.Status.SUCCESS)
-        self.assertTrue(
-            GameSimilarity.objects.filter(igdb_game_id=9001, igdb_similar_game_id=9002).exists()
-        )
+        self.assertTrue(GameSimilarity.objects.filter(igdb_game_id=9001, igdb_similar_game_id=9002).exists())
 
     def test_run_user_refresh_job_skips_when_job_already_running(self) -> None:
         user = self._create_user()
