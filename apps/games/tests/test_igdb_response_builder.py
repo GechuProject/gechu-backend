@@ -182,19 +182,20 @@ class BuildGameDetailTests(SimpleTestCase):
 
 
 class BuildSimilarGameItemTests(SimpleTestCase):
-    def _make_raw(self, **overrides: Any) -> dict[str, Any]:
+    def _make_detail(self, **overrides: Any) -> dict[str, Any]:
+        # build_game_detail() 출력 포맷 (get_games_by_ids가 반환하는 형태)
         base: dict[str, Any] = {
             "id": 100,
             "name": "Similar Game",
             "slug": "similar-game",
-            "cover": {"image_id": "co999"},
-            "rating": 60.0,
+            "thumbnail_img_url": "//images.igdb.com/igdb/image/upload/t_cover_big/co999.jpg",
+            "rawg_rating": Decimal("6.00"),
         }
         base.update(overrides)
         return base
 
     def test_basic(self) -> None:
-        result = build_similar_game_item(self._make_raw(), 0.85)
+        result = build_similar_game_item(self._make_detail(), 0.85)
         self.assertEqual(result["id"], 100)
         self.assertEqual(result["name"], "Similar Game")
         self.assertEqual(result["slug"], "similar-game")
@@ -202,9 +203,9 @@ class BuildSimilarGameItemTests(SimpleTestCase):
         self.assertEqual(result["similarity_score"], 0.85)
 
     def test_no_cover(self) -> None:
-        result = build_similar_game_item(self._make_raw(cover=None), 0.5)
+        result = build_similar_game_item(self._make_detail(thumbnail_img_url=""), 0.5)
         self.assertEqual(result["thumbnail_img_url"], "")
 
     def test_no_rating(self) -> None:
-        result = build_similar_game_item(self._make_raw(rating=None), 0.5)
-        self.assertEqual(result["rawg_rating"], Decimal("0.00"))
+        result = build_similar_game_item(self._make_detail(rawg_rating=0), 0.5)
+        self.assertEqual(result["rawg_rating"], 0)
