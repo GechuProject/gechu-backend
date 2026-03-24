@@ -46,7 +46,7 @@ class UserRecommendation(models.Model):
         db_table = "user_recommendations"
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "igdb_game_id"],
+                fields=["user", "igdb_game_id", "reason"],
                 name="unique_user_game_recommendation",
             )
         ]

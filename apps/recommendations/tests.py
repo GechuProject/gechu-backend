@@ -410,6 +410,7 @@ class RecommendationTaskTestCase(FastTestCase):
             user_id=user.id,
             generation_version=2,
             candidates=[(igdb_g1, Decimal("0.9000")), (igdb_g2, Decimal("0.8000"))],
+            reason=UserRecommendation.ReasonType.SIMILARITY,
         )
 
         recs = UserRecommendation.objects.filter(user=user).order_by("rank")
@@ -421,6 +422,7 @@ class RecommendationTaskTestCase(FastTestCase):
         user = self._create_user()
         igdb_seed = 8041
         igdb_similar = 8042
+        igdb_preference = 8043
         InteractionLog.objects.create(
             user=user,
             igdb_game_id=igdb_seed,
@@ -431,18 +433,36 @@ class RecommendationTaskTestCase(FastTestCase):
         GameSimilarity.objects.create(
             igdb_game_id=igdb_seed, igdb_similar_game_id=igdb_similar, score=Decimal("0.8800")
         )
+
+        genre, _ = Genre.objects.get_or_create(slug="rpg")
+        pref, _ = UserPreference.objects.get_or_create(user=user)
+        UserPreferenceGenre.objects.get_or_create(user_preference=pref, genre=genre)
+
         job = RecommendationJob.objects.create(
             job_type=RecommendationJob.JobType.USER_REFRESH,
             target_user=user,
             status=RecommendationJob.Status.PENDING,
         )
 
-        run_user_refresh_job(job.id)
+        with patch(
+            "apps.recommendations.tasks.igdb_cache.search_games",
+            return_value=[{"id": igdb_preference}],
+        ):
+            run_user_refresh_job(job.id)
 
         job.refresh_from_db()
         self.assertEqual(job.status, RecommendationJob.Status.SUCCESS)
         self.assertIsNotNone(job.finished_at)
-        self.assertTrue(UserRecommendation.objects.filter(user=user, igdb_game_id=igdb_similar).exists())
+        self.assertTrue(
+            UserRecommendation.objects.filter(
+                user=user, igdb_game_id=igdb_similar, reason=UserRecommendation.ReasonType.SIMILARITY
+            ).exists()
+        )
+        self.assertTrue(
+            UserRecommendation.objects.filter(
+                user=user, igdb_game_id=igdb_preference, reason=UserRecommendation.ReasonType.PREFERENCE
+            ).exists()
+        )
 
     def test_run_user_refresh_job_failure_marks_failed(self) -> None:
         user = self._create_user()
