@@ -232,13 +232,13 @@ SPECTACULAR_SETTINGS = {
                 "type": "apiKey",
                 "in": "cookie",
                 "name": "access_token",
-                "description": "HttpOnly access_token 쿠키 인증입니다.",
+                "description": "HttpOnly access_token cookie authentication.",
             },
             "CsrfToken": {
                 "type": "apiKey",
                 "in": "header",
                 "name": "X-CSRFToken",
-                "description": "인증이 필요한 POST, PUT, PATCH, DELETE 요청에서 필요합니다.",
+                "description": "Required for authenticated POST, PUT, PATCH, DELETE requests.",
             },
         }
     },

@@ -24,10 +24,9 @@ from apps.users.serializers.admin_user import (
 )
 from apps.users.services import get_admin_dashboard_summary, get_admin_user, list_admin_users, update_admin_user_status
 
-COOKIE_AUTH_DESCRIPTION = "HttpOnly access_token 쿠키 인증이 필요합니다."
+COOKIE_AUTH_DESCRIPTION = "HttpOnly access_token cookie authentication is required."
 UNSAFE_COOKIE_AUTH_DESCRIPTION = (
-    "HttpOnly access_token 쿠키 인증이 필요합니다. "
-    "POST, PUT, PATCH, DELETE 요청에는 X-CSRFToken 헤더도 함께 포함해야 합니다."
+    "HttpOnly access_token cookie authentication is required. Unsafe requests must also include the X-CSRFToken header."
 )
 
 
@@ -74,7 +73,7 @@ class AdminUserListAPIView(ListAPIView):  # type: ignore[type-arg]
         200: AdminUserDetailResponseSerializer,
         401: OpenApiResponse(response=ErrorResponseSerializer, description=COOKIE_AUTH_DESCRIPTION),
         403: ErrorResponseSerializer,
-        404: OpenApiResponse(response=ErrorResponseSerializer, description="사용자를 찾을 수 없습니다."),
+        404: OpenApiResponse(response=ErrorResponseSerializer, description="User not found"),
     },
 )
 class AdminUserDetailAPIView(APIView):
@@ -92,8 +91,8 @@ class AdminUserDetailAPIView(APIView):
         responses={
             200: AdminUserDetailResponseSerializer,
             401: OpenApiResponse(response=ErrorResponseSerializer, description=UNSAFE_COOKIE_AUTH_DESCRIPTION),
-            403: OpenApiResponse(response=ErrorResponseSerializer, description="FORBIDDEN 또는 CSRF_FAILED"),
-            404: OpenApiResponse(response=ErrorResponseSerializer, description="사용자를 찾을 수 없습니다."),
+            403: OpenApiResponse(response=ErrorResponseSerializer, description="FORBIDDEN or CSRF_FAILED"),
+            404: OpenApiResponse(response=ErrorResponseSerializer, description="User not found"),
         },
     )
     def patch(self, request: Request, user_id: int) -> Response:

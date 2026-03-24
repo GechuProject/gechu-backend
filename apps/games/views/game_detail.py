@@ -18,7 +18,7 @@ from apps.games.services.game_detail import GameDetailService
         200: GameDetailSerializer,
         403: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="성인 인증이 필요합니다.",
+            description="Forbidden",
             examples=[
                 OpenApiExample(
                     "성인 인증 필요",
@@ -32,7 +32,7 @@ from apps.games.services.game_detail import GameDetailService
         ),
         404: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="게임을 찾을 수 없습니다.",
+            description="Not Found",
             examples=[
                 OpenApiExample(
                     "게임 존재하지 않음",

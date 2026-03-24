@@ -73,7 +73,7 @@ from apps.users.services.search_recent_service import save_recent_search_keyword
         200: GameListResponseSerializer,
         400: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="잘못된 요청입니다.",
+            description="Bad Request",
             examples=[
                 OpenApiExample(
                     "잘못된 쿼리 파라미터",

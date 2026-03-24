@@ -47,7 +47,7 @@ def _isoformat(value: object) -> str:
     summary="성인 인증 시작",
     request=None,
     responses={
-        302: OpenApiResponse(description="Bbaton OAuth 인증 페이지로 리다이렉트합니다."),
+        302: OpenApiResponse(description="Redirect to Bbaton OAuth"),
         401: ErrorResponseSerializer,
     },
     tags=["users"],
@@ -69,18 +69,18 @@ class AdultVerificationInitiateAPIView(APIView):
             type=str,
             location=OpenApiParameter.QUERY,
             required=True,
-            description="Bbaton OAuth 인증 코드",
+            description="Bbaton OAuth authorization code",
         ),
         OpenApiParameter(
             name="state",
             type=str,
             location=OpenApiParameter.QUERY,
             required=True,
-            description="Bbaton OAuth state 값",
+            description="Bbaton OAuth state value",
         ),
     ],
     responses={
-        302: OpenApiResponse(description="성인 인증 처리 후 프론트엔드로 리다이렉트합니다."),
+        302: OpenApiResponse(description="Redirect to frontend after adult verification"),
         400: OpenApiResponse(
             response=ErrorResponseSerializer,
             description="INVALID_STATE, ADULT_VERIFICATION_CALLBACK_ERROR, UNDERAGE, ALREADY_VERIFIED",

@@ -24,10 +24,9 @@ from apps.interactions.serializers import (
 from apps.interactions.services import InteractionAdminContextRuleService, InteractionAdminRuleService
 from apps.users.models import User
 
-COOKIE_AUTH_DESCRIPTION = "HttpOnly access_token 쿠키 인증이 필요합니다."
+COOKIE_AUTH_DESCRIPTION = "HttpOnly access_token cookie authentication is required."
 UNSAFE_COOKIE_AUTH_DESCRIPTION = (
-    "HttpOnly access_token 쿠키 인증이 필요합니다. "
-    "POST, PUT, PATCH, DELETE 요청에는 X-CSRFToken 헤더도 함께 포함해야 합니다."
+    "HttpOnly access_token cookie authentication is required. Unsafe requests must also include the X-CSRFToken header."
 )
 
 
@@ -224,7 +223,7 @@ class AdminInteractionContextRuleUpdateView(APIView):
         ),
         403: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="권한이 없습니다.",
+            description="FORBIDDEN",
             examples=[
                 OpenApiExample(
                     "관리자 권한 필요",
@@ -288,7 +287,7 @@ class AdminInteractionWeightRuleListView(APIView):
         200: InteractionWeightRuleItemSerializer,
         400: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="잘못된 요청입니다.",
+            description="Bad Request",
             examples=[
                 OpenApiExample(
                     "base_weight 범위 오류",
@@ -324,7 +323,7 @@ class AdminInteractionWeightRuleListView(APIView):
         ),
         403: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="FORBIDDEN 또는 CSRF_FAILED",
+            description="FORBIDDEN or CSRF_FAILED",
             examples=[
                 OpenApiExample(
                     "관리자 권한 필요",
@@ -338,7 +337,7 @@ class AdminInteractionWeightRuleListView(APIView):
         ),
         404: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="대상을 찾을 수 없습니다.",
+            description="Not Found",
             examples=[
                 OpenApiExample(
                     "행동 타입 없음",

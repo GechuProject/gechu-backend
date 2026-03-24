@@ -29,10 +29,9 @@ from apps.users.services import (
     verify_user_password,
 )
 
-COOKIE_AUTH_DESCRIPTION = "HttpOnly access_token 쿠키 인증이 필요합니다."
+COOKIE_AUTH_DESCRIPTION = "HttpOnly access_token cookie authentication is required."
 UNSAFE_COOKIE_AUTH_DESCRIPTION = (
-    "HttpOnly access_token 쿠키 인증이 필요합니다. "
-    "POST, PUT, PATCH, DELETE 요청에는 X-CSRFToken 헤더도 함께 포함해야 합니다."
+    "HttpOnly access_token cookie authentication is required. Unsafe requests must also include the X-CSRFToken header."
 )
 
 
@@ -133,11 +132,11 @@ class UserProfileImageAPIView(APIView):
     @extend_schema(
         summary="프로필 이미지 업로드",
         description=(
-            "프로필 이미지를 업로드합니다.\n\n"
-            "- 지원 형식: jpg, jpeg, png, webp\n"
-            "- 최대 파일 크기: 5MB\n"
-            "- 서버에서 이미지를 512x512 이내로 리사이즈한 뒤 WebP로 저장합니다.\n"
-            "- 기존 프로필 이미지는 자동으로 삭제됩니다."
+            "Uploads a profile image to the server.\n\n"
+            "- Supported formats: jpg, jpeg, png, webp\n"
+            "- Maximum file size: 5MB\n"
+            "- The server resizes the image to within 512x512 and stores it as WebP.\n"
+            "- Any previous profile image is deleted automatically."
         ),
         request={"multipart/form-data": UserProfileImageUploadRequestSerializer},
         responses={
@@ -161,9 +160,9 @@ class UserProfileImageAPIView(APIView):
     @extend_schema(
         summary="프로필 이미지 삭제",
         description=(
-            "현재 프로필 이미지를 삭제합니다.\n\n"
-            "- 삭제 후에는 profile_img_url이 null로 반환됩니다.\n"
-            "- 등록된 이미지가 없어도 요청은 성공합니다."
+            "Deletes the current profile image.\n\n"
+            "- After deletion, profile_img_url is returned as null.\n"
+            "- If no image exists, the request still succeeds."
         ),
         request=None,
         responses={
