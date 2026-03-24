@@ -257,6 +257,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.users.tasks.purge_soft_deleted_users",
         "schedule": crontab(hour=4, minute=0),
     },
+    "recommendation-enqueue-similarity-rebuild-twice-daily": {
+        "task": "apps.recommendations.tasks.enqueue_similarity_rebuild_job_if_needed",
+        "schedule": crontab(hour="0,12", minute=0),
+    },
     "recommendation-process-pending-jobs": {
         "task": "apps.recommendations.tasks.process_pending_recommendation_jobs",
         "schedule": timedelta(seconds=30),

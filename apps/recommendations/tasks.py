@@ -282,6 +282,23 @@ def process_similarity_rebuild_job(self, job_id: int) -> None:  # type: ignore[n
     run_similarity_rebuild_job(job_id)
 
 
+@shared_task
+def enqueue_similarity_rebuild_job_if_needed() -> int:
+    has_running_or_pending = RecommendationJob.objects.filter(
+        job_type=RecommendationJob.JobType.SIMILARITY_REBUILD,
+        status__in=[RecommendationJob.Status.PENDING, RecommendationJob.Status.RUNNING],
+    ).exists()
+    if has_running_or_pending:
+        return 0
+
+    RecommendationJob.objects.create(
+        job_type=RecommendationJob.JobType.SIMILARITY_REBUILD,
+        target_user=None,
+        status=RecommendationJob.Status.PENDING,
+    )
+    return 1
+
+
 def run_similarity_rebuild_job(job_id: int) -> None:
     current_retry_count = 0
     with transaction.atomic():
