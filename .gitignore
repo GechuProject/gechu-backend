@@ -22,3 +22,5 @@ celerybeat-schedule.*
 logs/
 *.log
 config/logs/
+scripts/update_api_spec_workbook.ps1
+tmp_api_spec_test.xlsx

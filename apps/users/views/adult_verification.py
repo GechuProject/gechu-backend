@@ -44,7 +44,7 @@ def _isoformat(value: object) -> str:
 
 
 @extend_schema(
-    summary="Adult Verification Initiate",
+    summary="성인 인증 시작",
     request=None,
     responses={
         302: OpenApiResponse(description="Redirect to Bbaton OAuth"),
@@ -61,7 +61,7 @@ class AdultVerificationInitiateAPIView(APIView):
 
 
 @extend_schema(
-    summary="Adult Verification Callback",
+    summary="성인 인증 콜백 처리",
     request=None,
     parameters=[
         OpenApiParameter(
@@ -123,7 +123,7 @@ class AdultVerificationCallbackAPIView(APIView):
 
 
 @extend_schema(
-    summary="Adult Verification Status",
+    summary="성인 인증 상태 조회",
     request=None,
     responses={
         200: AdultVerificationStatusResponseSerializer,

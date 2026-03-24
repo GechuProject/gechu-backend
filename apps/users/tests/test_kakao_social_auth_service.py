@@ -158,9 +158,10 @@ class KakaoSocialAuthServiceTestCase(FastTestCase):
 
     # --- extract_kakao_user_data ---
 
-    def test_extract_kakao_user_data_returns_full_data_with_email_and_birthdate(self) -> None:
+    def test_extract_kakao_user_data_returns_full_data_with_email_birthdate_and_nickname(self) -> None:
         user_info = {
             "id": 99999,
+            "properties": {"nickname": "카카오닉네임"},
             "kakao_account": {
                 "email": "kakao@example.com",
                 "birthyear": "1995",
@@ -168,25 +169,42 @@ class KakaoSocialAuthServiceTestCase(FastTestCase):
             },
         }
 
-        provider_uid, email, birth_date = extract_kakao_user_data(user_info)
+        provider_uid, email, birth_date, preferred_nickname = extract_kakao_user_data(user_info)
 
         self.assertEqual(provider_uid, "99999")
         self.assertEqual(email, "kakao@example.com")
         self.assertEqual(birth_date, date(1995, 3, 15))
+        self.assertEqual(preferred_nickname, "카카오닉네임")
+
+    def test_extract_kakao_user_data_prefers_profile_nickname_over_properties(self) -> None:
+        user_info = {
+            "id": 99999,
+            "properties": {"nickname": "properties-nickname"},
+            "kakao_account": {
+                "email": "kakao@example.com",
+                "profile": {"nickname": "profile-nickname"},
+            },
+        }
+
+        _, _, _, preferred_nickname = extract_kakao_user_data(user_info)
+
+        self.assertEqual(preferred_nickname, "profile-nickname")
 
     def test_extract_kakao_user_data_returns_default_birthdate_when_missing(self) -> None:
         user_info = {"id": 99999, "kakao_account": {"email": "kakao@example.com"}}
 
-        _, _, birth_date = extract_kakao_user_data(user_info)
+        _, _, birth_date, preferred_nickname = extract_kakao_user_data(user_info)
 
         self.assertEqual(birth_date, DEFAULT_SOCIAL_BIRTH_DATE)
+        self.assertIsNone(preferred_nickname)
 
     def test_extract_kakao_user_data_uses_fallback_email_when_missing(self) -> None:
         user_info = {"id": 99999, "kakao_account": {}}
 
-        _, email, _ = extract_kakao_user_data(user_info)
+        _, email, _, preferred_nickname = extract_kakao_user_data(user_info)
 
         self.assertEqual(email, "kakao_99999@social.gechu")
+        self.assertIsNone(preferred_nickname)
 
     def test_extract_kakao_user_data_raises_when_id_missing(self) -> None:
         with self.assertRaises(CustomAPIException) as context:
@@ -208,6 +226,7 @@ class KakaoSocialAuthServiceTestCase(FastTestCase):
         mock_request_access_token.return_value = "kakao-access-token"
         mock_request_user_info.return_value = {
             "id": 11111,
+            "properties": {"nickname": "kakao-newbie"},
             "kakao_account": {"email": "kakao-new@example.com"},
         }
 
@@ -221,6 +240,7 @@ class KakaoSocialAuthServiceTestCase(FastTestCase):
         self.assertEqual(social_user.user_id, user.id)
         self.assertTrue(result["is_new_user"])
         self.assertIsNone(cache.get("oauth_state:valid-state"))
+        self.assertEqual(user.nickname, "kakao-newbie")
 
     @patch("apps.users.services.social_auth_service.request_kakao_user_info")
     @patch("apps.users.services.social_auth_service.request_kakao_access_token")
@@ -294,6 +314,7 @@ class KakaoSocialAuthServiceTestCase(FastTestCase):
         mock_request_access_token.return_value = "kakao-access-token"
         mock_request_user_info.return_value = {
             "id": 55555,
+            "properties": {"nickname": self.duplicate_nickname_user.nickname},
             "kakao_account": {"email": "nickname-fail@example.com"},
         }
         mock_generate_nickname.return_value = self.duplicate_nickname_user.nickname
@@ -305,3 +326,26 @@ class KakaoSocialAuthServiceTestCase(FastTestCase):
         self.assertTrue(result["is_new_user"])
         self.assertNotEqual(user.nickname, self.duplicate_nickname_user.nickname)
         self.assertLessEqual(len(user.nickname), 30)
+
+    @patch("apps.users.services.social_auth_service.generate_unique_nickname")
+    @patch("apps.users.services.social_auth_service.request_kakao_user_info")
+    @patch("apps.users.services.social_auth_service.request_kakao_access_token")
+    def test_handle_kakao_callback_uses_generated_nickname_when_kakao_nickname_missing(
+        self,
+        mock_request_access_token: MagicMock,
+        mock_request_user_info: MagicMock,
+        mock_generate_nickname: MagicMock,
+    ) -> None:
+        cache.set("oauth_state:valid-state", "kakao", timeout=300)
+        mock_request_access_token.return_value = "kakao-access-token"
+        mock_request_user_info.return_value = {
+            "id": 66666,
+            "kakao_account": {"email": "no-nickname@example.com"},
+        }
+        mock_generate_nickname.return_value = "generated-nickname"
+
+        result = handle_kakao_callback(code="test-code", state="valid-state")
+
+        user = User.objects.get(email="no-nickname@example.com")
+        self.assertTrue(result["is_new_user"])
+        self.assertEqual(user.nickname, "generated-nickname")

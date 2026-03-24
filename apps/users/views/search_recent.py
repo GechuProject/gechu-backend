@@ -22,7 +22,7 @@ from apps.users.services.search_recent_service import (
 )
 
 
-@extend_schema(tags=["Users"])
+@extend_schema(tags=["users"])
 class RecentSearchAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -55,7 +55,7 @@ class RecentSearchAPIView(APIView):
 
 
 @extend_schema(
-    tags=["Users"],
+    tags=["users"],
     summary="최근 검색어 개별 삭제",
     parameters=[
         OpenApiParameter(

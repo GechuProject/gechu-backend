@@ -76,11 +76,12 @@ def handle_kakao_callback(*, code: str, state: str) -> dict[str, object]:
     _validate_oauth_state(state=state, expected_provider="kakao")
     kakao_access_token = request_kakao_access_token(code=code)
     user_info = request_kakao_user_info(access_token=kakao_access_token)
-    provider_uid, email, birth_date = extract_kakao_user_data(user_info)
+    provider_uid, email, birth_date, preferred_nickname = extract_kakao_user_data(user_info)
     user, is_new_user = get_or_create_kakao_user(
         provider_uid=provider_uid,
         email=email,
         birth_date=birth_date,
+        preferred_nickname=preferred_nickname,
     )
     service_access_token, refresh_token, expires_in = issue_auth_tokens(user)
 
@@ -219,21 +220,29 @@ def request_discord_user_info(*, access_token: str) -> dict[str, object]:
     return payload
 
 
-def extract_kakao_user_data(user_info: dict[str, object]) -> tuple[str, str, date]:
+def extract_kakao_user_data(user_info: dict[str, object]) -> tuple[str, str, date, str | None]:
     provider_uid = user_info.get("id")
     if provider_uid is None:
         raise CustomAPIException(ErrorMessages.OAUTH_CALLBACK_ERROR)
 
     provider_uid_str = str(provider_uid)
     kakao_account = user_info.get("kakao_account", {})
+    properties = user_info.get("properties", {})
     # 카카오는 이메일 제공을 거부할 수 있으므로 fallback 사용
     email = f"kakao_{provider_uid_str}@social.gechu"
     birth_date = DEFAULT_SOCIAL_BIRTH_DATE
+    preferred_nickname: str | None = None
 
     if isinstance(kakao_account, dict):
         raw_email = kakao_account.get("email")
         if isinstance(raw_email, str):
             email = raw_email
+
+        profile = kakao_account.get("profile")
+        if isinstance(profile, dict):
+            raw_nickname = profile.get("nickname")
+            if isinstance(raw_nickname, str) and raw_nickname.strip():
+                preferred_nickname = raw_nickname.strip()
 
         birthyear = kakao_account.get("birthyear")
         birthday = kakao_account.get("birthday")
@@ -243,7 +252,12 @@ def extract_kakao_user_data(user_info: dict[str, object]) -> tuple[str, str, dat
             day = int(birthday[2:])
             birth_date = date(int(birthyear), month, day)
 
-    return provider_uid_str, email, birth_date
+    if preferred_nickname is None and isinstance(properties, dict):
+        raw_nickname = properties.get("nickname")
+        if isinstance(raw_nickname, str) and raw_nickname.strip():
+            preferred_nickname = raw_nickname.strip()
+
+    return provider_uid_str, email, birth_date, preferred_nickname
 
 
 def extract_discord_user_data(user_info: dict[str, object]) -> tuple[str, str, date]:
@@ -256,12 +270,19 @@ def extract_discord_user_data(user_info: dict[str, object]) -> tuple[str, str, d
     return provider_uid, email, DEFAULT_SOCIAL_BIRTH_DATE
 
 
-def get_or_create_kakao_user(*, provider_uid: str, email: str, birth_date: date) -> tuple[User, bool]:
+def get_or_create_kakao_user(
+    *,
+    provider_uid: str,
+    email: str,
+    birth_date: date,
+    preferred_nickname: str | None,
+) -> tuple[User, bool]:
     return _get_or_create_social_user(
         provider=SocialUser.Provider.KAKAO,
         provider_uid=provider_uid,
         email=email,
         birth_date=birth_date,
+        preferred_nickname=preferred_nickname,
     )
 
 
@@ -271,6 +292,7 @@ def get_or_create_discord_user(*, provider_uid: str, email: str, birth_date: dat
         provider_uid=provider_uid,
         email=email,
         birth_date=birth_date,
+        preferred_nickname=None,
     )
 
 
@@ -280,6 +302,7 @@ def _get_or_create_social_user(
     provider_uid: str,
     email: str,
     birth_date: date,
+    preferred_nickname: str | None,
 ) -> tuple[User, bool]:
     social_user = SocialUser.objects.filter(provider=provider, provider_uid=provider_uid).select_related("user").first()
 
@@ -297,12 +320,30 @@ def _get_or_create_social_user(
         )
         return existing_user, False
 
-    user = _create_user_with_unique_nickname(email=email, birth_date=birth_date)
+    user = _create_user_with_unique_nickname(
+        email=email,
+        birth_date=birth_date,
+        preferred_nickname=preferred_nickname,
+    )
     SocialUser.objects.create(user=user, provider=provider, provider_uid=provider_uid)
     return user, True
 
 
-def _create_user_with_unique_nickname(*, email: str, birth_date: date) -> User:
+def _create_user_with_unique_nickname(*, email: str, birth_date: date, preferred_nickname: str | None) -> User:
+    if preferred_nickname is not None:
+        nickname = preferred_nickname.strip()[:30]
+        if nickname:
+            try:
+                with transaction.atomic():
+                    return User.objects.create_user(
+                        email=email,
+                        nickname=nickname,
+                        birth_date=birth_date,
+                        password=None,
+                    )
+            except IntegrityError:
+                pass
+
     for _ in range(_NICKNAME_MAX_RETRIES):
         nickname = generate_unique_nickname()
         try:

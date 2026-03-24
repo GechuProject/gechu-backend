@@ -27,7 +27,7 @@ from apps.users.models import User
 
 
 @extend_schema(
-    tags=["Interactions"],
+    tags=["interactions"],
     summary="게임 조회 행동 기록",
     description=(
         "게임 조회(view) 행동을 기록합니다.\n\n"
@@ -164,7 +164,7 @@ class InteractionViewLogCreateView(APIView):
 
 
 @extend_schema(
-    tags=["Interactions"],
+    tags=["interactions"],
     summary="게임 검색 행동 기록",
     description=(
         "게임 검색(search) 행동을 기록합니다.\n\n"
@@ -312,7 +312,7 @@ class InteractionSearchLogCreateView(APIView):
 
 
 @extend_schema(
-    tags=["Interactions"],
+    tags=["interactions"],
     summary="외부 스토어 이동 행동 기록",
     description=(
         "게임 상세 페이지에서 외부 스토어 이동(store_click) 행동을 기록합니다.\n\n"
