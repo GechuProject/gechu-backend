@@ -25,4 +25,3 @@ def authenticate_client_with_cookies(client: APIClient, user: User) -> None:
     access_token, refresh_token, _ = issue_auth_tokens(user)
     client.cookies["access_token"] = access_token
     client.cookies["refresh_token"] = refresh_token
-    client.credentials(HTTP_X_CSRFTOKEN=str(client.cookies["csrftoken"].value))
