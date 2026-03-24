@@ -10,6 +10,7 @@ from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
 
+from apps.games.igdb import cache as igdb_cache
 from apps.interactions.models import InteractionLog
 from apps.recommendations.models import GameSimilarity, RecommendationJob, UserRecommendation
 from apps.users.models import User
@@ -21,6 +22,32 @@ RECOMMENDATION_EXPIRE_DAYS = 7
 MAX_SIMILAR_PER_GAME = 50
 
 
+def _collect_preference_seed_game_ids(*, user_id: int) -> list[int]:
+    """선호 장르/플랫폼/태그 기반으로 인기 게임 ID를 seed로 수집 (신규 유저 fallback)"""
+    from apps.preferences.models import UserPreference
+
+    try:
+        pref = UserPreference.objects.get(user_id=user_id)
+    except UserPreference.DoesNotExist:
+        return []
+
+    genre_ids = list(pref.userpreferencegenre_set.values_list("genre_id", flat=True))
+    platform_ids = list(pref.userpreferenceplatform_set.values_list("platform_id", flat=True))
+    tag_ids = list(pref.userpreferencetag_set.values_list("tag_id", flat=True))
+
+    if not genre_ids and not platform_ids and not tag_ids:
+        return []
+
+    games = igdb_cache.search_games(
+        genre_ids=genre_ids or None,
+        platform_ids=platform_ids or None,
+        tag_ids=tag_ids or None,
+        sort="rating desc",
+        limit=MAX_SEED_GAMES,
+    )
+    return [g["id"] for g in games]
+
+
 def _collect_seed_game_ids(*, user_id: int) -> list[int]:
     recent_game_ids = list(
         InteractionLog.objects.filter(user_id=user_id, igdb_game_id__isnull=False)
@@ -28,7 +55,12 @@ def _collect_seed_game_ids(*, user_id: int) -> list[int]:
         .values_list("igdb_game_id", flat=True)[:MAX_RECENT_LOG_SCAN]
     )
     unique_seed_game_ids: list[int] = [gid for gid in dict.fromkeys(recent_game_ids) if gid is not None]
-    return unique_seed_game_ids[:MAX_SEED_GAMES]
+    seed_game_ids = unique_seed_game_ids[:MAX_SEED_GAMES]
+
+    if not seed_game_ids:
+        seed_game_ids = _collect_preference_seed_game_ids(user_id=user_id)
+
+    return seed_game_ids
 
 
 def _build_similarity_candidates(*, seed_game_ids: list[int]) -> list[tuple[int, Decimal]]:

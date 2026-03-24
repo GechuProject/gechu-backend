@@ -10,10 +10,13 @@ from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.core.testcase import FastTestCase
+from apps.games.models import Genre, Platform, Tag
 from apps.interactions.models import InteractionLog
+from apps.preferences.models import UserPreference, UserPreferenceGenre, UserPreferencePlatform, UserPreferenceTag
 from apps.recommendations.models import GameSimilarity, RecommendationJob, UserRecommendation
 from apps.recommendations.tasks import (
     _build_similarity_candidates,
+    _collect_preference_seed_game_ids,
     _collect_seed_game_ids,
     _upsert_recommendations,
     process_pending_recommendation_jobs,
@@ -316,6 +319,63 @@ class RecommendationTaskTestCase(FastTestCase):
 
         seed_ids = _collect_seed_game_ids(user_id=user.id)
         self.assertEqual(seed_ids, [igdb_g3, igdb_g1, igdb_g2])
+
+    def test_collect_seed_game_ids_falls_back_to_preference_when_no_interaction(self) -> None:
+        """InteractionLog 없는 신규 유저는 선호 장르/플랫폼/태그 기반으로 seed를 수집한다."""
+        user = self._create_user()
+
+        genre, _ = Genre.objects.get_or_create(slug="rpg")
+        platform, _ = Platform.objects.get_or_create(slug="pc")
+        tag, _ = Tag.objects.get_or_create(slug="open-world")
+
+        pref, _ = UserPreference.objects.get_or_create(user=user)
+        UserPreferenceGenre.objects.get_or_create(user_preference=pref, genre=genre)
+        UserPreferencePlatform.objects.get_or_create(user_preference=pref, platform=platform)
+        UserPreferenceTag.objects.get_or_create(user_preference=pref, tag=tag)
+
+        fake_games = [{"id": 9001}, {"id": 9002}, {"id": 9003}]
+        with patch("apps.recommendations.tasks.igdb_cache.search_games", return_value=fake_games) as mock_search:
+            seed_ids = _collect_seed_game_ids(user_id=user.id)
+
+        self.assertEqual(seed_ids, [9001, 9002, 9003])
+        mock_search.assert_called_once_with(
+            genre_ids=[genre.id],
+            platform_ids=[platform.id],
+            tag_ids=[tag.id],
+            sort="rating desc",
+            limit=20,
+        )
+
+    def test_collect_seed_game_ids_uses_interaction_not_preference_when_both_exist(self) -> None:
+        """InteractionLog가 있으면 preference fallback을 사용하지 않는다."""
+        user = self._create_user()
+
+        genre, _ = Genre.objects.get_or_create(slug="rpg")
+        pref, _ = UserPreference.objects.get_or_create(user=user)
+        UserPreferenceGenre.objects.get_or_create(user_preference=pref, genre=genre)
+
+        InteractionLog.objects.create(
+            user=user,
+            igdb_game_id=8888,
+            type=InteractionLog.ActionType.VIEW,
+            source=InteractionLog.SourceType.DETAIL_PAGE,
+        )
+
+        with patch("apps.recommendations.tasks.igdb_cache.search_games") as mock_search:
+            seed_ids = _collect_seed_game_ids(user_id=user.id)
+
+        self.assertEqual(seed_ids, [8888])
+        mock_search.assert_not_called()
+
+    def test_collect_preference_seed_game_ids_returns_empty_when_no_preference(self) -> None:
+        """UserPreference가 없는 유저는 빈 리스트를 반환한다."""
+        user = self._create_user()
+
+        with patch("apps.recommendations.tasks.igdb_cache.search_games") as mock_search:
+            seed_ids = _collect_preference_seed_game_ids(user_id=user.id)
+
+        self.assertEqual(seed_ids, [])
+        mock_search.assert_not_called()
 
     def test_build_similarity_candidates(self) -> None:
         igdb_seed = 8010
