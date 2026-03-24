@@ -70,5 +70,6 @@ class AuthMeResponseSerializer(serializers.ModelSerializer[User]):
             "id",
             "email",
             "is_active",
+            "is_staff",
             "is_adult_verified",
         ]
