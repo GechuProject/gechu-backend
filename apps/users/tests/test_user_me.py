@@ -4,8 +4,9 @@ from typing import cast
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework.response import Response
-from rest_framework.test import APIClient
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
+from apps.core.auth_test_utils import authenticate_client_with_cookies, make_cookie_client
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.core.testcase import FastTestCase
 from apps.users.models.social_user import SocialUser
@@ -14,7 +15,7 @@ from apps.users.tasks import purge_soft_deleted_users
 
 class UserMeRetrieveAPITest(FastTestCase):
     def setUp(self) -> None:
-        self.client = APIClient()
+        self.client = make_cookie_client()
         user_model = get_user_model()
         self.user = user_model.objects.create_user(
             email="me@example.com",
@@ -24,8 +25,8 @@ class UserMeRetrieveAPITest(FastTestCase):
         )
 
     def test_get_me_returns_current_user_info(self) -> None:
-        client = APIClient()
-        client.force_authenticate(user=self.user)
+        client = make_cookie_client()
+        authenticate_client_with_cookies(client, self.user)
 
         res = client.get("/api/v1/users/me/")
 
@@ -53,8 +54,8 @@ class UserMeRetrieveAPITest(FastTestCase):
             provider_uid="kakao-social-only",
         )
 
-        client = APIClient()
-        client.force_authenticate(user=self.user)
+        client = make_cookie_client()
+        authenticate_client_with_cookies(client, self.user)
 
         res = client.get("/api/v1/users/me/")
 
@@ -68,17 +69,19 @@ class UserMeRetrieveAPITest(FastTestCase):
         noauth_res = self.client.get("/api/v1/users/me/")
         self.assertEqual(noauth_res.status_code, 401)
 
-    def test_get_me_returns_404_when_user_is_deleted(self) -> None:
-        client = APIClient()
-        client.force_authenticate(user=self.user)
+    def test_get_me_returns_401_when_user_is_deleted(self) -> None:
+        client = make_cookie_client()
+        authenticate_client_with_cookies(client, self.user)
         self.user.deleted_at = timezone.now()
-        self.user.save(update_fields=["deleted_at"])
+        self.user.is_active = False
+        self.user.save(update_fields=["deleted_at", "is_active"])
         res = client.get("/api/v1/users/me/")
-        self.assertEqual(res.status_code, 404)
+        self.assertEqual(res.status_code, 401)
+        self.assertEqual(res.json()["code"], ErrorMessages.ACCOUNT_DEACTIVATED.name)
 
     def test_patch_me_updates_user_info(self) -> None:
-        client = APIClient()
-        client.force_authenticate(user=self.user)
+        client = make_cookie_client()
+        authenticate_client_with_cookies(client, self.user)
         res = client.patch(
             "/api/v1/users/me/",
             {
@@ -93,8 +96,8 @@ class UserMeRetrieveAPITest(FastTestCase):
         self.assertTrue(res.data["updated_at"])
 
     def test_patch_me_updates_only_provided_fields(self) -> None:
-        client = APIClient()
-        client.force_authenticate(user=self.user)
+        client = make_cookie_client()
+        authenticate_client_with_cookies(client, self.user)
 
         res = client.patch(
             "/api/v1/users/me/",
@@ -108,8 +111,8 @@ class UserMeRetrieveAPITest(FastTestCase):
         self.assertEqual(res.data["birth_date"], "1999-01-01")
 
     def test_patch_me_changes_password_when_new_password_is_provided(self) -> None:
-        client = APIClient()
-        client.force_authenticate(user=self.user)
+        client = make_cookie_client()
+        authenticate_client_with_cookies(client, self.user)
 
         res = client.patch(
             "/api/v1/users/me/",
@@ -124,8 +127,8 @@ class UserMeRetrieveAPITest(FastTestCase):
         self.assertTrue(self.user.check_password("NewPassw0rd!"))
 
     def test_patch_me_returns_400_for_invalid_new_password(self) -> None:
-        client = APIClient()
-        client.force_authenticate(user=self.user)
+        client = make_cookie_client()
+        authenticate_client_with_cookies(client, self.user)
 
         res = client.patch(
             "/api/v1/users/me/",
@@ -147,8 +150,8 @@ class UserMeRetrieveAPITest(FastTestCase):
             provider_uid="kakao-social-only",
         )
 
-        client = APIClient()
-        client.force_authenticate(user=self.user)
+        client = make_cookie_client()
+        authenticate_client_with_cookies(client, self.user)
 
         res = client.patch(
             "/api/v1/users/me/",
@@ -178,8 +181,8 @@ class UserMeRetrieveAPITest(FastTestCase):
             nickname="duplicated",
             birth_date=datetime.date(1998, 1, 1),
         )
-        client = APIClient()
-        client.force_authenticate(user=self.user)
+        client = make_cookie_client()
+        authenticate_client_with_cookies(client, self.user)
         res = client.patch(
             "/api/v1/users/me/",
             {
@@ -190,8 +193,8 @@ class UserMeRetrieveAPITest(FastTestCase):
         self.assertEqual(res.status_code, 409)
 
     def test_patch_me_returns_400_when_birth_date_is_invalid(self) -> None:
-        client = APIClient()
-        client.force_authenticate(user=self.user)
+        client = make_cookie_client()
+        authenticate_client_with_cookies(client, self.user)
 
         res = client.patch(
             "/api/v1/users/me/",
@@ -203,8 +206,8 @@ class UserMeRetrieveAPITest(FastTestCase):
         self.assertEqual(res.status_code, 400)
 
     def test_delete_me_soft_deletes_user(self) -> None:
-        client = APIClient()
-        client.force_authenticate(user=self.user)
+        client = make_cookie_client()
+        authenticate_client_with_cookies(client, self.user)
 
         res = client.delete("/api/v1/users/me/")
 
@@ -213,6 +216,11 @@ class UserMeRetrieveAPITest(FastTestCase):
         self.user.refresh_from_db()
         self.assertIsNotNone(self.user.deleted_at)
         self.assertFalse(self.user.is_active)
+        outstanding_tokens = OutstandingToken.objects.filter(user=self.user)
+        self.assertEqual(
+            BlacklistedToken.objects.filter(token__in=outstanding_tokens).count(),
+            outstanding_tokens.count(),
+        )
 
     def test_delete_me_returns_401_when_not_authenticated(self) -> None:
         res = self.client.delete("/api/v1/users/me/")

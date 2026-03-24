@@ -10,6 +10,7 @@ from django.utils import timezone
 from PIL import Image
 from rest_framework.test import APIClient
 
+from apps.core.auth_test_utils import authenticate_client_with_cookies, make_cookie_client
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.core.testcase import FastTestCase
 
@@ -30,7 +31,7 @@ def make_image_file(width: int = 100, height: int = 100, fmt: str = "PNG") -> Si
 )
 class UserProfileImageAPITest(FastTestCase):
     def setUp(self) -> None:
-        self.client: APIClient = APIClient()
+        self.client: APIClient = make_cookie_client()
         user_model = get_user_model()
         self.user = user_model.objects.create_user(
             email="profile@example.com",
@@ -41,7 +42,7 @@ class UserProfileImageAPITest(FastTestCase):
         self.url = reverse("users-me-profile-image")
 
     def test_upload_profile_image_returns_profile_img_url(self) -> None:
-        self.client.force_authenticate(user=self.user)
+        authenticate_client_with_cookies(self.client, self.user)
         mock_s3_client = MagicMock()
 
         with override_settings(S3_CLIENT=mock_s3_client):
@@ -63,7 +64,7 @@ class UserProfileImageAPITest(FastTestCase):
         self.assertEqual(kwargs["ContentType"], "image/webp")
 
     def test_upload_profile_image_resizes_large_image(self) -> None:
-        self.client.force_authenticate(user=self.user)
+        authenticate_client_with_cookies(self.client, self.user)
         mock_s3_client = MagicMock()
 
         captured: dict[str, bytes] = {}
@@ -81,7 +82,7 @@ class UserProfileImageAPITest(FastTestCase):
         self.assertLessEqual(img.height, 512)
 
     def test_upload_profile_image_deletes_old_image(self) -> None:
-        self.client.force_authenticate(user=self.user)
+        authenticate_client_with_cookies(self.client, self.user)
         self.user.profile_img_url = f"https://cdn.example.com/images/profile/{self.user.id}/old.webp"
         self.user.save(update_fields=["profile_img_url"])
         mock_s3_client = MagicMock()
@@ -99,7 +100,7 @@ class UserProfileImageAPITest(FastTestCase):
         self.assertEqual(response.status_code, 401)
 
     def test_upload_profile_image_returns_400_for_invalid_content_type(self) -> None:
-        self.client.force_authenticate(user=self.user)
+        authenticate_client_with_cookies(self.client, self.user)
         gif_file = SimpleUploadedFile("avatar.gif", b"GIF89a", content_type="image/gif")
 
         response = self.client.put(self.url, {"image": gif_file}, format="multipart")
@@ -107,7 +108,7 @@ class UserProfileImageAPITest(FastTestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_upload_profile_image_returns_400_for_large_file(self) -> None:
-        self.client.force_authenticate(user=self.user)
+        authenticate_client_with_cookies(self.client, self.user)
 
         with patch("apps.users.services.user_me_service.PROFILE_IMAGE_MAX_SIZE_BYTES", 1):
             response = self.client.put(self.url, {"image": make_image_file()}, format="multipart")
@@ -115,18 +116,19 @@ class UserProfileImageAPITest(FastTestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["code"], ErrorMessages.FILE_TOO_LARGE.name)
 
-    def test_upload_profile_image_returns_404_when_user_is_deleted(self) -> None:
+    def test_upload_profile_image_returns_401_when_user_is_deleted(self) -> None:
+        authenticate_client_with_cookies(self.client, self.user)
         self.user.deleted_at = timezone.now()
-        self.user.save(update_fields=["deleted_at"])
-        self.client.force_authenticate(user=self.user)
+        self.user.is_active = False
+        self.user.save(update_fields=["deleted_at", "is_active"])
 
         response = self.client.put(self.url, {"image": make_image_file()}, format="multipart")
 
-        self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.json()["code"], ErrorMessages.USER_NOT_FOUND.name)
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["code"], ErrorMessages.ACCOUNT_DEACTIVATED.name)
 
     def test_delete_profile_image_clears_profile_url(self) -> None:
-        self.client.force_authenticate(user=self.user)
+        authenticate_client_with_cookies(self.client, self.user)
         self.user.profile_img_url = f"https://cdn.example.com/images/profile/{self.user.id}/existing.webp"
         self.user.save(update_fields=["profile_img_url"])
         mock_s3_client = MagicMock()
@@ -145,7 +147,7 @@ class UserProfileImageAPITest(FastTestCase):
         )
 
     def test_delete_profile_image_without_existing_image_returns_none(self) -> None:
-        self.client.force_authenticate(user=self.user)
+        authenticate_client_with_cookies(self.client, self.user)
         mock_s3_client = MagicMock()
 
         with override_settings(S3_CLIENT=mock_s3_client):

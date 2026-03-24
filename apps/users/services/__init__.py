@@ -25,7 +25,6 @@ from .social_auth_service import (
     handle_kakao_callback,
 )
 from .user_me_service import (
-    change_user_password,
     delete_user_me,
     delete_user_profile_image,
     get_user_me,
@@ -36,7 +35,6 @@ from .user_me_service import (
 
 __all__ = [
     "authenticate_user",
-    "change_user_password",
     "clear_recent_searches",
     "delete_recent_search_keyword",
     "delete_user_me",

@@ -7,8 +7,10 @@ from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.test import APIClient
 
+from apps.core.auth_test_utils import authenticate_client_with_cookies, make_cookie_client
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.core.testcase import FastTestCase
+from apps.users.services import issue_auth_tokens
 
 
 class AuthMeAPITestCase(FastTestCase):
@@ -58,8 +60,8 @@ class AuthMeAPITestCase(FastTestCase):
         self.assertEqual(response.status_code, 401)
 
     def test_auth_me_returns_401_when_user_is_deleted(self) -> None:
-        client = APIClient()
-        client.force_authenticate(user=self.user)
+        client = make_cookie_client()
+        authenticate_client_with_cookies(client, self.user)
         self.user.deleted_at = timezone.now()
         self.user.save(update_fields=["deleted_at"])
 
@@ -69,8 +71,8 @@ class AuthMeAPITestCase(FastTestCase):
         self.assertEqual(response.json()["code"], ErrorMessages.ACCOUNT_DEACTIVATED.name)
 
     def test_auth_me_returns_401_when_user_is_inactive(self) -> None:
-        client = APIClient()
-        client.force_authenticate(user=self.user)
+        client = make_cookie_client()
+        authenticate_client_with_cookies(client, self.user)
         self.user.is_active = False
         self.user.save(update_fields=["is_active"])
 
@@ -78,3 +80,12 @@ class AuthMeAPITestCase(FastTestCase):
 
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json()["code"], ErrorMessages.ACCOUNT_DEACTIVATED.name)
+
+    def test_auth_me_rejects_bearer_header_without_auth_cookie(self) -> None:
+        access_token, _, _ = issue_auth_tokens(self.user)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+
+        response = client.get(self.url)
+
+        self.assertEqual(response.status_code, 401)

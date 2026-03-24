@@ -71,6 +71,10 @@ from apps.users.models import User
     responses={
         200: InteractionViewLogResponseSerializer,
         201: InteractionViewLogResponseSerializer,
+        403: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="CSRF_FAILED",
+        ),
         400: OpenApiResponse(
             response=ErrorResponseSerializer,
             description="Bad Request",
@@ -206,6 +210,10 @@ class InteractionViewLogCreateView(APIView):
     responses={
         200: InteractionSearchLogResponseSerializer,
         201: InteractionSearchLogResponseSerializer,
+        403: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="CSRF_FAILED",
+        ),
         400: OpenApiResponse(
             response=ErrorResponseSerializer,
             description="Bad Request",
@@ -351,6 +359,10 @@ class InteractionSearchLogCreateView(APIView):
     responses={
         200: InteractionStoreClickLogResponseSerializer,
         201: InteractionStoreClickLogResponseSerializer,
+        403: OpenApiResponse(
+            response=ErrorResponseSerializer,
+            description="CSRF_FAILED",
+        ),
         400: OpenApiResponse(
             response=ErrorResponseSerializer,
             description="Bad Request",

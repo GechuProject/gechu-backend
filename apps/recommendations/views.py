@@ -54,7 +54,7 @@ from apps.users.models import User
         ),
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Unauthorized",
+            description="Unauthorized. HttpOnly access_token cookie authentication is required.",
         ),
     },
 )
@@ -127,7 +127,7 @@ class RecommendationListView(APIView):
         200: RecommendationStatusResponseSerializer,
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Unauthorized",
+            description="Unauthorized. HttpOnly access_token cookie authentication is required.",
         ),
     },
 )

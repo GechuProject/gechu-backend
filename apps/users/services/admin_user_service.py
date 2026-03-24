@@ -7,6 +7,7 @@ from apps.core.exceptions.exception_handler import CustomAPIException
 from apps.core.exceptions.exception_message import ErrorMessages
 from apps.recommendations.models import RecommendationJob
 from apps.users.models.user import User
+from apps.users.services.auth_service import revoke_all_refresh_tokens
 
 
 def list_admin_users() -> QuerySet[User]:
@@ -22,8 +23,16 @@ def get_admin_user(*, user_id: int) -> User:
 
 def update_admin_user_status(*, user_id: int, is_active: bool) -> User:
     user = get_admin_user(user_id=user_id)
+    status_changed = user.is_active != is_active
     user.is_active = is_active
-    user.save(update_fields=["is_active", "updated_at"])
+    update_fields = ["is_active", "updated_at"]
+    if is_active and user.deleted_at is not None:
+        user.deleted_at = None
+        update_fields.append("deleted_at")
+        status_changed = True
+    user.save(update_fields=update_fields)
+    if status_changed:
+        revoke_all_refresh_tokens(user)
     return user
 
 

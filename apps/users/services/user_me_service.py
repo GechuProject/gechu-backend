@@ -22,9 +22,7 @@ ALLOWED_PROFILE_IMAGE_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 def get_user_me(user: User) -> User:
-    if user.deleted_at is not None:
-        raise CustomAPIException(ErrorMessages.USER_NOT_FOUND)
-    return user
+    return get_active_user_or_deactivated(user)
 
 
 def update_user_me(
@@ -75,6 +73,7 @@ def delete_user_me(user: User) -> None:
     user.deleted_at = timezone.now()
     user.is_active = False
     user.save(update_fields=["deleted_at", "is_active", "updated_at"])
+    revoke_all_refresh_tokens(user)
 
 
 def verify_user_password(user: User, *, password: str) -> None:
@@ -86,23 +85,6 @@ def verify_user_password(user: User, *, password: str) -> None:
 
     if not user.check_password(password):
         raise CustomAPIException(ErrorMessages.INVALID_PASSWORD)
-
-
-def change_user_password(user: User, *, new_password: str) -> None:
-    user = get_user_me(user)
-    get_active_user_or_deactivated(user)
-
-    if user.social_accounts.exists() and not user.has_usable_password():
-        raise CustomAPIException(ErrorMessages.SOCIAL_USER_ONLY)
-
-    try:
-        validate_password(new_password)
-    except DjangoValidationError as err:
-        raise CustomAPIException(ErrorMessages.VALIDATION_ERROR) from err
-
-    user.set_password(new_password)
-    user.save(update_fields=["password", "updated_at"])
-    revoke_all_refresh_tokens(user)
 
 
 def _get_s3_client() -> Any:

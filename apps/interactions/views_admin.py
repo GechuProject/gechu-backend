@@ -24,6 +24,11 @@ from apps.interactions.serializers import (
 from apps.interactions.services import InteractionAdminContextRuleService, InteractionAdminRuleService
 from apps.users.models import User
 
+COOKIE_AUTH_DESCRIPTION = "HttpOnly access_token cookie authentication is required."
+UNSAFE_COOKIE_AUTH_DESCRIPTION = (
+    "HttpOnly access_token cookie authentication is required. Unsafe requests must also include the X-CSRFToken header."
+)
+
 
 @extend_schema(
     tags=["admin"],
@@ -38,7 +43,7 @@ from apps.users.models import User
         200: InteractionContextRuleListResponseSerializer,
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="인증되지 않음. Authorization 헤더에 유효한 Bearer 토큰이 필요합니다.",
+            description=COOKIE_AUTH_DESCRIPTION,
             examples=[
                 OpenApiExample(
                     "인증 필요",
@@ -138,7 +143,7 @@ class AdminInteractionContextRuleListView(APIView):
         ),
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="인증되지 않음. Authorization 헤더에 유효한 Bearer 토큰이 필요합니다.",
+            description=UNSAFE_COOKIE_AUTH_DESCRIPTION,
         ),
         403: OpenApiResponse(
             response=ErrorResponseSerializer,
@@ -204,7 +209,7 @@ class AdminInteractionContextRuleUpdateView(APIView):
         200: InteractionWeightRuleListResponseSerializer,
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Unauthorized",
+            description=COOKIE_AUTH_DESCRIPTION,
             examples=[
                 OpenApiExample(
                     "인증 필요",
@@ -218,7 +223,7 @@ class AdminInteractionContextRuleUpdateView(APIView):
         ),
         403: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Forbidden",
+            description="FORBIDDEN",
             examples=[
                 OpenApiExample(
                     "관리자 권한 필요",
@@ -304,7 +309,7 @@ class AdminInteractionWeightRuleListView(APIView):
         ),
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Unauthorized",
+            description=UNSAFE_COOKIE_AUTH_DESCRIPTION,
             examples=[
                 OpenApiExample(
                     "인증 필요",
@@ -318,7 +323,7 @@ class AdminInteractionWeightRuleListView(APIView):
         ),
         403: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Forbidden",
+            description="FORBIDDEN or CSRF_FAILED",
             examples=[
                 OpenApiExample(
                     "관리자 권한 필요",

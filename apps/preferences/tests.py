@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from rest_framework.test import APIClient
 
+from apps.core.auth_test_utils import authenticate_client_with_cookies, make_cookie_client
 from apps.core.testcase import FastTestCase
 from apps.games.models import Genre, Platform, Tag
 from apps.preferences.models import UserPreference
@@ -35,11 +36,11 @@ class PreferenceBaseTestCase(FastTestCase):
         UserPreference.objects.get_or_create(user=cls.user)
 
     def setUp(self) -> None:
-        self.client = APIClient()
+        self.client = make_cookie_client()
         self.client.raise_request_exception = True
         self.user.refresh_from_db()
         # 기본적으로 인증된 상태로 시작
-        self.client.force_authenticate(user=self.user)
+        authenticate_client_with_cookies(self.client, self.user)
 
     def _next_igdb_game_id(self) -> int:
         return IGDB_GAME_ID_BASE + next(_counter)
@@ -63,8 +64,7 @@ class PreferenceMeAPITestCase(PreferenceBaseTestCase):
     url = "/api/v1/preferences/me/"
 
     def test_preference_me_unauthorized(self) -> None:
-        self.client.force_authenticate(user=None)  # 인증 해제 후 테스트
-        response = self.client.get(self.url)
+        response = make_cookie_client().get(self.url)
         self.assertEqual(response.status_code, 401)
 
     def test_get_preference_me_success(self) -> None:
@@ -129,8 +129,7 @@ class SavedGamesAPITestCase(PreferenceBaseTestCase):
     url = "/api/v1/preferences/me/saved-games/"
 
     def test_saved_games_unauthorized(self) -> None:
-        self.client.force_authenticate(user=None)
-        response = self.client.get(self.url)
+        response = make_cookie_client().get(self.url)
         self.assertEqual(response.status_code, 401)
 
     @patch("apps.preferences.views.igdb_cache.get_games_by_ids")
@@ -191,8 +190,7 @@ class GameAffinitiesAPITestCase(PreferenceBaseTestCase):
     url = "/api/v1/preferences/me/game-affinities/"
 
     def test_game_affinities_unauthorized(self) -> None:
-        self.client.force_authenticate(user=None)
-        response = self.client.get(self.url)
+        response = make_cookie_client().get(self.url)
         self.assertEqual(response.status_code, 401)
 
     @patch("apps.preferences.views.igdb_cache.get_games_by_ids")

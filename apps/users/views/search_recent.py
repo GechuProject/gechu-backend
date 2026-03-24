@@ -39,9 +39,14 @@ class RecentSearchAPIView(APIView):
 
     @extend_schema(
         summary="최근 검색어 전체 삭제",
+        description=(
+            "HttpOnly access_token cookie authentication is required. "
+            "Unsafe requests must also include the X-CSRFToken header."
+        ),
         responses={
             200: RecentSearchDeleteResponseSerializer,
             401: ErrorResponseSerializer,
+            403: OpenApiResponse(response=ErrorResponseSerializer, description="CSRF_FAILED"),
         },
     )
     def delete(self, request: Request) -> Response:
@@ -61,9 +66,14 @@ class RecentSearchAPIView(APIView):
             description="삭제할 검색어",
         )
     ],
+    description=(
+        "HttpOnly access_token cookie authentication is required. "
+        "Unsafe requests must also include the X-CSRFToken header."
+    ),
     responses={
         200: RecentSearchDeleteResponseSerializer,
         401: ErrorResponseSerializer,
+        403: OpenApiResponse(response=ErrorResponseSerializer, description="CSRF_FAILED"),
         404: OpenApiResponse(
             response=ErrorResponseSerializer,
             description="해당 검색어를 찾을 수 없습니다.",

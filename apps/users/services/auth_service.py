@@ -52,7 +52,8 @@ def get_active_user_or_deactivated(user: User) -> User:
 
 
 def send_email_code(*, email: str, purpose: str) -> int:
-    user_exists = User.objects.filter(email=email).exists()
+    user = User.objects.filter(email=email).first()
+    user_exists = user is not None
     if purpose == EMAIL_CODE_PURPOSE_SIGNUP and user_exists:
         raise CustomAPIException(ErrorMessages.EMAIL_ALREADY_EXISTS)
 
@@ -61,6 +62,15 @@ def send_email_code(*, email: str, purpose: str) -> int:
         raise CustomAPIException(ErrorMessages.TOO_MANY_REQUESTS)
 
     cache.set(cooldown_key, True, timeout=EMAIL_CODE_COOLDOWN_SECONDS)
+
+    if purpose == EMAIL_CODE_PURPOSE_PASSWORD_RESET and user is not None:
+        try:
+            get_active_user_or_deactivated(user)
+        except CustomAPIException:
+            user_exists = False
+        else:
+            if user.social_accounts.exists() and not user.has_usable_password():
+                user_exists = False
 
     if _should_issue_email_code(purpose=purpose, user_exists=user_exists):
         code = f"{secrets.randbelow(1000000):06d}"
@@ -134,6 +144,7 @@ def restore_user_account(*, email: str, password: str) -> None:
         user.deleted_at = None
         user.is_active = True
         user.save(update_fields=["deleted_at", "is_active", "updated_at"])
+        revoke_all_refresh_tokens(user)
 
 
 def revoke_all_refresh_tokens(user: User) -> None:
@@ -159,6 +170,7 @@ def reset_user_password(*, email: str, code: str, new_password: str) -> None:
     user = User.objects.filter(email=email).first()
     if user is None:
         raise CustomAPIException(ErrorMessages.INVALID_CODE)
+    get_active_user_or_deactivated(user)
 
     if user.social_accounts.exists() and not user.has_usable_password():
         raise CustomAPIException(ErrorMessages.SOCIAL_USER_ONLY)

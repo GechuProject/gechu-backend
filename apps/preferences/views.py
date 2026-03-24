@@ -9,6 +9,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.serializers.error_serializer import ErrorResponseSerializer
 from apps.core.utils.pagination import PAGINATION_PARAMS, Pagination
 from apps.games.igdb import cache as igdb_cache
 from apps.preferences.models import (
@@ -29,6 +30,10 @@ from apps.preferences.services import (
     update_user_preferences,
 )
 from apps.users.models import User
+
+UNSAFE_COOKIE_AUTH_DESCRIPTION = (
+    "HttpOnly access_token cookie authentication is required. Unsafe requests must also include the X-CSRFToken header."
+)
 
 
 class PreferenceMeView(APIView):
@@ -93,6 +98,7 @@ class PreferenceMeView(APIView):
         ),
         request=PreferenceUpdateSerializer,
         responses={
+            403: OpenApiResponse(response=ErrorResponseSerializer, description="CSRF_FAILED"),
             200: inline_serializer(
                 name="PreferenceMeResponse",
                 fields={
@@ -149,6 +155,7 @@ class PreferenceGameReactionUpdateView(APIView):
         description="특정 게임에 대해 '찜하기(is_saved)' 또는 '반응(like, dislike, neutral)'을 설정합니다.",
         request=PreferenceGameReactionUpdateSerializer,
         responses={
+            403: OpenApiResponse(response=ErrorResponseSerializer, description="CSRF_FAILED"),
             200: PreferenceGameReactionResponseSerializer,
             400: OpenApiResponse(description="유효하지 않은 반응 값이거나 데이터가 누락되었습니다."),
             401: OpenApiResponse(description="인증이 필요합니다."),

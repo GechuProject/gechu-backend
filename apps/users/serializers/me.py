@@ -53,10 +53,6 @@ class UserPasswordVerifyRequestSerializer(serializers.Serializer[dict[str, objec
     password = serializers.CharField(write_only=True)
 
 
-class UserPasswordChangeRequestSerializer(serializers.Serializer[dict[str, object]]):
-    new_password = serializers.CharField(write_only=True)
-
-
 class UserProfileImageUploadRequestSerializer(serializers.Serializer[dict[str, object]]):
     image = serializers.ImageField()
 
