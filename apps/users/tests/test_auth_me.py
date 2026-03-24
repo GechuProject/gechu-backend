@@ -50,6 +50,7 @@ class AuthMeAPITestCase(FastTestCase):
                 "id": self.user.id,
                 "email": self.user.email,
                 "is_active": self.user.is_active,
+                "is_staff": self.user.is_staff,
                 "is_adult_verified": self.user.is_adult_verified,
             },
         )

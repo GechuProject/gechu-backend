@@ -18,6 +18,7 @@ class UserMeResponseSerializer(serializers.ModelSerializer[User]):
             "is_adult_verified",
             "adult_verified_at",
             "is_active",
+            "is_staff",
             "is_social_user",
             "social_provider",
             "created_at",

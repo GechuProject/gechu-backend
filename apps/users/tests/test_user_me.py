@@ -41,6 +41,7 @@ class UserMeRetrieveAPITest(FastTestCase):
         self.assertEqual(drf_res.data["is_adult_verified"], self.user.is_adult_verified)
         self.assertEqual(drf_res.data["adult_verified_at"], self.user.adult_verified_at)
         self.assertEqual(drf_res.data["is_active"], self.user.is_active)
+        self.assertEqual(drf_res.data["is_staff"], self.user.is_staff)
         self.assertFalse(drf_res.data["is_social_user"])
         self.assertIsNone(drf_res.data["social_provider"])
         self.assertTrue(drf_res.data["created_at"])
