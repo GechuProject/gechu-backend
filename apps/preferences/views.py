@@ -32,7 +32,8 @@ from apps.preferences.services import (
 from apps.users.models import User
 
 UNSAFE_COOKIE_AUTH_DESCRIPTION = (
-    "HttpOnly access_token cookie authentication is required. Unsafe requests must also include the X-CSRFToken header."
+    "HttpOnly access_token 쿠키 인증이 필요합니다. "
+    "POST, PUT, PATCH, DELETE 요청에는 X-CSRFToken 헤더도 함께 포함해야 합니다."
 )
 
 

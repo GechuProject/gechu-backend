@@ -120,7 +120,10 @@ class AuthCSRFAPIView(APIView):
     responses={
         200: OpenApiResponse(
             response=MessageResponseSerializer,
-            description="Sets HttpOnly access_token and refresh_token cookies, and also issues a csrftoken cookie for subsequent unsafe requests.",
+            description=(
+                "HttpOnly access_token, refresh_token 쿠키를 설정하고 "
+                "이후 상태 변경 요청에 사용할 csrftoken 쿠키도 함께 발급합니다."
+            ),
         ),
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
@@ -181,7 +184,11 @@ class LogoutAPIView(APIView):
     responses={
         200: OpenApiResponse(
             response=MessageResponseSerializer,
-            description="Refreshes the session, rotates the refresh token, updates the HttpOnly access_token and refresh_token cookies, and reissues the csrftoken cookie.",
+            description=(
+                "세션을 갱신하고 refresh token rotation을 수행합니다. "
+                "새로운 HttpOnly access_token, refresh_token 쿠키를 설정하고 "
+                "csrftoken 쿠키도 다시 발급합니다."
+            ),
         ),
         400: OpenApiResponse(response=ErrorResponseSerializer, description="REFRESH_TOKEN_MISSING"),
         401: OpenApiResponse(

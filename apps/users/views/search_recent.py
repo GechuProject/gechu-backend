@@ -22,7 +22,7 @@ from apps.users.services.search_recent_service import (
 )
 
 
-@extend_schema(tags=["Users"])
+@extend_schema(tags=["users"])
 class RecentSearchAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -40,8 +40,8 @@ class RecentSearchAPIView(APIView):
     @extend_schema(
         summary="최근 검색어 전체 삭제",
         description=(
-            "HttpOnly access_token cookie authentication is required. "
-            "Unsafe requests must also include the X-CSRFToken header."
+            "HttpOnly access_token 쿠키 인증이 필요합니다. "
+            "POST, PUT, PATCH, DELETE 요청에는 X-CSRFToken 헤더도 함께 포함해야 합니다."
         ),
         responses={
             200: RecentSearchDeleteResponseSerializer,
@@ -55,7 +55,7 @@ class RecentSearchAPIView(APIView):
 
 
 @extend_schema(
-    tags=["Users"],
+    tags=["users"],
     summary="최근 검색어 개별 삭제",
     parameters=[
         OpenApiParameter(
@@ -67,8 +67,8 @@ class RecentSearchAPIView(APIView):
         )
     ],
     description=(
-        "HttpOnly access_token cookie authentication is required. "
-        "Unsafe requests must also include the X-CSRFToken header."
+        "HttpOnly access_token 쿠키 인증이 필요합니다. "
+        "POST, PUT, PATCH, DELETE 요청에는 X-CSRFToken 헤더도 함께 포함해야 합니다."
     ),
     responses={
         200: RecentSearchDeleteResponseSerializer,

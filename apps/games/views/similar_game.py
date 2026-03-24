@@ -27,7 +27,7 @@ class SimilarGamesListResponseSerializer(serializers.Serializer[dict[str, Any]])
         200: SimilarGamesListResponseSerializer,
         404: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Not Found",
+            description="게임을 찾을 수 없습니다.",
             examples=[
                 OpenApiExample(
                     "게임 찾을 수 없음",

@@ -27,7 +27,7 @@ from apps.users.models import User
 
 
 @extend_schema(
-    tags=["Interactions"],
+    tags=["interactions"],
     summary="게임 조회 행동 기록",
     description=(
         "게임 조회(view) 행동을 기록합니다.\n\n"
@@ -77,7 +77,7 @@ from apps.users.models import User
         ),
         400: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Bad Request",
+            description="잘못된 요청입니다.",
             examples=[
                 OpenApiExample(
                     "필수값 누락",
@@ -99,7 +99,7 @@ from apps.users.models import User
         ),
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Unauthorized",
+            description="인증이 필요합니다.",
             examples=[
                 OpenApiExample(
                     "인증 필요",
@@ -113,7 +113,7 @@ from apps.users.models import User
         ),
         404: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Not Found",
+            description="대상을 찾을 수 없습니다.",
             examples=[
                 OpenApiExample(
                     "게임 없음",
@@ -164,7 +164,7 @@ class InteractionViewLogCreateView(APIView):
 
 
 @extend_schema(
-    tags=["Interactions"],
+    tags=["interactions"],
     summary="게임 검색 행동 기록",
     description=(
         "게임 검색(search) 행동을 기록합니다.\n\n"
@@ -216,7 +216,7 @@ class InteractionViewLogCreateView(APIView):
         ),
         400: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Bad Request",
+            description="잘못된 요청입니다.",
             examples=[
                 OpenApiExample(
                     "search_query 누락",
@@ -246,7 +246,7 @@ class InteractionViewLogCreateView(APIView):
         ),
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Unauthorized",
+            description="인증이 필요합니다.",
             examples=[
                 OpenApiExample(
                     "인증 필요",
@@ -260,7 +260,7 @@ class InteractionViewLogCreateView(APIView):
         ),
         404: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Not Found",
+            description="대상을 찾을 수 없습니다.",
             examples=[
                 OpenApiExample(
                     "게임 없음",
@@ -312,7 +312,7 @@ class InteractionSearchLogCreateView(APIView):
 
 
 @extend_schema(
-    tags=["Interactions"],
+    tags=["interactions"],
     summary="외부 스토어 이동 행동 기록",
     description=(
         "게임 상세 페이지에서 외부 스토어 이동(store_click) 행동을 기록합니다.\n\n"
@@ -365,7 +365,7 @@ class InteractionSearchLogCreateView(APIView):
         ),
         400: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Bad Request",
+            description="잘못된 요청입니다.",
             examples=[
                 OpenApiExample(
                     "game_id/store_id 누락",
@@ -395,7 +395,7 @@ class InteractionSearchLogCreateView(APIView):
         ),
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Unauthorized",
+            description="인증이 필요합니다.",
             examples=[
                 OpenApiExample(
                     "인증 필요",
@@ -409,7 +409,7 @@ class InteractionSearchLogCreateView(APIView):
         ),
         404: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Not Found",
+            description="대상을 찾을 수 없습니다.",
             examples=[
                 OpenApiExample(
                     "게임 없음",

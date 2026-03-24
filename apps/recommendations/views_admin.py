@@ -31,9 +31,10 @@ from apps.recommendations.services import RecommendationAdminService
 from apps.recommendations.tasks import process_similarity_rebuild_job, process_user_refresh_job
 from apps.users.models import User
 
-COOKIE_AUTH_DESCRIPTION = "HttpOnly access_token cookie authentication is required."
+COOKIE_AUTH_DESCRIPTION = "HttpOnly access_token 쿠키 인증이 필요합니다."
 UNSAFE_COOKIE_AUTH_DESCRIPTION = (
-    "HttpOnly access_token cookie authentication is required. Unsafe requests must also include the X-CSRFToken header."
+    "HttpOnly access_token 쿠키 인증이 필요합니다. "
+    "POST, PUT, PATCH, DELETE 요청에는 X-CSRFToken 헤더도 함께 포함해야 합니다."
 )
 
 
@@ -76,7 +77,7 @@ UNSAFE_COOKIE_AUTH_DESCRIPTION = (
         ),
         403: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Forbidden",
+            description="권한이 없습니다.",
             examples=[
                 OpenApiExample(
                     "관리자 권한 필요",
@@ -90,7 +91,7 @@ UNSAFE_COOKIE_AUTH_DESCRIPTION = (
         ),
         400: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Bad Request",
+            description="잘못된 요청입니다.",
             examples=[
                 OpenApiExample(
                     "잘못된 쿼리 파라미터",
@@ -173,7 +174,7 @@ class AdminRecommendationJobListView(ListAPIView):  # type: ignore[type-arg]
         ),
         403: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Forbidden",
+            description="권한이 없습니다.",
             examples=[
                 OpenApiExample(
                     "관리자 권한 필요",
@@ -187,7 +188,7 @@ class AdminRecommendationJobListView(ListAPIView):  # type: ignore[type-arg]
         ),
         404: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Not Found",
+            description="대상을 찾을 수 없습니다.",
             examples=[
                 OpenApiExample(
                     "작업 없음",
@@ -242,7 +243,7 @@ class AdminRecommendationJobDetailView(APIView):
         201: RecommendationJobRunResponseSerializer,
         400: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Bad Request",
+            description="잘못된 요청입니다.",
             examples=[
                 OpenApiExample(
                     "job_type 누락",
@@ -270,7 +271,7 @@ class AdminRecommendationJobDetailView(APIView):
         ),
         403: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="FORBIDDEN or CSRF_FAILED",
+            description="FORBIDDEN 또는 CSRF_FAILED",
             examples=[
                 OpenApiExample(
                     "관리자 권한 필요",
@@ -284,7 +285,7 @@ class AdminRecommendationJobDetailView(APIView):
         ),
         409: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Conflict",
+            description="이미 실행 중인 작업이 있습니다.",
             examples=[
                 OpenApiExample(
                     "이미 실행 중인 작업",

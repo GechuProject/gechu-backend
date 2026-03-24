@@ -40,7 +40,7 @@ from apps.users.models import User
         200: RecommendationListResponseSerializer,
         202: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Accepted",
+            description="추천 데이터 준비 중입니다.",
             examples=[
                 OpenApiExample(
                     "추천 데이터 준비 중",
@@ -54,7 +54,7 @@ from apps.users.models import User
         ),
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Unauthorized. HttpOnly access_token cookie authentication is required.",
+            description="HttpOnly access_token 쿠키 인증이 필요합니다.",
         ),
     },
 )
@@ -127,7 +127,7 @@ class RecommendationListView(APIView):
         200: RecommendationStatusResponseSerializer,
         401: OpenApiResponse(
             response=ErrorResponseSerializer,
-            description="Unauthorized. HttpOnly access_token cookie authentication is required.",
+            description="HttpOnly access_token 쿠키 인증이 필요합니다.",
         ),
     },
 )

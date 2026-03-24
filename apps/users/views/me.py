@@ -29,13 +29,14 @@ from apps.users.services import (
     verify_user_password,
 )
 
-COOKIE_AUTH_DESCRIPTION = "HttpOnly access_token cookie authentication is required."
+COOKIE_AUTH_DESCRIPTION = "HttpOnly access_token 쿠키 인증이 필요합니다."
 UNSAFE_COOKIE_AUTH_DESCRIPTION = (
-    "HttpOnly access_token cookie authentication is required. Unsafe requests must also include the X-CSRFToken header."
+    "HttpOnly access_token 쿠키 인증이 필요합니다. "
+    "POST, PUT, PATCH, DELETE 요청에는 X-CSRFToken 헤더도 함께 포함해야 합니다."
 )
 
 
-@extend_schema(tags=["Users"])
+@extend_schema(tags=["users"])
 class UserMeAPIView(generics.RetrieveUpdateDestroyAPIView[User]):
     permission_classes = [IsAuthenticated]
     serializer_class = UserMeResponseSerializer
@@ -50,7 +51,7 @@ class UserMeAPIView(generics.RetrieveUpdateDestroyAPIView[User]):
         return UserMeResponseSerializer
 
     @extend_schema(
-        summary="Get my profile",
+        summary="내 정보 조회",
         description=COOKIE_AUTH_DESCRIPTION,
         responses={
             200: UserMeResponseSerializer,
@@ -61,7 +62,7 @@ class UserMeAPIView(generics.RetrieveUpdateDestroyAPIView[User]):
         return super().retrieve(request, *args, **kwargs)
 
     @extend_schema(
-        summary="Update my profile",
+        summary="내 정보 수정",
         description=UNSAFE_COOKIE_AUTH_DESCRIPTION,
         request=UserMeUpdateRequestSerializer,
         responses={
@@ -84,7 +85,7 @@ class UserMeAPIView(generics.RetrieveUpdateDestroyAPIView[User]):
         return Response(response_serializer.data)
 
     @extend_schema(
-        summary="Delete my account",
+        summary="회원 탈퇴",
         description=UNSAFE_COOKIE_AUTH_DESCRIPTION,
         responses={
             200: UserMeDeleteResponseSerializer,
@@ -100,7 +101,7 @@ class UserMeAPIView(generics.RetrieveUpdateDestroyAPIView[User]):
 
 
 @extend_schema(
-    summary="Verify password",
+    summary="비밀번호 확인",
     description=UNSAFE_COOKIE_AUTH_DESCRIPTION,
     request=UserPasswordVerifyRequestSerializer,
     responses={
@@ -109,7 +110,7 @@ class UserMeAPIView(generics.RetrieveUpdateDestroyAPIView[User]):
         401: OpenApiResponse(response=ErrorResponseSerializer, description="UNAUTHORIZED, ACCOUNT_DEACTIVATED"),
         403: OpenApiResponse(response=ErrorResponseSerializer, description="CSRF_FAILED"),
     },
-    tags=["Users"],
+    tags=["users"],
 )
 class UserPasswordVerifyAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -130,13 +131,13 @@ class UserProfileImageAPIView(APIView):
     parser_classes = [MultiPartParser]
 
     @extend_schema(
-        summary="Upload profile image",
+        summary="프로필 이미지 업로드",
         description=(
-            "Uploads a profile image to the server.\n\n"
-            "- Supported formats: jpg, jpeg, png, webp\n"
-            "- Maximum file size: 5MB\n"
-            "- The server resizes the image to within 512x512 and stores it as WebP.\n"
-            "- Any previous profile image is deleted automatically."
+            "프로필 이미지를 업로드합니다.\n\n"
+            "- 지원 형식: jpg, jpeg, png, webp\n"
+            "- 최대 파일 크기: 5MB\n"
+            "- 서버에서 이미지를 512x512 이내로 리사이즈한 뒤 WebP로 저장합니다.\n"
+            "- 기존 프로필 이미지는 자동으로 삭제됩니다."
         ),
         request={"multipart/form-data": UserProfileImageUploadRequestSerializer},
         responses={
@@ -145,7 +146,7 @@ class UserProfileImageAPIView(APIView):
             401: OpenApiResponse(response=ErrorResponseSerializer, description="UNAUTHORIZED, ACCOUNT_DEACTIVATED"),
             403: OpenApiResponse(response=ErrorResponseSerializer, description="CSRF_FAILED"),
         },
-        tags=["Users"],
+        tags=["users"],
     )
     def put(self, request: Request) -> Response:
         serializer = UserProfileImageUploadRequestSerializer(data=request.data)
@@ -158,11 +159,11 @@ class UserProfileImageAPIView(APIView):
         return Response(UserProfileImageResponseSerializer(result).data)
 
     @extend_schema(
-        summary="Delete profile image",
+        summary="프로필 이미지 삭제",
         description=(
-            "Deletes the current profile image.\n\n"
-            "- After deletion, profile_img_url is returned as null.\n"
-            "- If no image exists, the request still succeeds."
+            "현재 프로필 이미지를 삭제합니다.\n\n"
+            "- 삭제 후에는 profile_img_url이 null로 반환됩니다.\n"
+            "- 등록된 이미지가 없어도 요청은 성공합니다."
         ),
         request=None,
         responses={
@@ -170,7 +171,7 @@ class UserProfileImageAPIView(APIView):
             401: OpenApiResponse(response=ErrorResponseSerializer, description="UNAUTHORIZED, ACCOUNT_DEACTIVATED"),
             403: OpenApiResponse(response=ErrorResponseSerializer, description="CSRF_FAILED"),
         },
-        tags=["Users"],
+        tags=["users"],
     )
     def delete(self, request: Request) -> Response:
         result = delete_user_profile_image(cast(User, request.user))
