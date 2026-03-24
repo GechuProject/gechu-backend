@@ -130,7 +130,7 @@ def build_similar_game_item(raw: dict[str, Any], similarity_score: float) -> dic
         "id": raw["id"],
         "name": raw.get("name", ""),
         "slug": raw.get("slug", ""),
-        "thumbnail_img_url": _parse_cover_url(raw.get("cover")),
-        "rawg_rating": _parse_rating(raw.get("rating")),
+        "thumbnail_img_url": raw.get("thumbnail_img_url", ""),
+        "rawg_rating": raw.get("rawg_rating") or 0,
         "similarity_score": similarity_score,
     }
