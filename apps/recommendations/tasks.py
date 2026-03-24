@@ -79,11 +79,40 @@ def _build_similarity_candidates(*, seed_game_ids: list[int]) -> list[tuple[int,
     return [(row["igdb_similar_game_id"], row["score"]) for row in rows]
 
 
+def _collect_preference_candidates(*, user_id: int) -> list[tuple[int, Decimal]]:
+    """선호 장르/플랫폼/태그 기반 인기 게임 추천 후보 수집"""
+    from apps.preferences.models import UserPreference
+
+    try:
+        pref = UserPreference.objects.get(user_id=user_id)
+    except UserPreference.DoesNotExist:
+        return []
+
+    genre_ids = list(pref.userpreferencegenre_set.values_list("genre_id", flat=True))
+    platform_ids = list(pref.userpreferenceplatform_set.values_list("platform_id", flat=True))
+    tag_ids = list(pref.userpreferencetag_set.values_list("tag_id", flat=True))
+
+    if not genre_ids and not platform_ids and not tag_ids:
+        return []
+
+    games = igdb_cache.search_games(
+        genre_ids=genre_ids or None,
+        platform_ids=platform_ids or None,
+        tag_ids=tag_ids or None,
+        sort="rating desc",
+        limit=MAX_RECOMMENDATIONS,
+    )
+
+    total = len(games)
+    return [(game["id"], Decimal(str(round(1.0 - (i / total), 4)))) for i, game in enumerate(games)]
+
+
 def _upsert_recommendations(
     *,
     user_id: int,
     generation_version: int,
     candidates: list[tuple[int, Decimal]],
+    reason: str,
 ) -> None:
     now = timezone.now()
     expires_at = now + timedelta(days=RECOMMENDATION_EXPIRE_DAYS)
@@ -92,17 +121,19 @@ def _upsert_recommendations(
         UserRecommendation.objects.update_or_create(
             user_id=user_id,
             igdb_game_id=igdb_game_id,
+            reason=reason,
             defaults={
                 "generation_version": generation_version,
                 "score": score,
                 "rank": rank,
-                "reason": UserRecommendation.ReasonType.SIMILARITY,
                 "generated_at": now,
                 "expires_at": expires_at,
             },
         )
 
-    UserRecommendation.objects.filter(user_id=user_id).exclude(generation_version=generation_version).delete()
+    UserRecommendation.objects.filter(user_id=user_id, reason=reason).exclude(
+        generation_version=generation_version
+    ).delete()
 
 
 def _build_similarity_pairs_from_interactions() -> dict[tuple[int, int], Decimal]:
@@ -204,8 +235,6 @@ def run_user_refresh_job(job_id: int) -> None:
         if target_user_id is None:
             return
         user = User.objects.get(id=target_user_id)
-        seed_game_ids = _collect_seed_game_ids(user_id=user.id)
-        candidates = _build_similarity_candidates(seed_game_ids=seed_game_ids)
 
         latest_generation = (
             UserRecommendation.objects.filter(user_id=user.id).aggregate(max_generation=Max("generation_version"))[
@@ -214,10 +243,24 @@ def run_user_refresh_job(job_id: int) -> None:
             or 0
         )
         next_generation = latest_generation + 1
+
+        # 유사도 기반 추천
+        seed_game_ids = _collect_seed_game_ids(user_id=user.id)
+        similarity_candidates = _build_similarity_candidates(seed_game_ids=seed_game_ids)
         _upsert_recommendations(
             user_id=user.id,
             generation_version=next_generation,
-            candidates=candidates,
+            candidates=similarity_candidates,
+            reason=UserRecommendation.ReasonType.SIMILARITY,
+        )
+
+        # 선호 기반 추천
+        preference_candidates = _collect_preference_candidates(user_id=user.id)
+        _upsert_recommendations(
+            user_id=user.id,
+            generation_version=next_generation,
+            candidates=preference_candidates,
+            reason=UserRecommendation.ReasonType.PREFERENCE,
         )
 
         RecommendationJob.objects.filter(id=job_id).update(
