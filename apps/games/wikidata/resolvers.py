@@ -31,7 +31,10 @@ _MAX_FAILED = 3
 # 에디션 키워드 로드
 _KEYWORDS_FILE = Path(__file__).parent / "edition_keywords.json"
 with open(_KEYWORDS_FILE, encoding="utf-8") as f:
-    _EDITION_KEYWORDS = json.load(f)["keywords"]
+    _keywords_data = json.load(f)
+    _EDITION_KEYWORDS = _keywords_data["keywords"]
+    _STRONG_KEYWORDS = set(_keywords_data["strong_keywords"])
+    _SPECIAL_SINGLE_KEYWORDS = set(_keywords_data["special_single_keywords"])
 
 
 def resolve_name_ko(igdb_id: int, raw: dict[str, Any]) -> str:
@@ -98,23 +101,6 @@ def _extract_edition_suffix(full_name: str) -> str:
     - "Ultimate Edition" ✓
     - "Ultimate Fighting" ✗
     """
-    # 명확한 에디션 표시 키워드 (단일 단어와 함께 있어야 함)
-    STRONG_KEYWORDS = {
-        "edition",
-        "collection",
-        "bundle",
-        "pack",
-        "remastered",
-        "remaster",
-        "remake",
-        "redux",
-        "dlc",
-        "expansion",
-        "goty",
-        "version",
-        "ver",
-    }
-
     # 패턴 1: " - suffix" (가장 명확, 최우선)
     match = re.search(r" - (.+)$", full_name)
     if match:
@@ -133,11 +119,11 @@ def _extract_edition_suffix(full_name: str) -> str:
         if len(last_part_words) <= 4:
             # 단일 단어인 경우: 명확한 에디션 키워드만 허용
             if len(last_part_words) == 1:
-                if any(keyword.lower() == last_part.lower() for keyword in STRONG_KEYWORDS):
+                if last_part.lower() in _STRONG_KEYWORDS:
                     return last_part
             # 2단어 이상: 명확한 키워드가 포함되어 있으면 허용
             else:
-                if any(keyword.lower() in last_part.lower() for keyword in STRONG_KEYWORDS):
+                if any(keyword in last_part.lower() for keyword in _STRONG_KEYWORDS):
                     return last_part
 
     # 패턴 3: 마지막 단어가 단독 키워드인 경우 (공백으로 구분)
@@ -147,12 +133,11 @@ def _extract_edition_suffix(full_name: str) -> str:
     if len(words) > 1:
         last_word = words[-1]
         # 명확한 에디션 키워드만 단독으로 허용
-        if any(keyword.lower() == last_word.lower() for keyword in STRONG_KEYWORDS):
+        if last_word.lower() in _STRONG_KEYWORDS:
             return last_word
 
         # 또는 "Randomizer", "Mod" 같은 특수 키워드
-        SPECIAL_SINGLE_KEYWORDS = {"randomizer", "mod"}
-        if last_word.lower() in SPECIAL_SINGLE_KEYWORDS:
+        if last_word.lower() in _SPECIAL_SINGLE_KEYWORDS:
             # 바로 앞 단어가 키워드가 아닌 경우만
             if len(words) >= 2:
                 second_last = words[-2]

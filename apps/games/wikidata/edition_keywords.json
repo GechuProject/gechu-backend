@@ -1,4 +1,23 @@
 {
+  "strong_keywords": [
+    "edition",
+    "collection",
+    "bundle",
+    "pack",
+    "remastered",
+    "remaster",
+    "remake",
+    "redux",
+    "dlc",
+    "expansion",
+    "goty",
+    "version",
+    "ver"
+  ],
+  "special_single_keywords": [
+    "randomizer",
+    "mod"
+  ],
   "keywords": [
     "Edition",
     "Collection",
