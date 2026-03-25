@@ -91,7 +91,7 @@ class Command(BaseCommand):
 
     def _collect_all_from_igdb_cache(self, r: Any) -> dict[int, str]:
         """IGDB 게임 캐시(*igdb:game:*, *igdb:search:*)에서 id→slug 수집"""
-        import json
+        import pickle
 
         igdb_id_to_slug: dict[int, str] = {}
 
@@ -103,12 +103,12 @@ class Command(BaseCommand):
                 data = r.get(key)
                 if data:
                     try:
-                        game = json.loads(data)
+                        game = pickle.loads(data)
                         igdb_id = game.get("id")
                         slug = game.get("slug")
                         if igdb_id and slug:
                             igdb_id_to_slug[int(igdb_id)] = slug
-                    except (ValueError, KeyError, TypeError):
+                    except (ValueError, KeyError, TypeError, pickle.UnpicklingError):
                         pass
             if cursor == 0:
                 break
@@ -121,14 +121,14 @@ class Command(BaseCommand):
                 data = r.get(key)
                 if data:
                     try:
-                        games = json.loads(data)
+                        games = pickle.loads(data)
                         if isinstance(games, list):
                             for game in games:
                                 igdb_id = game.get("id")
                                 slug = game.get("slug")
                                 if igdb_id and slug:
                                     igdb_id_to_slug[int(igdb_id)] = slug
-                    except (ValueError, KeyError, TypeError):
+                    except (ValueError, KeyError, TypeError, pickle.UnpicklingError):
                         pass
             if cursor == 0:
                 break
