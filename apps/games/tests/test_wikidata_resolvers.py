@@ -143,3 +143,30 @@ class ExtractEditionSuffixTest(TestCase):
 
         result = _extract_edition_suffix("The Legend of Zelda: Tears of the Kingdom - Better Sages Mod")
         self.assertEqual(result, "Better Sages Mod")
+
+    def test_false_positive_ultimate_fighting(self) -> None:
+        """게임 제목에 포함된 키워드를 잘못 인식하지 않는지 테스트"""
+        from apps.games.wikidata.resolvers import _extract_edition_suffix
+
+        # 게임 제목 자체에 키워드가 있는 경우 - suffix로 인식하면 안 됨
+        self.assertEqual(_extract_edition_suffix("Ultimate Fighting Championship"), "")
+        self.assertEqual(_extract_edition_suffix("Dragon Ball: Sparking! Zero"), "")
+        self.assertEqual(_extract_edition_suffix("Final Fantasy"), "")
+        self.assertEqual(_extract_edition_suffix("Tobal 2"), "")
+
+    def test_true_positive_with_edition_keyword(self) -> None:
+        """명확한 에디션 표시가 있으면 인식해야 함"""
+        from apps.games.wikidata.resolvers import _extract_edition_suffix
+
+        self.assertEqual(
+            _extract_edition_suffix("Ultimate Fighting Championship: Ultimate Edition"),
+            "Ultimate Edition",
+        )
+        self.assertEqual(
+            _extract_edition_suffix("Final Fantasy - Remastered"),
+            "Remastered",
+        )
+        self.assertEqual(
+            _extract_edition_suffix("Dragon Ball: Sparking! Zero - Deluxe Edition"),
+            "Deluxe Edition",
+        )
