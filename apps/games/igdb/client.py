@@ -246,6 +246,7 @@ class IgdbClient:
         fields = (
             "id,name,slug,summary,storyline,"
             "alternative_names.name,alternative_names.comment,"
+            "parent_game,"
             "first_release_date,status,"
             "cover.image_id,"
             "rating,rating_count,aggregated_rating,"
@@ -282,6 +283,7 @@ class IgdbClient:
         fields = (
             "id,name,slug,summary,"
             "alternative_names.name,alternative_names.comment,"
+            "parent_game,"
             "first_release_date,"
             "rating,rating_count,"
             "cover.image_id,"
@@ -350,6 +352,7 @@ class IgdbClient:
         fields = (
             "id,name,slug,summary,"
             "alternative_names.name,alternative_names.comment,"
+            "parent_game,"
             "first_release_date,"
             "rating,rating_count,"
             "cover.image_id,"
