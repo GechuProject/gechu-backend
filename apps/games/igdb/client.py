@@ -337,6 +337,9 @@ class IgdbClient:
         else:
             q = f"fields {fields};{where_str}sort {sort};limit {limit};offset {offset};"
 
+        # 디버깅: 쿼리 로그
+        logger.info(f"IGDB Query: {q}")
+
         return self._post_with_auth_retry("games", q)
 
     def get_games_by_ids(self, igdb_ids: list[int]) -> list[dict[str, Any]]:
