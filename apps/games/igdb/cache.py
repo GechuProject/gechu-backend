@@ -170,7 +170,7 @@ def search_games_by_igdb_genre_id(
     limit: int = 10,
     min_rating_count: int = 100,
     min_rating: float = 70,
-    min_release_date: int = 1609459200,  # 2021-01-01 00:00:00 UTC
+    min_release_date: int = 1514764800,  # 2018-01-01 00:00:00 UTC
 ) -> list[dict[str, Any]]:
     params = {
         "igdb_genre_id": igdb_genre_id,
