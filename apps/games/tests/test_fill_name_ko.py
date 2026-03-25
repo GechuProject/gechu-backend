@@ -1,4 +1,3 @@
-import json
 import logging
 from io import StringIO
 from unittest.mock import MagicMock, patch
@@ -16,7 +15,7 @@ class FillNameKoCommandTest(TestCase):
         logging.disable(logging.CRITICAL)
 
     def tearDown(self) -> None:
-        cache.clear()
+        self.r.flushdb()
         logging.disable(logging.NOTSET)
 
     def _call(self, *args: str) -> str:
@@ -67,7 +66,8 @@ class FillNameKoCommandTest(TestCase):
     def test_overwrite_uses_igdb_cache(self, mock_bulk: MagicMock) -> None:
         mock_bulk.return_value = {1942: "더 위처 3"}
 
-        self.r.set("igdb:game:1942", json.dumps({"id": 1942, "slug": "the-witcher-3-wild-hunt"}))
+        # django-redis를 통해 캐시 설정 (자동으로 prefix 추가됨)
+        cache.set("igdb:game:1942", {"id": 1942, "slug": "the-witcher-3-wild-hunt"})
 
         output = self._call("--overwrite")
         mock_bulk.assert_called_once()
