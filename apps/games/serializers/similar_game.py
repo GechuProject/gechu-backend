@@ -18,6 +18,7 @@ class SimilarGameQueryParamsSerializer(serializers.Serializer[Any]):
 class SimilarGameResponseSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.IntegerField()
     name = serializers.CharField()
+    name_ko = serializers.CharField(allow_blank=True)
     slug = serializers.CharField()
     thumbnail_img_url = serializers.CharField()
     rawg_rating = serializers.DecimalField(max_digits=3, decimal_places=2)
