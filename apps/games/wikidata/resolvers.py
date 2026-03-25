@@ -13,7 +13,10 @@ API 요청 중 외부 API 절대 호출하지 않음
 
 from __future__ import annotations
 
+import json
 import re
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from apps.games.igdb.converters import extract_korean_from_alt_names
@@ -24,6 +27,14 @@ from apps.games.wikidata.client import (
 )
 
 _MAX_FAILED = 3
+
+# 에디션 키워드 로드
+_KEYWORDS_FILE = Path(__file__).parent / "edition_keywords.json"
+with open(_KEYWORDS_FILE, encoding="utf-8") as f:
+    _keywords_data = json.load(f)
+    _EDITION_KEYWORDS = _keywords_data["keywords"]
+    _STRONG_KEYWORDS = set(_keywords_data["strong_keywords"])
+    _SPECIAL_SINGLE_KEYWORDS = set(_keywords_data["special_single_keywords"])
 
 
 def resolve_name_ko(igdb_id: int, raw: dict[str, Any]) -> str:
@@ -47,10 +58,7 @@ def resolve_name_ko(igdb_id: int, raw: dict[str, Any]) -> str:
     # parent_game 활용
     parent_game_id = raw.get("parent_game")
 
-    # parent_game이 없으면 게임 이름에서 추론 시도
-    if not parent_game_id:
-        parent_game_id = _infer_parent_game_id(raw.get("name", ""))
-
+    # parent_game이 없거나, 있어도 캐시에 없으면 게임 이름에서 추론 시도
     if parent_game_id:
         parent_name_ko = get_name_ko_from_cache(parent_game_id)
         if parent_name_ko:
@@ -58,6 +66,17 @@ def resolve_name_ko(igdb_id: int, raw: dict[str, Any]) -> str:
             if edition_suffix:
                 return f"{parent_name_ko} - {edition_suffix}"
             return parent_name_ko
+
+    # parent_game이 없거나 캐시에 없으면 추론 시도
+    if not parent_game_id or not get_name_ko_from_cache(parent_game_id):
+        inferred_parent_id = _infer_parent_game_id(raw.get("name", ""))
+        if inferred_parent_id:
+            parent_name_ko = get_name_ko_from_cache(inferred_parent_id)
+            if parent_name_ko:
+                edition_suffix = _extract_edition_suffix(raw.get("name", ""))
+                if edition_suffix:
+                    return f"{parent_name_ko} - {edition_suffix}"
+                return parent_name_ko
 
     slug = raw.get("slug", "")
     if slug:
@@ -75,27 +94,18 @@ def _extract_edition_suffix(full_name: str) -> str:
         -> "Randomizer"
         "Assassin's Creed II: Deluxe Edition"
         -> "Deluxe Edition"
-    """
-    # 에디션/모드 키워드
-    suffix_keywords = [
-        "Edition",
-        "Collection",
-        "Bundle",
-        "Remastered",
-        "Remake",
-        "HD",
-        "Randomizer",
-        "Mod",
-        "Online",
-        "DLC",
-        "Expansion",
-    ]
 
+    키워드는 edition_keywords.json에서 로드
+
+    단일 단어 suffix는 명확한 에디션 키워드와 함께 있을 때만 인정:
+    - "Ultimate Edition" ✓
+    - "Ultimate Fighting" ✗
+    """
     # 패턴 1: " - suffix" (가장 명확, 최우선)
     match = re.search(r" - (.+)$", full_name)
     if match:
         suffix = match.group(1).strip()
-        if any(keyword.lower() in suffix.lower() for keyword in suffix_keywords):
+        if any(keyword.lower() in suffix.lower() for keyword in _EDITION_KEYWORDS):
             return suffix
 
     # 패턴 2: ": suffix" (콜론으로 구분, 마지막 콜론 이후)
@@ -103,33 +113,49 @@ def _extract_edition_suffix(full_name: str) -> str:
     if ": " in full_name:
         parts = full_name.split(": ")
         last_part = parts[-1].strip()
-        # 마지막 부분이 짧고 키워드를 포함하는 경우만
-        if len(last_part.split()) <= 3 and any(keyword.lower() in last_part.lower() for keyword in suffix_keywords):
-            return last_part
+        last_part_words = last_part.split()
+
+        # 마지막 부분이 짧고 키워드를 포함하는 경우만 (최대 4단어)
+        if len(last_part_words) <= 4:
+            # 단일 단어인 경우: 명확한 에디션 키워드만 허용
+            if len(last_part_words) == 1:
+                if last_part.lower() in _STRONG_KEYWORDS:
+                    return last_part
+            # 2단어 이상: 명확한 키워드가 포함되어 있으면 허용
+            else:
+                if any(keyword in last_part.lower() for keyword in _STRONG_KEYWORDS):
+                    return last_part
 
     # 패턴 3: 마지막 단어가 단독 키워드인 경우 (공백으로 구분)
     # 예: "Game Name Randomizer" -> "Randomizer"
-    # 주의: "Deluxe Edition"처럼 2단어 이상은 제외 (패턴 2에서 처리)
+    # 주의: 명확한 에디션 키워드만 허용
     words = full_name.split()
     if len(words) > 1:
         last_word = words[-1]
-        # 정확히 일치하는 단독 키워드만 (Randomizer, Mod, Online 등)
-        if any(keyword.lower() == last_word.lower() for keyword in suffix_keywords):
-            # 바로 앞 단어가 키워드가 아닌 경우만 (단독 키워드 확인)
+        # 명확한 에디션 키워드만 단독으로 허용
+        if last_word.lower() in _STRONG_KEYWORDS:
+            return last_word
+
+        # 또는 "Randomizer", "Mod" 같은 특수 키워드
+        if last_word.lower() in _SPECIAL_SINGLE_KEYWORDS:
+            # 바로 앞 단어가 키워드가 아닌 경우만
             if len(words) >= 2:
                 second_last = words[-2]
-                if not any(keyword.lower() == second_last.lower() for keyword in suffix_keywords):
+                if not any(keyword.lower() == second_last.lower() for keyword in _EDITION_KEYWORDS):
                     return last_word
 
     return ""
 
 
+@lru_cache(maxsize=1024)
 def _infer_parent_game_id(game_name: str) -> int | None:
     """
     게임 이름에서 suffix를 제거하고 원본 게임 ID를 추론
     예: "The Legend of Zelda: Tears of the Kingdom - Collector's Edition"
         -> "The Legend of Zelda: Tears of the Kingdom" 검색
         -> 119388 반환
+
+    결과는 LRU 캐시에 저장되어 같은 게임 이름으로 반복 조회 시 IGDB API 호출 안 함
     """
     suffix = _extract_edition_suffix(game_name)
     if not suffix:
