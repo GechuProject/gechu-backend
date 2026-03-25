@@ -199,6 +199,8 @@ def fetch_and_save_bulk(igdb_id_to_slug: dict[int, str]) -> dict[int, str | None
     """
     SPARQL 조회 후 Redis에 저장. Celery worker에서만 호출
     반환: {igdb_id: name_ko or None}
+
+    개선: 실패 시 에디션 suffix 제거 후 재시도
     """
     result: dict[int, str | None] = {}
     items = list(igdb_id_to_slug.items())
@@ -207,6 +209,19 @@ def fetch_and_save_bulk(igdb_id_to_slug: dict[int, str]) -> dict[int, str | None
         chunk = items[i : i + _BULK_CHUNK_SIZE]
         slug_to_id = {slug: igdb_id for igdb_id, slug in chunk}
         fetched = sparql_query(slug_to_id)
+
+        # 실패한 것들 에디션 suffix 제거 후 재시도
+        failed_slugs = {}
+        for igdb_id, slug in chunk:
+            if igdb_id not in fetched:
+                cleaned_slug = _remove_edition_suffix(slug)
+                if cleaned_slug != slug:
+                    failed_slugs[cleaned_slug] = igdb_id
+
+        # 재시도
+        if failed_slugs:
+            retry_fetched = sparql_query(failed_slugs)
+            fetched.update(retry_fetched)
 
         for igdb_id, slug in chunk:
             name_ko = fetched.get(igdb_id)
@@ -217,3 +232,42 @@ def fetch_and_save_bulk(igdb_id_to_slug: dict[int, str]) -> dict[int, str | None
             time.sleep(_REQUEST_INTERVAL)
 
     return result
+
+
+def _remove_edition_suffix(slug: str) -> str:
+    """
+    에디션 suffix 제거
+    예: 'silent-hill-2--1' -> 'silent-hill-2'
+        'assassins-creed-ii-deluxe-edition' -> 'assassins-creed-ii'
+    """
+    import re
+
+    # 숫자 suffix 제거 (--1, --2 등)
+    slug = re.sub(r"--\d+$", "", slug)
+
+    # 에디션 관련 suffix 제거
+    edition_suffixes = [
+        "-deluxe-edition",
+        "-gold-edition",
+        "-goty-edition",
+        "-game-of-the-year-edition",
+        "-complete-edition",
+        "-definitive-edition",
+        "-ultimate-edition",
+        "-special-edition",
+        "-collectors-edition",
+        "-enhanced-edition",
+        "-remastered",
+        "-remake",
+        "-hd",
+        "-collection",
+        "-bundle",
+        "-legacy-collection",
+        "-omega-collection",
+    ]
+
+    for suffix in edition_suffixes:
+        if slug.endswith(suffix):
+            return slug[: -len(suffix)]
+
+    return slug

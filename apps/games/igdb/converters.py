@@ -249,11 +249,15 @@ def extract_korean_from_alt_names(raw: dict[str, Any]) -> str | None:
     """
     IGDB alternative_names 배열에서 한국어 이름 추출
     comment 필드에 'korean' 또는 '한국' 포함 시 반환
+    abbreviation(약어)은 제외
     """
     for alt in raw.get("alternative_names") or []:
         if not isinstance(alt, dict):
             continue
         comment = (alt.get("comment") or "").lower()
+        # 약어는 제외
+        if "abbreviation" in comment:
+            continue
         if "korean" in comment or "한국" in comment:
             name = alt.get("name", "").strip()
             if name:

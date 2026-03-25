@@ -57,3 +57,89 @@ class ResolveNameKoTest(TestCase):
             mock_task.delay = MagicMock()
             _maybe_enqueue(1942, "the-witcher-3-wild-hunt")
             mock_task.delay.assert_called_once_with(1942, "the-witcher-3-wild-hunt")
+
+    @patch("apps.games.wikidata.resolvers.acquire_enqueue_lock", return_value=False)
+    def test_parent_game_with_edition_suffix(self, _mock: MagicMock) -> None:
+        """parent_game의 한국어 이름 + 에디션 suffix 조합"""
+        from apps.games.wikidata.client import save_name_ko
+        from apps.games.wikidata.resolvers import resolve_name_ko
+
+        # 부모 게임 한국어 이름 저장
+        save_name_ko(119133, "젤다의 전설: 티어스 오브 더 킹덤")
+
+        # 자식 게임 (Switch 2 Edition)
+        raw = {
+            "name": "The Legend of Zelda: Tears of the Kingdom - Nintendo Switch 2 Edition",
+            "parent_game": 119133,
+            "slug": "the-legend-of-zelda-tears-of-the-kingdom-nintendo-switch-2-edition",
+        }
+        result = resolve_name_ko(338073, raw)
+        self.assertEqual(result, "젤다의 전설: 티어스 오브 더 킹덤 - Nintendo Switch 2 Edition")
+
+    @patch("apps.games.wikidata.resolvers.acquire_enqueue_lock", return_value=False)
+    def test_parent_game_without_suffix(self, _mock: MagicMock) -> None:
+        """에디션 suffix 없으면 부모 게임 이름만 사용"""
+        from apps.games.wikidata.client import save_name_ko
+        from apps.games.wikidata.resolvers import resolve_name_ko
+
+        save_name_ko(1942, "더 위처 3")
+
+        raw = {
+            "name": "The Witcher 3",
+            "parent_game": 1942,
+            "slug": "the-witcher-3",
+        }
+        result = resolve_name_ko(9999, raw)
+        self.assertEqual(result, "더 위처 3")
+
+    @patch("apps.games.wikidata.resolvers.acquire_enqueue_lock", return_value=False)
+    def test_parent_game_no_korean_name(self, _mock: MagicMock) -> None:
+        """부모 게임에 한국어 이름 없으면 alternative_names fallback"""
+        from apps.games.wikidata.resolvers import resolve_name_ko
+
+        raw = {
+            "name": "Some Game - Deluxe Edition",
+            "parent_game": 9999,
+            "slug": "some-game-deluxe",
+            "alternative_names": [{"name": "어떤 게임", "comment": "Korean"}],
+        }
+        result = resolve_name_ko(8888, raw)
+        self.assertEqual(result, "어떤 게임")
+
+
+class ExtractEditionSuffixTest(TestCase):
+    def test_extracts_edition_with_dash(self) -> None:
+        from apps.games.wikidata.resolvers import _extract_edition_suffix
+
+        result = _extract_edition_suffix("The Legend of Zelda: Tears of the Kingdom - Nintendo Switch 2 Edition")
+        self.assertEqual(result, "Nintendo Switch 2 Edition")
+
+    def test_extracts_edition_with_colon(self) -> None:
+        from apps.games.wikidata.resolvers import _extract_edition_suffix
+
+        result = _extract_edition_suffix("Assassin's Creed II: Deluxe Edition")
+        self.assertEqual(result, "Deluxe Edition")
+
+    def test_extracts_collection(self) -> None:
+        from apps.games.wikidata.resolvers import _extract_edition_suffix
+
+        result = _extract_edition_suffix("Metal Gear Solid - The Legacy Collection")
+        self.assertEqual(result, "The Legacy Collection")
+
+    def test_no_edition_returns_empty(self) -> None:
+        from apps.games.wikidata.resolvers import _extract_edition_suffix
+
+        result = _extract_edition_suffix("The Witcher 3: Wild Hunt")
+        self.assertEqual(result, "")
+
+    def test_extracts_randomizer(self) -> None:
+        from apps.games.wikidata.resolvers import _extract_edition_suffix
+
+        result = _extract_edition_suffix("The Legend of Zelda: Tears of the Kingdom Randomizer")
+        self.assertEqual(result, "Randomizer")
+
+    def test_extracts_mod(self) -> None:
+        from apps.games.wikidata.resolvers import _extract_edition_suffix
+
+        result = _extract_edition_suffix("The Legend of Zelda: Tears of the Kingdom - Better Sages Mod")
+        self.assertEqual(result, "Better Sages Mod")
