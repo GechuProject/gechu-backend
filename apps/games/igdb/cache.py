@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from datetime import datetime
 from typing import Any, cast
 
 from django.conf import settings
@@ -171,7 +170,7 @@ def search_games_by_igdb_genre_id(
     limit: int = 10,
     min_rating_count: int = 100,
     min_rating: float = 70,
-    min_release_date: int = int(datetime(2021, 1, 1).timestamp()),
+    min_release_date: int = 1609459200,  # 2021-01-01 00:00:00 UTC
 ) -> list[dict[str, Any]]:
     params = {
         "igdb_genre_id": igdb_genre_id,

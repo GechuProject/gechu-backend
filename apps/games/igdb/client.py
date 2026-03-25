@@ -302,7 +302,7 @@ class IgdbClient:
             where_parts.append(f"rating > {min_rating}")
 
         if min_release_date:
-            where_parts.append(f"first_release_date > {min_release_date}")
+            where_parts.append(f"first_release_date >= {min_release_date}")
 
         if genre_ids:
             ids_str = ",".join(str(i) for i in genre_ids)
