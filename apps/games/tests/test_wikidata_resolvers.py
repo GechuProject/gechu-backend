@@ -170,3 +170,12 @@ class ExtractEditionSuffixTest(TestCase):
             _extract_edition_suffix("Dragon Ball: Sparking! Zero - Deluxe Edition"),
             "Deluxe Edition",
         )
+
+    def test_story_mode_suffix(self) -> None:
+        """Story Mode suffix 감지 테스트"""
+        from apps.games.wikidata.resolvers import _extract_edition_suffix
+
+        self.assertEqual(
+            _extract_edition_suffix("Grand Theft Auto V: Story Mode"),
+            "Story Mode",
+        )
