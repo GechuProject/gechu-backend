@@ -11,7 +11,8 @@ from apps.users.models import User
 MOCK_GAME_DETAIL = {
     "id": 1942,
     "slug": "the-witcher-3",
-    "name": "The Witcher 3",
+    "name": "더 위처 3",
+    "name_ko": "더 위처 3",
     "description": "An epic RPG",
     "released": "2015-05-19",
     "tba": False,
@@ -27,11 +28,14 @@ MOCK_GAME_DETAIL = {
     "tags": [{"id": 321, "name": "Open World"}],
     "media": [],
     "stores": [],
+    "is_saved": False,
 }
 
 MOCK_ADULT_GAME_DETAIL = {
     **MOCK_GAME_DETAIL,
     "id": 9999,
+    "name": "Adult Game",
+    "name_ko": "",
     "esrb_rating": "adults-only",
     "age_rating_min": 18,
 }
@@ -54,7 +58,7 @@ class GameDetailAPITest(FastTestCase):
         data = response.json()
 
         self.assertEqual(data["id"], 1942)
-        self.assertEqual(data["name"], "The Witcher 3")
+        self.assertEqual(data["name"], "더 위처 3")
         self.assertEqual(data["slug"], "the-witcher-3")
         self.assertEqual(len(data["genres"]), 1)
         self.assertEqual(data["genres"][0]["name"], "RPG")

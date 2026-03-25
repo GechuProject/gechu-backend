@@ -245,6 +245,22 @@ def extract_platform_entries(raw: dict[str, Any]) -> list[dict[str, Any]]:
     return entries
 
 
+def extract_korean_from_alt_names(raw: dict[str, Any]) -> str | None:
+    """
+    IGDB alternative_names 배열에서 한국어 이름 추출
+    comment 필드에 'korean' 또는 '한국' 포함 시 반환
+    """
+    for alt in raw.get("alternative_names") or []:
+        if not isinstance(alt, dict):
+            continue
+        comment = (alt.get("comment") or "").lower()
+        if "korean" in comment or "한국" in comment:
+            name = alt.get("name", "").strip()
+            if name:
+                return str(name)
+    return None
+
+
 def extract_store_entries(raw: dict[str, Any]) -> list[dict[str, Any]]:
     entries = []
     websites = raw.get("websites") or []

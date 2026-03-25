@@ -88,13 +88,14 @@ class GameListItemSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.IntegerField()
     slug = serializers.CharField()
     name = serializers.CharField()
+    name_ko = serializers.CharField(allow_blank=True)
     released = serializers.DateField(allow_null=True)
     thumbnail_img_url = serializers.CharField()
     rawg_rating = serializers.DecimalField(max_digits=3, decimal_places=2)
     rawg_ratings_count = serializers.IntegerField()
     genres = GenreSerializer(many=True)
     platforms = PlatformSerializer(many=True)
-    tags = TagSerializer(many=True, required=False)
+    tags = TagSerializer(many=True)
     is_saved = serializers.BooleanField()
 
 

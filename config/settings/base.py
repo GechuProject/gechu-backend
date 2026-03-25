@@ -265,6 +265,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.recommendations.tasks.process_pending_recommendation_jobs",
         "schedule": timedelta(seconds=30),
     },
+    "games-backfill-name-ko": {
+        "task": "apps.games.tasks.backfill_name_ko_bulk",
+        "schedule": timedelta(seconds=600),  # 10분마다
+    },
 }
 
 CELERY_TASK_ACKS_LATE = True

@@ -190,10 +190,9 @@ class IgdbClient:
         - 요청 간 _REQUEST_INTERVAL sleep
         """
         offset = 0
-        page = 0
 
         while True:
-            if page >= _MAX_PAGES:
+            if offset // _PAGE_SIZE >= _MAX_PAGES:
                 logger.warning("_MAX_PAGES(%d) 초과, 순회 중단", _MAX_PAGES)
                 break
 
@@ -203,7 +202,7 @@ class IgdbClient:
             try:
                 results = self._post_with_auth_retry(endpoint, query)
             except IgdbRateLimitError as e:
-                logger.warning("Rate limit, %ds 대기 후 재시도 (page=%d)", e.retry_after, page)
+                logger.warning("Rate limit, %ds 대기 후 재시도 (offset=%d)", e.retry_after, offset)
                 time.sleep(e.retry_after)
                 results = self._post_with_auth_retry(endpoint, query)
 
@@ -216,7 +215,6 @@ class IgdbClient:
                 break
 
             offset += _PAGE_SIZE
-            page += 1
             time.sleep(_REQUEST_INTERVAL)
 
     # 공개 인터페이스 ---------------------------------------------------
@@ -228,6 +226,7 @@ class IgdbClient:
         """
         fields = (
             "id,name,slug,summary,"
+            "alternative_names.name,alternative_names.comment,"
             "first_release_date,"
             "rating,rating_count,"
             "cover.image_id,"
@@ -246,6 +245,7 @@ class IgdbClient:
         """GET /games/{id} - 단건 상세 조회"""
         fields = (
             "id,name,slug,summary,storyline,"
+            "alternative_names.name,alternative_names.comment,"
             "first_release_date,status,"
             "cover.image_id,"
             "rating,rating_count,aggregated_rating,"
@@ -281,6 +281,7 @@ class IgdbClient:
     ) -> list[dict[str, Any]]:
         fields = (
             "id,name,slug,summary,"
+            "alternative_names.name,alternative_names.comment,"
             "first_release_date,"
             "rating,rating_count,"
             "cover.image_id,"
@@ -295,7 +296,7 @@ class IgdbClient:
 
         where_parts: list[str] = []
 
-        if min_rating_count:
+        if min_rating_count is not None:
             where_parts.append(f"rating_count >= {min_rating_count}")
 
         if min_rating:
@@ -328,7 +329,9 @@ class IgdbClient:
         where_str = f"where {where_clause};" if where_clause else ""
 
         if query:
-            q = f'search "{query}";fields {fields};{where_str}limit {limit};offset {offset};'
+            # IGDB에서 search와 where/sort를 함께 쓰면 where·sort가 무시됨
+            # 검색어가 있을 때는 where 조건 없이 search만 사용
+            q = f'search "{query}";fields {fields};limit {limit};offset {offset};'
         else:
             q = f"fields {fields};{where_str}sort {sort};limit {limit};offset {offset};"
 
@@ -346,6 +349,7 @@ class IgdbClient:
 
         fields = (
             "id,name,slug,summary,"
+            "alternative_names.name,alternative_names.comment,"
             "first_release_date,"
             "rating,rating_count,"
             "cover.image_id,"

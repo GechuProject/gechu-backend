@@ -35,6 +35,7 @@ class GameDetailSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.IntegerField()
     slug = serializers.CharField()
     name = serializers.CharField()
+    name_ko = serializers.CharField(allow_blank=True)
     description = serializers.CharField(allow_blank=True)
     released = serializers.DateField(allow_null=True)
     tba = serializers.BooleanField()

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from apps.games.wikidata.resolvers import resolve_name_ko
+
 from .converters import (
     _parse_cover_url,
     _parse_esrb,
@@ -22,11 +24,13 @@ def build_game_list_item(raw: dict[str, Any]) -> dict[str, Any]:
     """
     age_ratings = raw.get("age_ratings") or []
     esrb_rating, age_rating_min = _parse_esrb(age_ratings)
+    name_ko = resolve_name_ko(raw["id"], raw)
 
     return {
         "id": raw["id"],
         "slug": raw.get("slug", ""),
-        "name": raw.get("name", ""),
+        "name": name_ko or raw.get("name", ""),
+        "name_ko": name_ko,
         "released": _timestamp_to_date(raw.get("first_release_date")),
         "thumbnail_img_url": _parse_cover_url(raw.get("cover")),
         "rawg_rating": _parse_rating(raw.get("rating")),
@@ -40,6 +44,11 @@ def build_game_list_item(raw: dict[str, Any]) -> dict[str, Any]:
             {"id": p["id"], "name": p.get("name", "")}
             for p in (raw.get("platforms") or [])
             if isinstance(p, dict) and p.get("id")
+        ],
+        "tags": [
+            {"id": k["id"], "name": k.get("name", "")}
+            for k in (raw.get("keywords") or [])
+            if isinstance(k, dict) and k.get("id")
         ],
         "esrb_rating": esrb_rating,
         "age_rating_min": age_rating_min,
@@ -55,6 +64,7 @@ def build_game_detail(raw: dict[str, Any]) -> dict[str, Any]:
     age_ratings = raw.get("age_ratings") or []
     esrb_rating, age_rating_min = _parse_esrb(age_ratings)
     websites = raw.get("websites") or []
+    name_ko = resolve_name_ko(raw["id"], raw)
 
     # 미디어
     media: list[dict[str, Any]] = []
@@ -89,7 +99,8 @@ def build_game_detail(raw: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": raw["id"],
         "slug": raw.get("slug", ""),
-        "name": raw.get("name", ""),
+        "name": name_ko or raw.get("name", ""),
+        "name_ko": name_ko,
         "description": description,
         "released": _timestamp_to_date(raw.get("first_release_date")),
         "tba": raw.get("status") in (7, 8),  # 7=early_access, 8=unreleased
@@ -126,9 +137,11 @@ def build_similar_game_item(raw: dict[str, Any], similarity_score: float) -> dic
 
     GET /api/v1/games/{game_id}/similar/ 의 results[] 항목
     """
+    name_ko = raw.get("name_ko", "")
     return {
         "id": raw["id"],
-        "name": raw.get("name", ""),
+        "name": name_ko or raw.get("name", ""),
+        "name_ko": name_ko,
         "slug": raw.get("slug", ""),
         "thumbnail_img_url": raw.get("thumbnail_img_url", ""),
         "rawg_rating": raw.get("rawg_rating") or 0,
