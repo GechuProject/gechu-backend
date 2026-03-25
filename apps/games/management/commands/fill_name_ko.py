@@ -90,13 +90,15 @@ class Command(BaseCommand):
         return igdb_id_to_slug
 
     def _collect_all_from_igdb_cache(self, r: Any) -> dict[int, str]:
-        """IGDB 게임 캐시(igdb:game:*)에서 id→slug 수집"""
+        """IGDB 게임 캐시(*igdb:game:*, *igdb:search:*)에서 id→slug 수집"""
         import json
 
         igdb_id_to_slug: dict[int, str] = {}
+
+        # igdb:game:* 캐시에서 수집 (django-redis 프리픽스 포함)
         cursor = 0
         while True:
-            cursor, keys = r.scan(cursor, match="igdb:game:*", count=200)
+            cursor, keys = r.scan(cursor, match="*igdb:game:*", count=200)
             for key in keys:
                 data = r.get(key)
                 if data:
@@ -110,4 +112,25 @@ class Command(BaseCommand):
                         pass
             if cursor == 0:
                 break
+
+        # igdb:search:* 캐시에서도 수집 (검색 결과 캐시)
+        cursor = 0
+        while True:
+            cursor, keys = r.scan(cursor, match="*igdb:search:*", count=200)
+            for key in keys:
+                data = r.get(key)
+                if data:
+                    try:
+                        games = json.loads(data)
+                        if isinstance(games, list):
+                            for game in games:
+                                igdb_id = game.get("id")
+                                slug = game.get("slug")
+                                if igdb_id and slug:
+                                    igdb_id_to_slug[int(igdb_id)] = slug
+                    except (ValueError, KeyError, TypeError):
+                        pass
+            if cursor == 0:
+                break
+
         return igdb_id_to_slug
