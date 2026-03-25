@@ -239,3 +239,43 @@ class GameListViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsNotNone(response.data["previous"])
         self.assertIn("page=1", response.data["previous"])
+
+    def test_single_genre_id_uses_top_10_filter(self) -> None:
+        """단일 genre_id + page=1 + page_size=10 → TOP 10 필터 적용"""
+        with patch("apps.games.services.game_list.igdb_cache.search_games_by_igdb_genre_id") as mock_top10:
+            mock_top10.return_value = MOCK_TOP10_GAMES
+
+            self.client.force_authenticate(user=self.user)
+            # genre_ids=1 (RPG)
+            response = self.client.get(self.url, {"genre_ids": "1", "page": "1", "page_size": "10"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 10)
+        # TOP 10 로직이 호출되었는지 확인
+        mock_top10.assert_called_once()
+        self.assertIsNone(response.data["next"])
+        self.assertIsNone(response.data["previous"])
+
+    @patch("apps.games.services.game_list.igdb_cache.search_games")
+    def test_multiple_genre_ids_uses_normal_search(self, mock_search: MagicMock) -> None:
+        """여러 genre_ids → 일반 검색 로직 사용"""
+        mock_search.return_value = [MOCK_GAME_LIST_ITEM] * 3
+
+        self.client.force_authenticate(user=self.user)
+        # 여러 장르
+        response = self.client.get(self.url, {"genre_ids": "1,2", "page": "1", "page_size": "10"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # 일반 검색이 호출되었는지 확인
+        mock_search.assert_called_once()
+
+    @patch("apps.games.services.game_list.igdb_cache.search_games")
+    def test_single_genre_id_with_different_page_size_uses_normal_search(self, mock_search: MagicMock) -> None:
+        """단일 genre_id지만 page_size != 10 → 일반 검색"""
+        mock_search.return_value = [MOCK_GAME_LIST_ITEM] * 21
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url, {"genre_ids": "1", "page": "1", "page_size": "20"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        mock_search.assert_called_once()
