@@ -1,9 +1,18 @@
 .PHONY: infra up down migrate makemigrations shell collectstatic seed db-shell redis-cli \
         logs logs-django logs-worker logs-beat \
         test lint type-check format check \
-        build rebuild clean prune help
+        build rebuild clean prune help \
+        prod-up prod-down prod-build prod-rebuild prod-logs prod-migrate prod-shell prod-collectstatic
 
-COMPOSE     = docker compose -f docker/docker-compose.dev.yml
+# 환경 설정 (기본값: dev)
+ENV ?= dev
+ifeq ($(ENV),prod)
+	COMPOSE_FILE = docker/docker-compose.prod.yml
+else
+	COMPOSE_FILE = docker/docker-compose.dev.yml
+endif
+
+COMPOSE     = docker compose -f $(COMPOSE_FILE)
 DJANGO      = $(COMPOSE) exec django
 MANAGE      = $(DJANGO) python manage.py
 
@@ -109,17 +118,52 @@ clean:
 prune:
 	docker system prune -a
 
+# Production 전용 명령어 ---------------------------------------------------
+prod-up:
+	@$(MAKE) up ENV=prod
+
+prod-down:
+	@$(MAKE) down ENV=prod
+
+prod-build:
+	@$(MAKE) build ENV=prod
+
+prod-rebuild:
+	@$(MAKE) rebuild ENV=prod
+
+prod-logs:
+	@$(MAKE) logs ENV=prod
+
+prod-migrate:
+	@$(MAKE) migrate ENV=prod
+
+prod-shell:
+	@$(MAKE) shell ENV=prod
+
+prod-collectstatic:
+	@$(MAKE) collectstatic ENV=prod
+
 # 도움말 -------------------------------------------------------------------
 help:
 	@echo ""
 	@echo "Gechu Backend 개발 명령어"
 	@echo ""
-	@echo " [ Docker ] "
+	@echo " [ Docker - Development ] "
 	@echo "  make infra            DB + Redis만 시작 (로컬 개발 권장)"
 	@echo "  make up               전체 Docker 환경 시작"
 	@echo "  make down             Docker 환경 중지"
 	@echo "  make build            Docker 이미지 빌드"
 	@echo "  make rebuild          캐시 없이 이미지 재빌드 후 시작"
+	@echo ""
+	@echo " [ Docker - Production ] "
+	@echo "  make prod-up          Production 환경 시작"
+	@echo "  make prod-down        Production 환경 중지"
+	@echo "  make prod-build       Production 이미지 빌드"
+	@echo "  make prod-rebuild     Production 이미지 재빌드"
+	@echo "  make prod-logs        Production 로그 확인"
+	@echo "  make prod-migrate     Production DB 마이그레이션"
+	@echo "  make prod-shell       Production Django 쉘"
+	@echo "  make prod-collectstatic  Production 정적 파일 수집"
 	@echo ""
 	@echo " [ Django ] "
 	@echo "  make migrate          DB 마이그레이션 적용"
@@ -149,4 +193,9 @@ help:
 	@echo "  make redis-cli        Redis CLI 접속"
 	@echo "  make clean            Docker 볼륨 + 캐시 완전 삭제"
 	@echo "  make prune            미사용 Docker 리소스 전체 삭제 (EC2 용량 부족 시)"
+	@echo ""
+	@echo " [ 환경 변수 ] "
+	@echo "  ENV=dev (기본값)      개발 환경 사용"
+	@echo "  ENV=prod              프로덕션 환경 사용"
+	@echo "  예: make up ENV=prod"
 	@echo ""
