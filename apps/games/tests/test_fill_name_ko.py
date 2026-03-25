@@ -3,6 +3,7 @@ import logging
 from io import StringIO
 from unittest.mock import MagicMock, patch
 
+from django.core.cache import cache
 from django.test import TestCase
 
 
@@ -15,7 +16,7 @@ class FillNameKoCommandTest(TestCase):
         logging.disable(logging.CRITICAL)
 
     def tearDown(self) -> None:
-        self.r.flushdb()
+        cache.clear()
         logging.disable(logging.NOTSET)
 
     def _call(self, *args: str) -> str:

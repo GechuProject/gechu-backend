@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime
 
 from django.contrib.auth import get_user_model
-from django_redis import get_redis_connection
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
 from apps.core.auth_test_utils import authenticate_client_with_cookies, make_cookie_client
@@ -13,6 +13,8 @@ from apps.core.testcase import FastTestCase
 
 class RecentSearchAPITest(FastTestCase):
     def setUp(self) -> None:
+        from django_redis import get_redis_connection
+
         self.client: APIClient = make_cookie_client()
         user_model = get_user_model()
         self.user = user_model.objects.create_user(
@@ -23,10 +25,10 @@ class RecentSearchAPITest(FastTestCase):
         )
         self.key = f"search:recent:{self.user.id}"
         self.connection = get_redis_connection("default")
-        self.connection.delete(self.key)
+        cache.delete(self.key)
 
     def tearDown(self) -> None:
-        self.connection.delete(self.key)
+        cache.delete(self.key)
 
     def test_get_recent_searches_returns_latest_keywords(self) -> None:
         self.connection.lpush(self.key, "elden ring")
