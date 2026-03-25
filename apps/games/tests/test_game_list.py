@@ -18,6 +18,7 @@ MOCK_GAME_LIST_ITEM = {
     "id": 1942,
     "slug": "test-game",
     "name": "Test Game",
+    "name_ko": "",
     "released": "2025-01-01",
     "thumbnail_img_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co1wyy.jpg",
     "rawg_rating": 4.50,
@@ -34,6 +35,7 @@ MOCK_GAME_LIST_ITEM_2 = {
     "id": 1943,
     "slug": "test-game-2",
     "name": "Test Game 2",
+    "name_ko": "",
     "released": "2025-01-01",
     "thumbnail_img_url": "https://images.igdb.com/igdb/image/upload/t_cover_big/co2wyy.jpg",
     "rawg_rating": 4.8,
@@ -43,6 +45,7 @@ MOCK_GAME_LIST_ITEM_2 = {
     "tags": [{"id": 101, "name": "Multiplayer"}],
     "esrb_rating": "everyone",
     "age_rating_min": 0,
+    "is_saved": False,
 }
 
 
@@ -51,12 +54,14 @@ MOCK_TOP10_GAMES = [
         "id": i,
         "slug": f"test-game-{i}",
         "name": f"Test Game {i}",
+        "name_ko": "",
         "released": "2025-01-01",
         "thumbnail_img_url": f"https://images.igdb.com/igdb/image/upload/t_cover_big/co{i}wyy.jpg",
         "rawg_rating": 5.5 - (i - 1) * 0.1,
         "rawg_ratings_count": 100 + i * 10,
         "genres": [{"id": 12, "name": "Action"}, {"id": 13, "name": "FPS"}],
         "platforms": [{"id": 6, "name": "PC"}],
+        "tags": [],
         "esrb_rating": "everyone",
         "age_rating_min": 0,
         "is_saved": False,
