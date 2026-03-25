@@ -273,6 +273,9 @@ class IgdbClient:
         theme_ids: list[int] | None = None,
         game_mode_ids: list[int] | None = None,
         min_rating_count: int | None = None,
+        min_rating: float | None = None,
+        min_release_date: int | None = None,
+        only_main_game: bool = False,
         sort: str = "rating desc",
         limit: int = 20,
         offset: int = 0,
@@ -295,6 +298,16 @@ class IgdbClient:
 
         if min_rating_count:
             where_parts.append(f"rating_count >= {min_rating_count}")
+
+        if min_rating:
+            where_parts.append(f"rating > {min_rating}")
+
+        if min_release_date:
+            where_parts.append(f"first_release_date > {min_release_date}")
+
+        if only_main_game:
+            where_parts.append("category = 0")
+            where_parts.append("version_parent = null")
 
         if genre_ids:
             ids_str = ",".join(str(i) for i in genre_ids)

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from datetime import datetime
 from typing import Any, cast
 
 from django.conf import settings
@@ -169,12 +170,18 @@ def search_games_by_igdb_genre_id(
     sort: str = "rating desc",
     limit: int = 10,
     min_rating_count: int = 100,
+    min_rating: float = 70,
+    min_release_date: int = int(datetime(2021, 1, 1).timestamp()),
+    only_main_game: bool = True,
 ) -> list[dict[str, Any]]:
     params = {
         "igdb_genre_id": igdb_genre_id,
         "sort": sort,
         "limit": limit,
         "min_rating_count": min_rating_count,
+        "min_rating": min_rating,
+        "min_release_date": min_release_date,
+        "only_main_game": only_main_game,
     }
     key = _cache_key_search(params)
 
@@ -189,6 +196,9 @@ def search_games_by_igdb_genre_id(
             sort=sort,
             limit=limit,
             min_rating_count=min_rating_count,
+            min_rating=min_rating,
+            min_release_date=min_release_date,
+            only_main_game=only_main_game,
         )
     except (IgdbRateLimitError, IgdbServerError):
         logger.warning("IGDB 호출 실패, stale 캐시 반환 시도")
