@@ -131,10 +131,24 @@ class GameListView(APIView):
         page_size = data.get("page_size", 20)
 
         genre_name = data.get("genre_name")
+        genre_ids = data.get("genre_ids")
 
         user: User | None = request.user if request.user.is_authenticated else None
 
+        # TOP 10 로직: genre_name 또는 단일 genre_id + page=1 + page_size=10
+        use_top_10 = False
         if genre_name:
+            use_top_10 = True
+        elif genre_ids and len(genre_ids) == 1 and page == 1 and page_size == 10:
+            # genre_id를 genre_name으로 변환
+            from apps.games.models import Genre
+
+            genre = Genre.objects.filter(id=genre_ids[0]).first()
+            if genre:
+                genre_name = genre.name
+                use_top_10 = True
+
+        if use_top_10 and genre_name:
             items = GameService.top_n_by_genre(
                 genre_name,
                 user=user,
