@@ -169,12 +169,16 @@ def search_games_by_igdb_genre_id(
     sort: str = "rating desc",
     limit: int = 10,
     min_rating_count: int = 100,
+    min_rating: float = 70,
+    min_release_date: int = 1609459200,  # 2021-01-01 00:00:00 UTC
 ) -> list[dict[str, Any]]:
     params = {
         "igdb_genre_id": igdb_genre_id,
         "sort": sort,
         "limit": limit,
         "min_rating_count": min_rating_count,
+        "min_rating": min_rating,
+        "min_release_date": min_release_date,
     }
     key = _cache_key_search(params)
 
@@ -189,6 +193,8 @@ def search_games_by_igdb_genre_id(
             sort=sort,
             limit=limit,
             min_rating_count=min_rating_count,
+            min_rating=min_rating,
+            min_release_date=min_release_date,
         )
     except (IgdbRateLimitError, IgdbServerError):
         logger.warning("IGDB 호출 실패, stale 캐시 반환 시도")
