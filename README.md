@@ -64,7 +64,7 @@
 - Gunicorn
 
 ## 🔧 System Architecture
-mermaid
+```mermaid
 flowchart TB
     subgraph CLIENT["Client Layer"]
         FE["Frontend Web"]
@@ -157,6 +157,7 @@ flowchart TB
     WORKER --> INTERACTIONS
     WORKER --> PG
     WORKER --> REDIS
+```
   
 
 
