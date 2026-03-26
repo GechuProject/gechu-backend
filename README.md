@@ -65,7 +65,99 @@
 
 ## 🔧 System Architecture
 mermaid
-![img.png](img.png)
+flowchart TB
+    subgraph CLIENT["Client Layer"]
+        FE["Frontend Web"]
+        ADMIN["Admin Console"]
+        SWAGGER["Swagger / API Docs"]
+    end
+
+    subgraph SECURITY["Access & Security"]
+        AUTH["Authentication & Security
+- HttpOnly Cookie JWT
+- CSRF Protection
+- Social Login
+- Adult Verification"]
+    end
+
+    subgraph APP["Application Layer (Django REST API)"]
+        USERS["users
+- auth
+- social login
+- adult verification
+- profile / me"]
+        GAMES["games
+- list / detail
+- similar games
+- genres / platforms / tags"]
+        PREFS["preferences
+- genre / platform / tag preference
+- saved / like / dislike / neutral"]
+        INTERACTIONS["interactions
+- view / search / store click
+- weight / context rules"]
+        RECS["recommendations
+- recommendation jobs
+- user recommendations
+- game similarity"]
+        CORE["core
+- auth utils
+- exception handling
+- pagination / common utils"]
+    end
+
+    subgraph ASYNC["Async Processing"]
+        BEAT["Celery Beat"]
+        WORKER["Celery Worker"]
+    end
+
+    subgraph DATA["Persistence Layer"]
+        PG[("PostgreSQL")]
+        REDIS[("Redis")]
+        S3[("AWS S3")]
+    end
+
+    subgraph EXTERNAL["External Services"]
+        IGDB["IGDB / Twitch"]
+        RAWG["RAWG"]
+        KAKAO["Kakao OAuth"]
+        DISCORD["Discord OAuth"]
+        BBATON["Bbaton"]
+    end
+
+    FE --> AUTH
+    ADMIN --> AUTH
+    SWAGGER --> AUTH
+
+    AUTH --> USERS
+    AUTH --> GAMES
+    AUTH --> PREFS
+    AUTH --> INTERACTIONS
+    AUTH --> RECS
+
+    USERS --> PG
+    GAMES --> PG
+    PREFS --> PG
+    INTERACTIONS --> PG
+    RECS --> PG
+    CORE --> PG
+
+    USERS --> REDIS
+    RECS --> REDIS
+    USERS --> S3
+
+    GAMES --> IGDB
+    GAMES --> RAWG
+    USERS --> KAKAO
+    USERS --> DISCORD
+    USERS --> BBATON
+
+    BEAT --> WORKER
+    WORKER --> RECS
+    WORKER --> INTERACTIONS
+    WORKER --> PG
+    WORKER --> REDIS
+  
 
 
 ## 👥 팀 동료
